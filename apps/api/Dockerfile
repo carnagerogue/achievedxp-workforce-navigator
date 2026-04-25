@@ -1,8 +1,14 @@
 # syntax=docker/dockerfile:1.6
 # Multi-stage build for the NestJS API in a pnpm workspace.
-# Build context = repo root (workforce-navigator/). Set this in railway.toml.
+# Build context = repo root (workforce-navigator/).
+#
+# Why Debian, not Alpine: Prisma 5's binary query engine ships only for
+# OpenSSL 1.1.x / 3.x on glibc — running it on Alpine (musl) crashes with
+# "Could not parse schema engine response". Debian slim with libssl3 is
+# the supported path. ~50MB heavier, fully working.
 
-FROM node:20-alpine AS base
+FROM node:20-bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 WORKDIR /app
 
@@ -19,19 +25,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/api ./apps/api
-# pnpm-style: re-link workspace packages into the build stage
 RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
 # ── runtime ─────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
-WORKDIR /app
+FROM base AS runtime
 ENV NODE_ENV=production
 
-# Copy the entire built tree — keeps pnpm's symlink topology intact so that
-# the prisma CLI binary in node_modules/.bin resolves correctly at runtime.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/api ./apps/api
@@ -39,6 +40,4 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 WORKDIR /app/apps/api
 EXPOSE 3001
-# Apply pending migrations on boot, then start. Use the binary directly to
-# avoid pnpm-exec lookups failing in the slim image.
 CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
