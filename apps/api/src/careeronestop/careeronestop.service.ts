@@ -7,33 +7,34 @@ import { ConfigService } from '@nestjs/config';
  * Why we centralize this:
  *   - Credentials stay server-side. The token never reaches the browser.
  *   - One in-memory TTL cache keeps us within free-tier quota and gives the
- *     UI sub-100ms responses on repeat lookups (typical: same ZIP queried
- *     for both reentry programs and job centers).
+ *     UI sub-100ms responses on repeat lookups.
  *   - One place to do graceful degradation. If CareerOneStop is down, every
- *     consumer page still works — the UI just shows an empty result instead
- *     of crashing the whole experience.
+ *     consumer page still works — the UI just shows an empty result.
  *
- * API docs:  https://www.careeronestop.org/Developers/WebAPI/web-api.aspx
- * Explorer:  https://api.careeronestop.org/api-explorer/
- * Auth:      Authorization: Bearer <token>; userId is in the URL path.
+ * Coverage: every endpoint listed at
+ *   https://www.careeronestop.org/Developers/WebAPI/technical-information.aspx
+ * is exposed here as a typed method. URL templates verified against the
+ * official docs as of April 2026.
  *
- * Notable shape oddities (verified live against the real API):
- *   - "404 Not Found" sometimes means "no records matched" — check the
- *     response body for `[ { Error: "...no matches..." } ]` rather than
- *     treating the HTTP status as fatal.
- *   - `comparesalaries/.../wage` (singular, not "wages") with query
- *     parameters — different from the path-style most endpoints use.
+ * Auth: Authorization: Bearer <token>; userId is in the URL path.
+ *
+ * Notable shape oddities (verified live):
+ *   - "404 Not Found" sometimes means "no records matched" — we parse the
+ *     body and return it as a partial response rather than crashing.
+ *   - `comparesalaries/.../wage` (singular) with query parameters — different
+ *     from the path-style most endpoints use.
  *   - `ajcfinder` requires the four service-filter slots even when unused
  *     (pass "0" to disable each filter).
+ *   - `occupation` profile takes section toggles as QUERY PARAMS, not as
+ *     path segments (the older path-segment form returns 404).
  */
 @Injectable()
 export class CareerOneStopService {
   private readonly logger = new Logger(CareerOneStopService.name);
   private readonly baseUrl = 'https://api.careeronestop.org/v1';
 
-  // Endpoint-specific TTLs. LMI (wages, licenses) is essentially static
-  // government data, so cache aggressively. Reentry programs change rarely
-  // but might add new orgs, so 6h is a reasonable upper bound.
+  // Endpoint-specific TTLs. LMI is essentially static government data, cache
+  // aggressively. Reentry programs / AJCs change rarely — 6h is reasonable.
   private readonly cache = new Map<string, { expires: number; data: unknown }>();
 
   constructor(private readonly config: ConfigService) {}
@@ -72,8 +73,6 @@ export class CareerOneStopService {
           Accept: 'application/json',
         },
       });
-      // CareerOneStop's "no matches" response is a 404 with a JSON body —
-      // try to parse it before treating as a hard failure.
       const text = await res.text();
       let data: unknown;
       try {
@@ -83,8 +82,6 @@ export class CareerOneStopService {
       }
 
       if (data === null || data === undefined) {
-        // True hard error (HTML 404, network error, etc.). Cache briefly so
-        // we don't hammer on a known-bad query.
         this.logger.warn(`CareerOneStop ${res.status} on ${path}: ${text.slice(0, 160)}`);
         const fallback = { error: `${res.status} ${res.statusText}`, partial: true } as T;
         this.cache.set(cacheKey, { expires: now + 60_000, data: fallback });
@@ -100,56 +97,126 @@ export class CareerOneStopService {
   }
 
   /** URL-encode a path segment safely. */
-  private seg(s: string): string {
-    return encodeURIComponent(s.trim());
+  private seg(s: string | number | null | undefined): string {
+    return encodeURIComponent(String(s ?? '').trim() || '0');
   }
 
-  // ──────────────────── Reentry programs ────────────────────
+  // ════════════════════════════════════════════════════════════════════
+  // LOCAL HELP
+  // ════════════════════════════════════════════════════════════════════
 
-  /**
-   * Find programs that serve justice-impacted candidates near a location.
-   * `location` accepts ZIP, city, "City, ST", or state code. Radius in miles.
-   * Endpoint: /v1/reentryprogramfinder/{userId}/{location}/{radius}/{sort}/{dir}/{start}/{limit}
-   */
+  /** Reentry programs near a location (justice-impacted candidates). */
   async reentryPrograms(location: string, radius = 50, limit = 25) {
     const path = `/reentryprogramfinder/${this.seg(this.userId)}/${this.seg(location)}/${radius}/CountyName/asc/0/${limit}`;
-    return this.fetchJson<unknown>(path, 6 * 60 * 60_000); // 6h
+    return this.fetchJson<unknown>(path, 6 * 60 * 60_000);
   }
 
-  // ──────────────────── American Job Centers ────────────────────
+  /** All reentry programs (no location filter — for an exhaustive directory). */
+  async allReentryPrograms() {
+    const path = `/reentryprogramfinder/${this.seg(this.userId)}?enableMetaData=false`;
+    return this.fetchJson<unknown>(path, 12 * 60 * 60_000);
+  }
 
-  /**
-   * Physical workforce offices — free in-person help with applications,
-   * training, benefits.
-   * Endpoint: /v1/ajcfinder/{userId}/{location}/{radius}/{centerType}/{youth}/{workers}/{business}/{sort}/{dir}/{start}/{limit}
-   *
-   * Service-filter slots take "0" to disable. We disable all four by
-   * default so the response includes every center near the user.
-   */
+  /** American Job Centers near a location. */
   async americanJobCenters(location: string, radius = 50, limit = 25) {
     const path = `/ajcfinder/${this.seg(this.userId)}/${this.seg(location)}/${radius}/0/0/0/0/Distance/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 6 * 60 * 60_000);
   }
 
-  // ──────────────────── Apprenticeship sponsors ────────────────────
-
-  /** Search apprenticeships by keyword + location. Supplements posting-based ingestion. */
-  async apprenticeships(keyword: string, location: string, radius = 50, limit = 25) {
-    const k = this.seg(keyword || 'a');
-    const path = `/apprenticeship/${this.seg(this.userId)}/${k}/${this.seg(location)}/${radius}/programName/asc/0/${limit}/false`;
+  /** AJC details by ID. */
+  async ajcDetails(ajcId: string) {
+    const path = `/ajcfinder/${this.seg(this.userId)}/${this.seg(ajcId)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  // ──────────────────── Wages (LMI) ────────────────────
+  /** All AJCs nationally — large response, cache aggressively. */
+  async allAjcs() {
+    const path = `/ajcfinder/${this.seg(this.userId)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** State + federal apprenticeship admin offices near a location. */
+  async apprenticeshipOffices(location: string, radius = 100) {
+    const path = `/apprenticeshipfinder/${this.seg(this.userId)}/${this.seg(location)}/${radius}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Workforce Development Boards + Youth Committees by location. */
+  async boardsByLocation(location: string, radius = 50, limit = 25) {
+    const path = `/boardandcommittees/${this.seg(this.userId)}/${this.seg(location)}/${radius}/Distance/asc/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Single Workforce Board by ID. */
+  async boardById(boardId: string) {
+    const path = `/boardandcommittees/${this.seg(this.userId)}/${this.seg(boardId)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** All Workforce Boards (national). */
+  async allBoards() {
+    const path = `/boardandcommittees/${this.seg(this.userId)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Youth program contacts by location (WIOA youth programs). */
+  async youthProgramContacts(location: string, radius = 50, limit = 25) {
+    const path = `/youthprograms/${this.seg(this.userId)}/${this.seg(location)}/${radius}/Distance/asc/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** All youth programs nationally. */
+  async allYouthPrograms() {
+    const path = `/youthprograms/${this.seg(this.userId)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** State-level resources for residents — WIOA URL, agency contacts. */
+  async stateResources(state: string) {
+    const path = `/stateresources/${this.seg(this.userId)}/${this.seg(state)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // OCCUPATIONS
+  // ════════════════════════════════════════════════════════════════════
 
   /**
-   * Median + percentile wages for an O*NET occupation, optionally per state.
-   * Returns BLS data — authoritative numbers we can show with confidence
-   * on occupation cards.
-   *
-   * Endpoint: /v1/comparesalaries/{userId}/wage?keyword=&location=&enableMetaData=false
-   * NOTE: path is `wage` (singular), not `wages`.
+   * Rich occupation profile — tasks, skills, knowledge, abilities, wages,
+   * projections, related occupations. Section toggles are QUERY PARAMS.
    */
+  async occupationProfile(keywordOrOnet: string, location = 'US') {
+    const params = new URLSearchParams({
+      training: 'true', tasks: 'true', dwas: 'true', wages: 'true',
+      projectedEmployment: 'true', skills: 'true', knowledge: 'true',
+      ability: 'true', toolsAndTechnology: 'true', workValues: 'true',
+      alternateOnetTitles: 'true', relatedOnetTitles: 'true',
+      enableMetaData: 'false',
+    });
+    const path = `/occupation/${this.seg(this.userId)}/${this.seg(keywordOrOnet)}/${this.seg(location)}?${params.toString()}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Lightweight title+code lookup — autocomplete-friendly. */
+  async occupationsByKeyword(keyword: string, limit = 10) {
+    const path = `/occupation/${this.seg(this.userId)}/${this.seg(keyword)}/false/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /**
+   * Career reports (Fastest Growing / Most Openings / Largest / Declining).
+   * `reportType` ∈ {fastest, mostopenings, largest, declining, highestpay}.
+   */
+  async occupationsReport(reportType: string, location = 'US', limit = 25) {
+    const path = `/occupationsreports/${this.seg(this.userId)}/${this.seg(reportType)}/${this.seg(location)}/0/${limit}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SALARIES / WAGES (Labor Market Information)
+  // ════════════════════════════════════════════════════════════════════
+
+  /** Median + percentile wages for an O*NET occupation, optionally per state. */
   async wages(onetCodeOrKeyword: string, location?: string) {
     const where = location && location.trim() ? location.trim() : 'US';
     const params = new URLSearchParams({
@@ -161,57 +228,202 @@ export class CareerOneStopService {
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  // ──────────────────── License finder ────────────────────
+  /** Compare an occupation's wages across multiple locations. */
+  async wagesByLocation(onetOrKeyword: string, location?: string) {
+    const params = new URLSearchParams({
+      keyword: onetOrKeyword,
+      location: location || 'US',
+      sortColumns: 'Median', sortOrder: 'desc', sortBy: 'desc',
+      enableMetaData: 'false',
+    });
+    const path = `/comparesalaries/${this.seg(this.userId)}/wageocc?${params.toString()}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Detailed BLS LMI for an O*NET code in a region. */
+  async lmiByOccupation(onetCode: string, location = 'US') {
+    const path = `/lmibyoccupation/${this.seg(this.userId)}/${this.seg(onetCode)}/${this.seg(location)}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  /** Employment patterns by industry (which industries hire this occupation). */
+  async employmentPatterns(onetCode: string) {
+    const path = `/employmentpattern/${this.seg(this.userId)}/${this.seg(onetCode)}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  /** Unemployment rates by area (BLS LAUS). */
+  async unemploymentRates(state: string, type = 'state') {
+    const path = `/unemployment/${this.seg(this.userId)}/${this.seg(type)}/${this.seg(state)}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  /** State Unemployment Insurance website. */
+  async uiWebSites(state: string) {
+    const path = `/unemployment/${this.seg(this.userId)}/uiwebsite/${this.seg(state)}`;
+    return this.fetchJson<unknown>(path, 30 * 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // LICENSES + CERTIFICATIONS
+  // ════════════════════════════════════════════════════════════════════
 
   /**
-   * State licensing requirements for an occupation. Especially important
-   * for justice-impacted candidates — many state licenses can be denied
-   * based on conviction history. Surfacing this upfront prevents the
-   * candidate from investing in a path that's blocked for them.
-   *
-   * Endpoint: /v1/license/{userId}/{keyword}/{location}/{sort}/{dir}/{start}/{limit}
+   * State licensing requirements. Critical for justice-impacted candidates —
+   * many state licenses can be denied based on conviction history.
    */
   async licenses(keyword: string, location: string, limit = 25) {
     const path = `/license/${this.seg(this.userId)}/${this.seg(keyword)}/${this.seg(location || 'US')}/Title/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  // ──────────────────── Certification finder ────────────────────
-
-  /**
-   * Industry-recognized certifications by keyword.
-   * Endpoint: /v1/certificationfinder/{userId}/{keyword}/{industry?}/{occupation?}/{agency?}/{search type?}/{search content?}/{sort}/{start}/{limit}/{enableMetaData}
-   *
-   * Most fields are 0/empty to broaden the search. Tighten the slots when
-   * we surface industry-specific cert recommendations on the dashboard.
-   */
-  async certifications(keyword: string, limit = 15) {
-    const path = `/certificationfinder/${this.seg(this.userId)}/${this.seg(keyword)}/0/0/0/0/0/0/0/${limit}/false`;
+  /** Detail for a single license by id. */
+  async licenseDetails(licenseId: string) {
+    const path = `/license/${this.seg(this.userId)}/${this.seg(licenseId)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  // ──────────────────── Skills matcher ────────────────────
-
   /**
-   * The Skills Matcher endpoint returns the 40 standard skills statements
-   * that drive the official CareerOneStop matcher. Pair this with our
-   * O*NET Holland-code matcher rather than replacing it.
-   * Endpoint: /v1/skillsmatcher/{userId}
+   * Industry-recognized certifications by keyword.
+   * 12 path segments after userId — directFlag, industry, certType,
+   * organization, occupation, agency, sortColumn, sortDirections, start,
+   * limit. Most are "0" to broaden the search.
    */
+  async certifications(keyword: string, limit = 15) {
+    const path = `/certificationfinder/${this.seg(this.userId)}/${this.seg(keyword)}/0/0/0/0/0/0/Title/asc/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Single certification by id. */
+  async certificationDetails(certId: string) {
+    const path = `/certificationfinder/${this.seg(this.userId)}/${this.seg(certId)}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // TRAINING + EDUCATION
+  // ════════════════════════════════════════════════════════════════════
+
+  /** Training programs by keyword + location (postsecondary + ETPL). */
+  async trainingPrograms(keyword: string, location: string, radius = 50, limit = 25) {
+    const path = `/Training/${this.seg(this.userId)}/${this.seg(keyword)}/${this.seg(location)}/${radius}/0/0/0/0/0/Distance/asc/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Training programs at a specific institution / element ID. */
+  async trainingByElement(elementId: string, limit = 25) {
+    const path = `/Training/${this.seg(this.userId)}/elementid/${this.seg(elementId)}/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Training institutions (community colleges, technical schools). */
+  async trainingInstitutions(location: string, radius = 50, limit = 25) {
+    const path = `/Training/${this.seg(this.userId)}/institution/${this.seg(location)}/${radius}/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // SKILLS + KNOWLEDGE
+  // ════════════════════════════════════════════════════════════════════
+
+  /** The 40 standard CareerOneStop skills statements (matcher question set). */
   async skillsMatcherQuestions() {
     const path = `/skillsmatcher/${this.seg(this.userId)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  // ──────────────────── Occupation profile ────────────────────
+  /**
+   * Submit a user's skill ratings → returns ranked occupation matches.
+   * `skills` = array of { ElementId, DataValue } where DataValue is 1–7.
+   */
+  async submitSkills(skills: Array<{ ElementId: string; DataValue: number }>) {
+    if (!this.isConfigured()) {
+      throw new ServiceUnavailableException('CareerOneStop is not configured.');
+    }
+    const url = `${this.baseUrl}/skillsmatcher/${this.seg(this.userId)}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ SKAValueList: skills }),
+      });
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return { error: text.slice(0, 300), partial: true }; }
+    } catch (err) {
+      throw new ServiceUnavailableException(
+        `Skills submit failed: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /** Skills gaps between two occupations (for transition planning). */
+  async skillsGaps(fromOnet: string, toOnet: string) {
+    const path = `/skillsgaps/${this.seg(this.userId)}/${this.seg(fromOnet)}/${this.seg(toOnet)}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  /** Match occupations by O*NET skills profile. */
+  async occupationsBySkills(onetCode: string, limit = 25) {
+    const path = `/occupation/${this.seg(this.userId)}/skills/${this.seg(onetCode)}/0/${limit}`;
+    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Tools and technology used in an occupation (by O*NET code). */
+  async toolsByOccupation(onetCode: string) {
+    const path = `/toolstechnology/${this.seg(this.userId)}/${this.seg(onetCode)}/occupation`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  /** Tools and tech matching a keyword. */
+  async toolsByKeyword(keyword: string, limit = 25) {
+    const path = `/toolstechnology/${this.seg(this.userId)}/${this.seg(keyword)}/keyword/0/${limit}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // JOBS + PROFESSIONAL ASSOCIATIONS
+  // ════════════════════════════════════════════════════════════════════
 
   /**
-   * Rich occupation report — tasks, knowledge, skills, abilities, related
-   * links. The flag string toggles which sections come back; we ask for
-   * most of them but skip rarely-used ones.
+   * National Labor Exchange jobs (DirectEmployers + state workforce agencies).
+   * Distinct from our USAJobs/Adzuna ingestion — surfaces DOL-branded results.
    */
-  async occupationProfile(onetCode: string, location = 'US') {
-    const path = `/occupation/${this.seg(this.userId)}/${this.seg(onetCode)}/${this.seg(location)}/Y/Y/Y/Y/Y/Y/Y/Y/Y/0/10/false`;
+  async jobs(keyword: string, location: string, radius = 50, postedDays = 30, limit = 25) {
+    const k = keyword?.trim() ? this.seg(keyword) : '0';
+    const loc = location?.trim() ? this.seg(location) : 'US';
+    const path = `/jobsearch/${this.seg(this.userId)}/${k}/${loc}/${radius}/${postedDays}/Distance/asc/0/${limit}/false`;
+    return this.fetchJson<unknown>(path, 6 * 60 * 60_000);
+  }
+
+  /** Single NLX job by id. */
+  async jobById(jobId: string) {
+    const path = `/jobsearch/${this.seg(this.userId)}/byid/${this.seg(jobId)}`;
+    return this.fetchJson<unknown>(path, 6 * 60 * 60_000);
+  }
+
+  /** Job description templates (for employers; useful for resumé phrasing). */
+  async jobDescription(onetCode: string) {
+    const path = `/jobdescription/${this.seg(this.userId)}/${this.seg(onetCode)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
+  }
+
+  /** Professional associations by keyword. */
+  async professionalAssociations(keyword: string, limit = 25) {
+    const path = `/professionalassociations/${this.seg(this.userId)}/${this.seg(keyword)}/0/${limit}`;
+    return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // LOCATION HELPER
+  // ════════════════════════════════════════════════════════════════════
+
+  /** Validate a location and resolve it to canonical city/state/area. */
+  async validateLocation(location: string) {
+    const path = `/locations/${this.seg(this.userId)}?location=${encodeURIComponent(location)}`;
+    return this.fetchJson<unknown>(path, 30 * 24 * 60 * 60_000);
   }
 }
