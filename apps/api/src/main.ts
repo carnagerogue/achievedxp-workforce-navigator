@@ -48,7 +48,8 @@ async function bootstrap() {
   });
 
   const cfg = app.get(ConfigService);
-  const port = Number(cfg.get('API_PORT') ?? 3001);
+  // Railway / Render / Fly inject PORT — honor it first.
+  const port = Number(process.env.PORT ?? cfg.get('API_PORT') ?? 3001);
   const host = cfg.get<string>('API_HOST') ?? '0.0.0.0';
 
   await app.listen(port, host);
