@@ -30,14 +30,15 @@ RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Copy the entire built tree — keeps pnpm's symlink topology intact so that
+# the prisma CLI binary in node_modules/.bin resolves correctly at runtime.
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/prisma ./apps/api/prisma
-COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/packages ./packages
+COPY --from=build /app/apps/api ./apps/api
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 WORKDIR /app/apps/api
 EXPOSE 3001
-# Apply pending migrations on boot, then start. Idempotent — safe on every deploy.
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
+# Apply pending migrations on boot, then start. Use the binary directly to
+# avoid pnpm-exec lookups failing in the slim image.
+CMD ["sh", "-c", "node ../../node_modules/prisma/build/index.js migrate deploy && node dist/main.js"]
