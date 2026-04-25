@@ -78,11 +78,6 @@ export class CareerOneStopController {
     return this.cos.youthProgramContacts(location, Math.min(Math.max(radius, 1), 200));
   }
 
-  @Get('youth-programs/all')
-  allYouthPrograms() {
-    return this.cos.allYouthPrograms();
-  }
-
   @Get('state-resources')
   stateResources(@Query('state') state: string) {
     return this.cos.stateResources(state || 'US');
@@ -142,16 +137,16 @@ export class CareerOneStopController {
   }
 
   @Get('employment-patterns')
-  employmentPatterns(@Query('onet') onetCode: string) {
-    return this.cos.employmentPatterns(onetCode);
+  employmentPatterns(@Query('keyword') keyword: string) {
+    return this.cos.employmentPatterns(keyword);
   }
 
   @Get('unemployment')
   unemployment(
-    @Query('state') state: string,
-    @Query('type', new DefaultValuePipe('state')) type: string,
+    @Query('location') location: string,
+    @Query('type', new DefaultValuePipe('rate')) type: string,
   ) {
-    return this.cos.unemploymentRates(state, type);
+    return this.cos.unemploymentRates(location, type);
   }
 
   @Get('ui-website')
@@ -204,14 +199,6 @@ export class CareerOneStopController {
     );
   }
 
-  @Get('training/by-element')
-  trainingByElement(
-    @Query('elementId') elementId: string,
-    @Query('limit', new DefaultValuePipe(25), ParseIntPipe) limit: number,
-  ) {
-    return this.cos.trainingByElement(elementId, Math.min(Math.max(limit, 1), 100));
-  }
-
   @Get('training/institutions')
   trainingInstitutions(
     @Query('location') location: string,
@@ -238,14 +225,6 @@ export class CareerOneStopController {
     @Query('to') toOnet: string,
   ) {
     return this.cos.skillsGaps(fromOnet, toOnet);
-  }
-
-  @Get('occupations/by-skills')
-  occupationsBySkills(
-    @Query('onet') onetCode: string,
-    @Query('limit', new DefaultValuePipe(25), ParseIntPipe) limit: number,
-  ) {
-    return this.cos.occupationsBySkills(onetCode, Math.min(Math.max(limit, 1), 100));
   }
 
   @Get('tools/by-occupation')
@@ -286,8 +265,12 @@ export class CareerOneStopController {
   }
 
   @Get('job-description')
-  jobDescription(@Query('onet') onetCode: string) {
-    return this.cos.jobDescription(onetCode);
+  jobDescription(
+    @Query('onet') onetCode: string,
+    @Query('state', new DefaultValuePipe('US')) state: string,
+    @Query('category', new DefaultValuePipe('Tasks')) category: string,
+  ) {
+    return this.cos.jobDescription(onetCode, state, category);
   }
 
   @Get('associations')

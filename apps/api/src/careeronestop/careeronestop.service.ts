@@ -141,39 +141,38 @@ export class CareerOneStopService {
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** Workforce Development Boards + Youth Committees by location. */
-  async boardsByLocation(location: string, radius = 50, limit = 25) {
-    const path = `/boardandcommittees/${this.seg(this.userId)}/${this.seg(location)}/${radius}/Distance/asc/0/${limit}`;
-    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
-  }
-
-  /** Single Workforce Board by ID. */
-  async boardById(boardId: string) {
-    const path = `/boardandcommittees/${this.seg(this.userId)}/${this.seg(boardId)}`;
+  /**
+   * Workforce Development Boards + Youth Committees by location.
+   * Endpoint: /v1/BoardsCouncilsFinder/{userId}/{tid}/{lid}/{location}/{radius}
+   * tid / lid select the board type and location filter — passing 0 broadens.
+   */
+  async boardsByLocation(location: string, radius = 50, _limit = 25) {
+    const path = `/BoardsCouncilsFinder/${this.seg(this.userId)}/0/0/${this.seg(location)}/${radius}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
   /** All Workforce Boards (national). */
   async allBoards() {
-    const path = `/boardandcommittees/${this.seg(this.userId)}`;
+    const path = `/BoardsCouncilsFinder/${this.seg(this.userId)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** Youth program contacts by location (WIOA youth programs). */
+  /**
+   * Youth program contacts by location (WIOA youth programs).
+   * Endpoint: /v1/youthprogramfinder/{userId}/{location}/{radius}/{sortColumns}/{sortDirections}/{startRecord}/{limitRecord}
+   */
   async youthProgramContacts(location: string, radius = 50, limit = 25) {
-    const path = `/youthprograms/${this.seg(this.userId)}/${this.seg(location)}/${radius}/Distance/asc/0/${limit}`;
+    const path = `/youthprogramfinder/${this.seg(this.userId)}/${this.seg(location)}/${radius}/Distance/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** All youth programs nationally. */
-  async allYouthPrograms() {
-    const path = `/youthprograms/${this.seg(this.userId)}`;
-    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
-  }
-
-  /** State-level resources for residents — WIOA URL, agency contacts. */
-  async stateResources(state: string) {
-    const path = `/stateresources/${this.seg(this.userId)}/${this.seg(state)}`;
+  /**
+   * State-level resources for residents — WIOA URL, agency contacts.
+   * Endpoint: /v1/stateresources/{userId}/{state}/{audience}/{startRecord}/{limitRecord}
+   * audience: 0 = all; 1 = jobseekers; 2 = workers; 3 = businesses.
+   */
+  async stateResources(state: string, audience = 0, limit = 50) {
+    const path = `/stateresources/${this.seg(this.userId)}/${this.seg(state)}/${audience}/0/${limit}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
@@ -205,10 +204,12 @@ export class CareerOneStopService {
 
   /**
    * Career reports (Fastest Growing / Most Openings / Largest / Declining).
+   * Endpoint: /v1/occupationsreports/{userId}/{reporttype}/{location}/{education}/{sortColumns}/{sortDirections}/{startRecord}/{limitRecord}
    * `reportType` ∈ {fastest, mostopenings, largest, declining, highestpay}.
+   * `education` ∈ {0 = all, 1 = HS, 2 = some college, 3 = bachelor+, ...}.
    */
   async occupationsReport(reportType: string, location = 'US', limit = 25) {
-    const path = `/occupationsreports/${this.seg(this.userId)}/${this.seg(reportType)}/${this.seg(location)}/0/${limit}`;
+    const path = `/occupationsreports/${this.seg(this.userId)}/${this.seg(reportType)}/${this.seg(location)}/0/Title/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
@@ -240,27 +241,40 @@ export class CareerOneStopService {
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** Detailed BLS LMI for an O*NET code in a region. */
+  /**
+   * Detailed BLS LMI for an O*NET code in a region.
+   * Endpoint: /v1/lmi/{userId}/{onetCode}/{location}
+   */
   async lmiByOccupation(onetCode: string, location = 'US') {
-    const path = `/lmibyoccupation/${this.seg(this.userId)}/${this.seg(onetCode)}/${this.seg(location)}`;
+    const path = `/lmi/${this.seg(this.userId)}/${this.seg(onetCode)}/${this.seg(location)}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
-  /** Employment patterns by industry (which industries hire this occupation). */
-  async employmentPatterns(onetCode: string) {
-    const path = `/employmentpattern/${this.seg(this.userId)}/${this.seg(onetCode)}`;
+  /**
+   * Employment patterns — industries that hire occupations matching the keyword.
+   * Endpoint: /v1/employmentpatterns/{userId}/{keyword}/{sortColumns}/{sortDirections}/{startRecord}/{limitRecord}
+   */
+  async employmentPatterns(keyword: string, limit = 25) {
+    const path = `/employmentpatterns/${this.seg(this.userId)}/${this.seg(keyword)}/Title/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
-  /** Unemployment rates by area (BLS LAUS). */
-  async unemploymentRates(state: string, type = 'state') {
-    const path = `/unemployment/${this.seg(this.userId)}/${this.seg(type)}/${this.seg(state)}`;
+  /**
+   * Unemployment rates by area (BLS LAUS).
+   * Endpoint: /v1/unemployment/{userId}/{location}/{unemploymentType}
+   * unemploymentType: 'rate' | 'series' (CareerOneStop accepts the keyword form).
+   */
+  async unemploymentRates(location: string, type = 'rate') {
+    const path = `/unemployment/${this.seg(this.userId)}/${this.seg(location)}/${this.seg(type)}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
-  /** State Unemployment Insurance website. */
+  /**
+   * State Unemployment Insurance websites — same `unemployment` namespace.
+   * uiwebsite is the documented unemploymentType value.
+   */
   async uiWebSites(state: string) {
-    const path = `/unemployment/${this.seg(this.userId)}/uiwebsite/${this.seg(state)}`;
+    const path = `/unemployment/${this.seg(this.userId)}/${this.seg(state)}/uiwebsite`;
     return this.fetchJson<unknown>(path, 30 * 24 * 60 * 60_000);
   }
 
@@ -304,21 +318,21 @@ export class CareerOneStopService {
   // TRAINING + EDUCATION
   // ════════════════════════════════════════════════════════════════════
 
-  /** Training programs by keyword + location (postsecondary + ETPL). */
+  /**
+   * Training programs by keyword + location (postsecondary + ETPL).
+   * Endpoint: /v1/Training/{userId}/{keyword}/{location}/{radius}/{occupation}/{programName}/{programLength}/{state}/{region}/{sortColumns}/{sortDirections}/{startRecord}/{limitRecord}
+   */
   async trainingPrograms(keyword: string, location: string, radius = 50, limit = 25) {
     const path = `/Training/${this.seg(this.userId)}/${this.seg(keyword)}/${this.seg(location)}/${radius}/0/0/0/0/0/Distance/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** Training programs at a specific institution / element ID. */
-  async trainingByElement(elementId: string, limit = 25) {
-    const path = `/Training/${this.seg(this.userId)}/elementid/${this.seg(elementId)}/0/${limit}`;
-    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
-  }
-
-  /** Training institutions (community colleges, technical schools). */
-  async trainingInstitutions(location: string, radius = 50, limit = 25) {
-    const path = `/Training/${this.seg(this.userId)}/institution/${this.seg(location)}/${radius}/0/${limit}`;
+  /**
+   * Training institutions (community colleges, technical schools).
+   * Endpoint: /v1/Training/{userId}/{location}/{occupation}/{programName}/{programLength}/{state}/{sortColumns}/{sortDirections}/{startRecord}/{limitRecord}
+   */
+  async trainingInstitutions(location: string, _radius = 50, limit = 25) {
+    const path = `/Training/${this.seg(this.userId)}/${this.seg(location)}/0/0/0/0/Distance/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
@@ -360,27 +374,30 @@ export class CareerOneStopService {
     }
   }
 
-  /** Skills gaps between two occupations (for transition planning). */
-  async skillsGaps(fromOnet: string, toOnet: string) {
-    const path = `/skillsgaps/${this.seg(this.userId)}/${this.seg(fromOnet)}/${this.seg(toOnet)}`;
+  /**
+   * Skills gaps between two occupations (for transition planning).
+   * Endpoint: /v1/skillgap/{userId}/{onetCodeSource}/{onetCodeTarget}/{location}/{radius}
+   */
+  async skillsGaps(fromOnet: string, toOnet: string, location = 'US', radius = 50) {
+    const path = `/skillgap/${this.seg(this.userId)}/${this.seg(fromOnet)}/${this.seg(toOnet)}/${this.seg(location)}/${radius}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
-  /** Match occupations by O*NET skills profile. */
-  async occupationsBySkills(onetCode: string, limit = 25) {
-    const path = `/occupation/${this.seg(this.userId)}/skills/${this.seg(onetCode)}/0/${limit}`;
-    return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
-  }
-
-  /** Tools and technology used in an occupation (by O*NET code). */
+  /**
+   * Tools and technology used in an occupation (by O*NET code).
+   * Endpoint: /v1/techtool/{userId}/{occupationCode}/
+   */
   async toolsByOccupation(onetCode: string) {
-    const path = `/toolstechnology/${this.seg(this.userId)}/${this.seg(onetCode)}/occupation`;
+    const path = `/techtool/${this.seg(this.userId)}/${this.seg(onetCode)}/`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
-  /** Tools and tech matching a keyword. */
+  /**
+   * Tools and tech matching a keyword.
+   * Endpoint: /v1/techtool/{userId}/{keyword}/{startRecord}/{limitRecord}
+   */
   async toolsByKeyword(keyword: string, limit = 25) {
-    const path = `/toolstechnology/${this.seg(this.userId)}/${this.seg(keyword)}/keyword/0/${limit}`;
+    const path = `/techtool/${this.seg(this.userId)}/${this.seg(keyword)}/0/${limit}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
@@ -405,15 +422,22 @@ export class CareerOneStopService {
     return this.fetchJson<unknown>(path, 6 * 60 * 60_000);
   }
 
-  /** Job description templates (for employers; useful for resumé phrasing). */
-  async jobDescription(onetCode: string) {
-    const path = `/jobdescription/${this.seg(this.userId)}/${this.seg(onetCode)}`;
+  /**
+   * Job-description templates (resumé / posting helper).
+   * Endpoint: /v1/jdw/{userId}/{onetCode}/{state}/{category}
+   * category: 'Tasks' | 'Skills' | 'Knowledge' | 'all' (passing 0 broadens).
+   */
+  async jobDescription(onetCode: string, state = 'US', category = 'Tasks') {
+    const path = `/jdw/${this.seg(this.userId)}/${this.seg(onetCode)}/${this.seg(state)}/${this.seg(category)}`;
     return this.fetchJson<unknown>(path, 24 * 60 * 60_000);
   }
 
-  /** Professional associations by keyword. */
+  /**
+   * Professional associations by keyword.
+   * Endpoint: /v1/professionalassociation/{userId}/{keyword}/{industry}/{occupation}/{sortColumn}/{sortDirections}/{startRecord}/{limitRecord}
+   */
   async professionalAssociations(keyword: string, limit = 25) {
-    const path = `/professionalassociations/${this.seg(this.userId)}/${this.seg(keyword)}/0/${limit}`;
+    const path = `/professionalassociation/${this.seg(this.userId)}/${this.seg(keyword)}/0/0/Title/asc/0/${limit}`;
     return this.fetchJson<unknown>(path, 7 * 24 * 60 * 60_000);
   }
 
@@ -421,9 +445,12 @@ export class CareerOneStopService {
   // LOCATION HELPER
   // ════════════════════════════════════════════════════════════════════
 
-  /** Validate a location and resolve it to canonical city/state/area. */
+  /**
+   * Validate a location and resolve it to canonical city/state/area.
+   * Endpoint: /v1/location/{userId}/{location}
+   */
   async validateLocation(location: string) {
-    const path = `/locations/${this.seg(this.userId)}?location=${encodeURIComponent(location)}`;
+    const path = `/location/${this.seg(this.userId)}/${this.seg(location)}`;
     return this.fetchJson<unknown>(path, 30 * 24 * 60 * 60_000);
   }
 }
