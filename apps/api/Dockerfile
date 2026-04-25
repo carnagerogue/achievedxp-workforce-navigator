@@ -40,4 +40,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 WORKDIR /app/apps/api
 EXPOSE 3001
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
+# Migrate (idempotent), seed JobSource/skill/cert lookup tables (idempotent
+# via upserts), then start the API. Seed must run AFTER migrate.
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && PATH=$(pwd)/node_modules/.bin:$PATH ./node_modules/.bin/ts-node prisma/seed.ts && node dist/main.js"]
