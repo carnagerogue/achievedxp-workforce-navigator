@@ -18,11 +18,10 @@ FROM base AS build
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/web ./apps/web
+RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter web build
 
 # ── runtime ─────────────────────────────────────────────────────────────

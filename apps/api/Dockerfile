@@ -16,11 +16,11 @@ RUN pnpm install --frozen-lockfile
 # ── build ───────────────────────────────────────────────────────────────
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY apps/api ./apps/api
+# pnpm-style: re-link workspace packages into the build stage
+RUN pnpm install --frozen-lockfile --offline
 RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
@@ -31,7 +31,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
