@@ -70,15 +70,30 @@ export class ClassifierService {
   // standards all treat felony convictions as serious adverse factors.
   // Showing these as "second-chance friendly" misleads the candidate.
 
-  /** Military branches + DoD components (active, guard, reserve). */
+  /**
+   * Military branches + DoD components (active, guard, reserve), and any
+   * federal employer based on a military installation. Matched only against
+   * employer name + title (NOT description) so "navy blue uniform" in a
+   * posting can't false-positive a job at e.g. McDonald's.
+   *
+   * Why this is conservative: every federal civilian on a military
+   * installation needs an HSPD-12 PIV/CAC card, which requires favorable
+   * suitability. Felony convictions are typically disqualifying. So even a
+   * line cook at "Commander, Navy Installations Command" gets flagged.
+   */
   private readonly militaryEmployerPatterns: RegExp[] = [
+    // Branch names — match standalone too, since employer fields often omit
+    // "U.S." (e.g. "Navy Installations Command", "Army Installation Mgmt").
     /\bU\.?\s?S\.?\s?Army\b/i,
+    /\bArmy\s+(National Guard|Reserve|Installation|Materiel|Corps of Engineers|Medical|Sustainment|Cyber|Futures|Forces|Recruiting)\b/i,
     /\bArmy National Guard\b/i,
-    /\bArmy Reserve\b/i,
     /\bU\.?\s?S\.?\s?Navy\b/i,
-    /\bNaval\s+(Air|Sea|Surface|Special|Information|Installations|Education)\b/i,
+    /\bNavy\s+(Installations?|Reserve|Exchange|Recruiting|Region|Operational|Medicine)\b/i,
+    /\bNaval\s+(Air|Sea|Surface|Special|Information|Installations|Education|Hospital|Medical|Station|Base|Submarine|Supply|Reserve|Computer)\b/i,
     /\bU\.?\s?S\.?\s?Air Force\b/i,
+    /\bAir Force\s+(Reserve|Materiel|Global|Special|Medical|Recruiting|Civil Engineer|Personnel)\b/i,
     /\bUSAF\b/,
+    /\bAir National Guard\b/i,
     /\bMarine Corps\b/i,
     /\bU\.?\s?S\.?\s?Marines\b/i,
     /\bCoast Guard\b/i,
@@ -86,17 +101,37 @@ export class ClassifierService {
     /\bPacific Air Forces\b/i,
     /\bAir Combat Command\b/i,
     /\bAir Force Materiel Command\b/i,
-    /\bDepartment of Defense\b/i,
-    /\bDefense Logistics Agency\b/i,
-    /\bDefense Commissary\b/i,
-    /\bDefense Finance\b/i,
-    /\bDefense Information Systems\b/i,
-    /\bDefense Intelligence\b/i,
+    // Generic military commander phrasing — e.g. "Commander, Navy Installations Command"
+    /\bCommander,?\s+(Navy|Naval|Army|Air Force|Marine|Coast Guard|Submarine|Fleet|Pacific|Atlantic|U\.?S\.?)\b/i,
+    // Department of Defense / DoD components.
+    /\bDepartment of (Defense|the Army|the Navy|the Air Force)\b/i,
+    /\bDoD\b/,
+    /\bDefense (Logistics|Commissary|Finance|Information Systems|Intelligence|Health|Contract|Counterintelligence|Threat Reduction|Human Resources|Media|Manpower)\b/i,
+    /\bDefense\s+POW\/MIA\b/i,
     /\bMissile Defense Agency\b/i,
     /\bPentagon\b/i,
     /\bU\.?\s?S\.?\s?Forces\b/i, // e.g. "U.S. Forces, Korea/Japan/Europe"
     /\bMilitary Sealift Command\b/i,
     /\bMilitary Entrance Processing\b/i,
+    // Installation patterns — anyone working ON a military base needs PIV
+    // and a favorable suitability decision.
+    /\bJoint Base\b/i,
+    /\bAir Force Base\b/i,
+    /\bAFB\b/,
+    /\bNaval (Air )?Station\b/i,
+    /\bNaval Base\b/i,
+    /\bNaval Submarine Base\b/i,
+    /\bNaval Air Facility\b/i,
+    /\bMarine Corps (Air Station|Base|Logistics)\b/i,
+    /\bMCAS\b/,
+    /\bMCB Camp\b/i,
+    /\bFort\s+[A-Z][a-zA-Z]+/, // Fort Bragg, Fort Hood, Fort Bliss, etc.
+    /\bCamp\s+(Pendleton|Lejeune|Geiger|Foster|Hansen|Schwab|Courtney|Casey|Humphreys|Carroll|Walker|Zama)\b/i,
+    /\bSchofield Barracks\b/i,
+    /\bPearl Harbor\b/i,
+    /\bWest Point\b/i,
+    /\bUnited States Military Academy\b/i,
+    /\bArlington National Cemetery\b/i,
   ];
 
   /** Federal law enforcement, corrections, and intelligence agencies. */
