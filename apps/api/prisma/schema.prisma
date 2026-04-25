@@ -1,0 +1,288 @@
+// AchieveDXP Workforce Navigator — Prisma schema
+// Phase 1: core entities for users, profiles, jobs, ingestion, scoring, skills, certifications.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum RiskTier {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMP
+  INTERNSHIP
+  OTHER
+}
+
+enum JobStatus {
+  ACTIVE
+  EXPIRED
+  DUPLICATE
+  REJECTED
+}
+
+enum RawIngestStatus {
+  PENDING
+  NORMALIZED
+  FAILED
+  DUPLICATE
+}
+
+enum ConvictionCategory {
+  FELONY
+  MISDEMEANOR
+  INFRACTION
+}
+
+// Offense types chosen for matching-relevance: each one trips a
+// different combination of industry-specific hard filters. See
+// RuleScorer.computeHardFilters() for the mapping.
+enum OffenseType {
+  DRUG_POSSESSION
+  DRUG_DISTRIBUTION
+  VIOLENT
+  SEX_OFFENSE
+  PROPERTY_THEFT
+  PROPERTY_BURGLARY
+  FINANCIAL_FRAUD
+  WEAPONS
+  DUI
+  OTHER
+}
+
+// ---------- Users ----------
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  displayName  String?      @map("display_name")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  profile      UserProfile?
+  scores       JobScore[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                    String       @id @default(uuid()) @db.Uuid
+  userId                String       @unique @map("user_id") @db.Uuid
+  firstName             String?      @map("first_name")
+  lastName              String?      @map("last_name")
+  phone                 String?
+  locationCity          String?      @map("location_city")
+  locationRegion        String?      @map("location_region")
+  locationPostalCode    String?      @map("location_postal_code")
+  yearsExperience       Int          @default(0) @map("years_experience")
+  hasTransportation     Boolean      @default(false) @map("has_transportation")
+  willingToRelocate     Boolean      @default(false) @map("willing_to_relocate")
+
+  // Justice-impact context (drives hard filters in matching)
+  hasFelonyRecord       Boolean      @default(false) @map("has_felony_record")
+  offenseCategories     String[]     @default([]) @map("offense_categories")
+  yearsSinceRelease     Int?         @map("years_since_release")
+  onParoleOrProbation   Boolean      @default(false) @map("on_parole_or_probation")
+  restrictedIndustries  String[]     @default([]) @map("restricted_industries")
+
+  skills                String[]     @default([])
+  certifications        String[]     @default([])
+  desiredIndustries     String[]     @default([]) @map("desired_industries")
+
+  // O*NET-style career-interest profile (RIASEC). Each score is 0–25,
+  // coming from the short-form assessment (5 items per dimension × 5-point
+  // Likert). Nullable — only populated when the user completes it.
+  riasecRealistic       Int?         @map("riasec_realistic")
+  riasecInvestigative   Int?         @map("riasec_investigative")
+  riasecArtistic        Int?         @map("riasec_artistic")
+  riasecSocial          Int?         @map("riasec_social")
+  riasecEnterprising    Int?         @map("riasec_enterprising")
+  riasecConventional    Int?         @map("riasec_conventional")
+  riasecCompletedAt     DateTime?    @map("riasec_completed_at")
+
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  convictions           Conviction[]
+
+  @@index([locationRegion])
+  @@map("user_profiles")
+}
+
+// One row per distinct conviction. A profile can have zero or many.
+// `hasFelonyRecord` on UserProfile stays as a quick flag but the scorer
+// now derives authoritative facts from this table when rows are present.
+model Conviction {
+  id                    String             @id @default(uuid()) @db.Uuid
+  profileId             String             @map("profile_id") @db.Uuid
+  category              ConvictionCategory
+  offenseType           OffenseType        @map("offense_type")
+  convictionYear        Int?               @map("conviction_year")
+  releaseYear           Int?               @map("release_year")
+  currentlyIncarcerated Boolean            @default(false) @map("currently_incarcerated")
+  onParole              Boolean            @default(false) @map("on_parole")
+  onProbation           Boolean            @default(false) @map("on_probation")
+  supervisionEndDate    DateTime?          @map("supervision_end_date")
+  sexOffenderRegistry   Boolean            @default(false) @map("sex_offender_registry")
+  notes                 String?
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  profile               UserProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([offenseType])
+  @@map("convictions")
+}
+
+// ---------- Job sources & ingestion ----------
+
+model JobSource {
+  id             String                @id @default(uuid()) @db.Uuid
+  code           String                @unique                         // e.g. "mock", "usajobs", "adzuna"
+  displayName    String                @map("display_name")
+  baseUrl        String?               @map("base_url")
+  isActive       Boolean               @default(true) @map("is_active")
+  lastFetchedAt  DateTime?             @map("last_fetched_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  rawIngestions  JobRawIngestion[]
+  jobs           Job[]
+
+  @@map("job_sources")
+}
+
+model JobRawIngestion {
+  id              String           @id @default(uuid()) @db.Uuid
+  sourceId        String           @map("source_id") @db.Uuid
+  externalId      String           @map("external_id")                // source's id for the posting
+  payload         Json
+  fetchedAt       DateTime         @default(now()) @map("fetched_at")
+  status          RawIngestStatus  @default(PENDING)
+  errorMessage    String?          @map("error_message")
+  normalizedJobId String?          @map("normalized_job_id") @db.Uuid
+
+  source          JobSource        @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  // Same posting from the same source should only be stored once.
+  @@unique([sourceId, externalId])
+  @@index([status, fetchedAt])
+  @@map("job_raw_ingestion")
+}
+
+// ---------- Jobs (canonical) ----------
+
+model Job {
+  id                    String          @id @default(uuid()) @db.Uuid
+  sourceId              String          @map("source_id") @db.Uuid
+  externalId            String          @map("external_id")
+  dedupHash             String          @unique @map("dedup_hash")    // employer|title|region|external_id sha256
+
+  title                 String
+  company               String
+  description           String
+  descriptionHtml       String?         @map("description_html")      // Sanitized HTML for rich rendering.
+  applyUrl              String          @map("apply_url")
+
+  locationCity          String?         @map("location_city")
+  locationRegion        String?         @map("location_region")
+  locationPostalCode    String?         @map("location_postal_code")
+  locationCountry       String?         @map("location_country")
+  remote                Boolean         @default(false)
+
+  employmentType        EmploymentType  @default(FULL_TIME) @map("employment_type")
+  industry              String?                                        // canonical tag e.g. "construction"
+  salaryMin             Int?            @map("salary_min")
+  salaryMax             Int?            @map("salary_max")
+  salaryCurrency        String?         @default("USD") @map("salary_currency")
+
+  requiredSkills        String[]        @default([]) @map("required_skills")
+  requiredCertifications String[]       @default([]) @map("required_certifications")
+  minYearsExperience    Int?            @map("min_years_experience")
+
+  // Phase-2 classifier outputs
+  riskTier              RiskTier        @default(MEDIUM) @map("risk_tier")
+  backgroundCheckLikely Boolean         @default(true) @map("background_check_likely")
+  excludesFelons        Boolean         @default(false) @map("excludes_felons")
+  isApprenticeship      Boolean         @default(false) @map("is_apprenticeship")
+
+  status                JobStatus       @default(ACTIVE)
+  postedAt              DateTime?       @map("posted_at")
+  expiresAt             DateTime?       @map("expires_at")
+
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  source                JobSource       @relation(fields: [sourceId], references: [id])
+  scores                JobScore[]
+
+  @@unique([sourceId, externalId])
+  @@index([industry, locationRegion, postedAt(sort: Desc)])
+  @@index([status, postedAt(sort: Desc)])
+  @@index([riskTier])
+  @@index([locationPostalCode])
+  @@index([isApprenticeship])
+  @@map("jobs")
+}
+
+// ---------- Scoring ----------
+
+model JobScore {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  jobId       String   @map("job_id") @db.Uuid
+
+  score       Int                                                     // 0..100
+  breakdown   Json                                                    // { industry, skills, experience, legal, risk }
+  explanation String
+
+  computedAt  DateTime @default(now()) @map("computed_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job         Job      @relation(fields: [jobId],  references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId, score(sort: Desc)])
+  @@map("job_scores")
+}
+
+// ---------- Skill & certification registries ----------
+
+model Skill {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique                                          // lower-snake, e.g. "forklift_operation"
+  displayName String   @map("display_name")
+  category    String?                                                   // "trade", "technical", "soft", ...
+  aliases     String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("skills")
+}
+
+model Certification {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique                                          // e.g. "osha_10"
+  displayName String   @map("display_name")
+  issuer      String?
+  aliases     String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("certifications")
+}

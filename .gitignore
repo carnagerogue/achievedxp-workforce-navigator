@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.log
+*.tsbuildinfo
+
+# Env (keep .example files only)
+.env
+.env.*
+!.env.example
+!.env.*.example
+.env.local
+.env.local.example
+!apps/web/.env.local.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.turbo/
+.vercel/
+.cache/
+.next-build-trace
+
+# Prisma
+prisma/migrations/dev.db*
+*.sqlite
+*.sqlite3
+
+# Misc
+tmp/
+.tmp/

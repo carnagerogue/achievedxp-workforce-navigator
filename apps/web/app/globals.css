@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+}
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+  background-image:
+    radial-gradient(900px 500px at 100% -10%, rgba(30, 166, 156, 0.06), transparent 60%),
+    radial-gradient(700px 400px at -10% 20%, rgba(245, 91, 29, 0.05), transparent 60%);
+  background-attachment: fixed;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+/* Consistent focus rings across the app (teal, subtle offset). */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  @apply ring-2 ring-teal-500 ring-offset-2 ring-offset-white;
+}
+
+/* Skeleton shimmer — gradient background animated by the shimmer keyframes. */
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0) 0%,
+    rgba(226, 232, 240, 0.75) 50%,
+    rgba(226, 232, 240, 0) 100%
+  );
+  background-size: 400px 100%;
+  background-repeat: no-repeat;
+  background-color: rgb(241 245 249); /* slate-100 */
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+/*
+  .dxp-description — styles for provider-supplied HTML on job detail pages.
+  Tailwind's preflight strips default margins from every element, so we
+  re-establish readable spacing inside this specific wrapper. Using a
+  scoped class avoids pulling in @tailwindcss/typography.
+*/
+.dxp-description h2,
+.dxp-description h3,
+.dxp-description h4 {
+  @apply mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-slate-900;
+}
+.dxp-description h2:first-child,
+.dxp-description h3:first-child,
+.dxp-description h4:first-child {
+  @apply mt-0;
+}
+.dxp-description p {
+  @apply mb-3;
+}
+.dxp-description ul,
+.dxp-description ol {
+  @apply mb-4 pl-5 space-y-1;
+}
+.dxp-description ul { @apply list-disc; }
+.dxp-description ol { @apply list-decimal; }
+.dxp-description li { @apply leading-relaxed; }
+.dxp-description a { @apply text-brand-700 underline hover:text-brand-600; }
+.dxp-description strong,
+.dxp-description b { @apply font-semibold text-slate-900; }
+.dxp-description em,
+.dxp-description i { @apply italic; }
+.dxp-description blockquote {
+  @apply my-4 border-l-4 border-slate-200 pl-4 text-slate-600;
+}
+.dxp-description code {
+  @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-xs;
+}
+.dxp-description hr { @apply my-6 border-slate-200; }
