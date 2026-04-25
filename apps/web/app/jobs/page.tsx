@@ -17,16 +17,35 @@ import {
   Calendar,
   HardHat,
 } from 'lucide-react';
-import type { JobDto, OffenseType, PaginatedJobsDto } from '@dxp/shared';
+import type { JobDto, OffenseType, PaginatedJobsDto, CompatibilityRating, ConvictionType } from '@dxp/shared';
+import { scoreJobCompatibility } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
 import { RiskBadge } from '../../components/RiskBadge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { JobRowSkeleton } from '../../components/Skeleton';
 import { SaveJobButton } from '../../components/SaveJobButton';
 import { CompareButton } from '../../components/CompareButton';
+import { CompatibilityDrawer } from '../../components/CompatibilityDrawer';
 import { prettyDate, prettyIndustry, prettySalary } from '../../lib/format';
 import { parseLocationInput } from '../../lib/location-parse';
 import { useDebounce } from '../../lib/use-debounce';
+
+/**
+ * Map between the legacy uppercase OffenseType (DB enum) and the lowercase
+ * ConvictionType used by the dignity-centered compatibility engine.
+ */
+const OFFENSE_TO_CONVICTION: Record<OffenseType, ConvictionType> = {
+  DRUG_POSSESSION:    'drug_possession',
+  DRUG_DISTRIBUTION:  'drug_distribution',
+  VIOLENT:            'violent_offense',
+  REGISTRY_RELATED:   'registry_related',
+  PROPERTY_THEFT:     'property_theft',
+  PROPERTY_BURGLARY:  'burglary',
+  FINANCIAL_FRAUD:    'financial_fraud',
+  WEAPONS:            'weapons_related',
+  DUI:                'dui_dwi',
+  OTHER:              'other',
+};
 
 const INDUSTRY_FILTERS = [
   '',
@@ -41,18 +60,29 @@ const INDUSTRY_FILTERS = [
   'cleaning',
 ];
 
+// User-facing conviction labels — match CONVICTION_LABELS in @dxp/shared.
+// Selecting one re-ranks every visible job by computed compatibility score.
 const OFFENSE_FILTERS: { value: OffenseType | ''; label: string }[] = [
-  { value: '',                   label: 'Show all jobs (no conviction filter)' },
-  { value: 'DRUG_POSSESSION',    label: 'Friendly to: drug possession conviction' },
-  { value: 'DRUG_DISTRIBUTION',  label: 'Friendly to: drug distribution conviction' },
-  { value: 'VIOLENT',            label: 'Friendly to: violent offense conviction' },
-  { value: 'SEX_OFFENSE',        label: 'Friendly to: registrable offense conviction' },
-  { value: 'PROPERTY_THEFT',     label: 'Friendly to: property / theft conviction' },
-  { value: 'PROPERTY_BURGLARY',  label: 'Friendly to: burglary conviction' },
-  { value: 'FINANCIAL_FRAUD',    label: 'Friendly to: financial fraud conviction' },
-  { value: 'WEAPONS',            label: 'Friendly to: weapons-related conviction' },
-  { value: 'DUI',                label: 'Friendly to: DUI / DWI conviction' },
-  { value: 'OTHER',              label: 'Friendly to: other conviction' },
+  { value: '',                   label: 'No conviction filter — show all jobs' },
+  { value: 'DRUG_POSSESSION',    label: 'Drug possession-related conviction' },
+  { value: 'DRUG_DISTRIBUTION',  label: 'Drug distribution-related conviction' },
+  { value: 'VIOLENT',            label: 'Violence-related conviction' },
+  { value: 'PROPERTY_THEFT',     label: 'Property or theft-related conviction' },
+  { value: 'PROPERTY_BURGLARY',  label: 'Burglary-related conviction' },
+  { value: 'FINANCIAL_FRAUD',    label: 'Financial fraud-related conviction' },
+  { value: 'WEAPONS',            label: 'Weapons-related conviction' },
+  { value: 'DUI',                label: 'DUI/DWI-related conviction' },
+  { value: 'REGISTRY_RELATED',   label: 'Registry-related conviction' },
+  { value: 'OTHER',              label: 'Other conviction' },
+];
+
+type ChanceFilter = 'all' | 'high_only' | 'high_medium' | 'hide_low';
+
+const CHANCE_FILTER_OPTIONS: { value: ChanceFilter; label: string }[] = [
+  { value: 'all',          label: 'Show all (with explanations)' },
+  { value: 'hide_low',     label: 'Hide Challenging Match' },
+  { value: 'high_medium',  label: 'Strong + Possible Match only' },
+  { value: 'high_only',    label: 'Strong Match only' },
 ];
 
 const PAGE_SIZE = 50;
@@ -74,6 +104,8 @@ export default function JobsPage() {
   const [minSalary, setMinSalary] = useState(0);
   const [postedWithinDays, setPostedWithinDays] = useState(0);
   const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(false);
+  const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
+  const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
 
   // Debounce the text inputs so we don't hit the API on every keystroke.
   // 300ms feels instant but eliminates burst requests.
@@ -120,6 +152,54 @@ export default function JobsPage() {
 
   const loadMore = () => setOffset(results.length);
   const hasMore = results.length < total;
+
+  /**
+   * When a conviction is selected, score every visible job with the
+   * compatibility engine and re-rank by score descending. Pure function,
+   * runs locally, ~few-ms per 50 jobs.
+   */
+  const scoredResults = useMemo(() => {
+    if (!offenseType) return results.map((job) => ({ job, rating: null as CompatibilityRating | null }));
+    const conviction = OFFENSE_TO_CONVICTION[offenseType];
+    const out = results.map((job) => ({
+      job,
+      rating: scoreJobCompatibility(
+        { convictionType: conviction },
+        {
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          description: job.description,
+          industry: job.industry,
+          riskTier: job.riskTier,
+          excludesFelons: job.excludesFelons,
+          backgroundCheckLikely: job.backgroundCheckLikely,
+          isApprenticeship: job.isApprenticeship,
+          remote: job.remote,
+          locationRegion: job.locationRegion,
+          locationCity: job.locationCity,
+          requiredSkills: job.requiredSkills,
+          requiredCertifications: job.requiredCertifications,
+        },
+      ),
+    }));
+    out.sort((a, b) => (b.rating?.score ?? 0) - (a.rating?.score ?? 0));
+    return out;
+  }, [results, offenseType]);
+
+  /** Apply the chance-band filter. Even when hiding, surface a count so users know jobs were filtered. */
+  const visibleResults = useMemo(() => {
+    if (!offenseType || chanceFilter === 'all') return scoredResults;
+    return scoredResults.filter(({ rating }) => {
+      if (!rating) return true;
+      if (chanceFilter === 'high_only')   return rating.chance === 'high';
+      if (chanceFilter === 'high_medium') return rating.chance !== 'low';
+      if (chanceFilter === 'hide_low')    return rating.chance !== 'low';
+      return true;
+    });
+  }, [scoredResults, offenseType, chanceFilter]);
+
+  const hiddenLowCount = scoredResults.length - visibleResults.length;
 
   // Active-filter chip descriptors used in the summary row below the filter card.
   const activeChips: Array<{ key: string; label: string; onClear: () => void }> = [];
@@ -242,7 +322,7 @@ export default function JobsPage() {
             </select>
           </FilterField>
 
-          <FilterField label="Conviction-history filter" Icon={Scale}>
+          <FilterField label="Conviction history" Icon={Scale}>
             <select
               value={offenseType}
               onChange={(e) => setOffenseType(e.target.value as OffenseType | '')}
@@ -252,7 +332,26 @@ export default function JobsPage() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+            {offenseType && (
+              <span className="mt-1 block text-[11px] text-teal-700">
+                Each job is being scored for compatibility with the selected conviction.
+              </span>
+            )}
           </FilterField>
+
+          {offenseType && (
+            <FilterField label="Compatibility filter" Icon={Scale}>
+              <select
+                value={chanceFilter}
+                onChange={(e) => setChanceFilter(e.target.value as ChanceFilter)}
+                className="block w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                {CHANCE_FILTER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </FilterField>
+          )}
 
           <div className="grid gap-3 sm:col-span-3 sm:grid-cols-2">
             <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 transition hover:bg-slate-100">
@@ -319,10 +418,22 @@ export default function JobsPage() {
           <p className="mb-3 text-xs text-slate-500">
             <strong className="font-semibold text-navy-900">{total.toLocaleString()}</strong> total
             <span className="mx-1.5 text-slate-300">·</span>
-            showing {results.length.toLocaleString()}
+            showing {visibleResults.length.toLocaleString()}
+            {offenseType && hiddenLowCount > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                {hiddenLowCount} hidden by compatibility filter
+              </span>
+            )}
           </p>
           <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-            {results.map((job) => <JobRow key={job.id} job={job} />)}
+            {visibleResults.map(({ job, rating }) => (
+              <JobRow
+                key={job.id}
+                job={job}
+                rating={rating}
+                onOpenDetails={(r) => setDrawerJob({ job, rating: r })}
+              />
+            ))}
           </ul>
 
           {hasMore && (
@@ -340,6 +451,15 @@ export default function JobsPage() {
           )}
         </>
       )}
+
+      <CompatibilityDrawer
+        open={!!drawerJob}
+        onClose={() => setDrawerJob(null)}
+        rating={drawerJob?.rating ?? null}
+        jobTitle={drawerJob?.job.title ?? ''}
+        company={drawerJob?.job.company ?? ''}
+        conviction={offenseType ? OFFENSE_TO_CONVICTION[offenseType] : null}
+      />
     </div>
   );
 }
@@ -403,7 +523,15 @@ function EmptyState({ hasFilters, location, onClear }: { hasFilters: boolean; lo
   );
 }
 
-function JobRow({ job }: { job: JobDto }) {
+function JobRow({
+  job,
+  rating,
+  onOpenDetails,
+}: {
+  job: JobDto;
+  rating: CompatibilityRating | null;
+  onOpenDetails: (rating: CompatibilityRating) => void;
+}) {
   const cityRegion = [job.locationCity, job.locationRegion].filter(Boolean).join(', ');
   const location = cityRegion
     ? (job.locationPostalCode ? `${cityRegion} ${job.locationPostalCode}` : cityRegion)
@@ -412,8 +540,8 @@ function JobRow({ job }: { job: JobDto }) {
 
   return (
     <li className="group transition hover:bg-slate-50">
-      <Link href={`/jobs/${job.id}`} className="flex items-start justify-between gap-4 p-4">
-        <div className="min-w-0 flex-1">
+      <div className="flex items-start justify-between gap-4 p-4">
+        <Link href={`/jobs/${job.id}`} className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-sm font-semibold text-navy-900 group-hover:text-teal-700">
               {job.title}
@@ -452,16 +580,50 @@ function JobRow({ job }: { job: JobDto }) {
               <span className="truncate">Skills: {job.requiredSkills.join(', ')}</span>
             )}
           </div>
-        </div>
+          {/* One-line compatibility summary appears below skills/salary so it
+              never crowds the title row but is impossible to miss. */}
+          {rating && (
+            <p className="mt-1.5 line-clamp-2 text-xs text-slate-600">
+              {rating.summary}
+            </p>
+          )}
+        </Link>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex items-center gap-1.5">
             <SaveJobButton jobId={job.id} />
             <CompareButton jobId={job.id} />
           </div>
-          <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
-          <span className="text-xs font-semibold text-teal-700 transition group-hover:translate-x-0.5">View →</span>
+          {rating ? (
+            <CompatibilityChip rating={rating} onOpen={() => onOpenDetails(rating)} />
+          ) : (
+            <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
+          )}
+          <Link href={`/jobs/${job.id}`} className="text-xs font-semibold text-teal-700 transition group-hover:translate-x-0.5">View →</Link>
         </div>
-      </Link>
+      </div>
     </li>
+  );
+}
+
+/**
+ * Compatibility pill — clickable, opens the drawer with the full breakdown.
+ * Color-coded by chance band; uses dignity-centered language only.
+ */
+function CompatibilityChip({ rating, onOpen }: { rating: CompatibilityRating; onOpen: () => void }) {
+  const styles = {
+    high:   'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
+    medium: 'border-amber-300   bg-amber-50   text-amber-800   hover:bg-amber-100',
+    low:    'border-rose-300    bg-rose-50    text-rose-800    hover:bg-rose-100',
+  } as const;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${styles[rating.chance]}`}
+      aria-label={`${rating.label} — ${rating.score}%. Click for details.`}
+    >
+      {rating.label} · {rating.score}%
+      <span aria-hidden className="text-[9px] opacity-70">▸</span>
+    </button>
   );
 }

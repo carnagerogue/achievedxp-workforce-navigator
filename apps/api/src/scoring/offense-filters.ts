@@ -5,7 +5,7 @@ import { Conviction, OffenseType, Prisma } from '@prisma/client';
  *
  * Shared between:
  *   - RuleScorer.computeHardFilters — per-user match scoring (needs full
- *     Conviction objects to read sexOffenderRegistry, currentlyIncarcerated etc.)
+ *     Conviction objects to read registryStatus, currentlyIncarcerated etc.)
  *   - JobsService.list — browse-by-offense filter (needs to build a Prisma
  *     WHERE clause from a single OffenseType).
  *
@@ -31,12 +31,12 @@ export interface OffenseFilterRule {
 
 export const OFFENSE_FILTER_RULES: ReadonlyArray<OffenseFilterRule> = [
   {
-    matchConviction: (c) => c.offenseType === OffenseType.SEX_OFFENSE || c.sexOffenderRegistry,
-    matchOffenseType: (t) => t === OffenseType.SEX_OFFENSE,
-    blocksIndustry: new Set(['education', 'healthcare', 'childcare']),
-    blocksTitleKeyword: ['school', 'daycare', 'childcare', 'minor', 'pediatric', 'caregiver'],
+    matchConviction: (c) => c.offenseType === OffenseType.REGISTRY_RELATED || c.registryStatus,
+    matchOffenseType: (t) => t === OffenseType.REGISTRY_RELATED,
+    blocksIndustry: new Set(['education', 'healthcare', 'childcare', 'schools']),
+    blocksTitleKeyword: ['school', 'daycare', 'childcare', 'minor', 'pediatric', 'caregiver', 'youth'],
     reason:
-      'Registrable-offense status legally bars roles involving minors, schools, or vulnerable-population healthcare.',
+      'Registry-related conviction status may legally bar roles involving minors, schools, or vulnerable-population settings. Caseworker review recommended.',
   },
   {
     matchConviction: (c) => c.offenseType === OffenseType.FINANCIAL_FRAUD,

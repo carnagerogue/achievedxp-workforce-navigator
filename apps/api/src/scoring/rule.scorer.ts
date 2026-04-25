@@ -94,7 +94,7 @@ export class RuleScorer implements Scorer {
       );
     }
 
-    // --- 3. Per-conviction × industry bars (sex offense, fraud, DUI, weapons) ---
+    // --- 3. Per-conviction × industry bars (registry-related, fraud, DUI, weapons) ---
     const jobTitleLower = job.title.toLowerCase();
     for (const c of convictions) {
       for (const rule of OFFENSE_FILTER_RULES) {

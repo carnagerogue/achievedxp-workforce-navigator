@@ -8,20 +8,21 @@ const CATEGORIES: { value: ConvictionCategory; label: string }[] = [
   { value: 'INFRACTION',  label: 'Infraction' },
 ];
 
-// User-facing labels. Enum values in the DB stay the same; we only change
-// the strings that a candidate sees during onboarding. "Registrable offense"
-// is the legally neutral phrasing used in statutes.
+// User-facing labels. Dignity-centered, neutral phrasing — these strings
+// are what a candidate sees during onboarding. The DB enum still uses
+// uppercase values; the new lowercase ConvictionType (in @dxp/shared)
+// is used by the compatibility engine.
 const OFFENSE_TYPES: { value: OffenseType; label: string }[] = [
-  { value: 'DRUG_POSSESSION',    label: 'Drug — possession' },
-  { value: 'DRUG_DISTRIBUTION',  label: 'Drug — distribution / trafficking' },
-  { value: 'VIOLENT',            label: 'Violent offense (e.g. assault)' },
-  { value: 'SEX_OFFENSE',        label: 'Registrable offense' },
-  { value: 'PROPERTY_THEFT',     label: 'Property — theft / shoplifting' },
-  { value: 'PROPERTY_BURGLARY',  label: 'Property — burglary' },
-  { value: 'FINANCIAL_FRAUD',    label: 'Financial fraud / embezzlement' },
-  { value: 'WEAPONS',            label: 'Weapons-related offense' },
-  { value: 'DUI',                label: 'DUI / DWI' },
-  { value: 'OTHER',              label: 'Other' },
+  { value: 'DRUG_POSSESSION',    label: 'Drug possession-related conviction' },
+  { value: 'DRUG_DISTRIBUTION',  label: 'Drug distribution-related conviction' },
+  { value: 'VIOLENT',            label: 'Violence-related conviction' },
+  { value: 'REGISTRY_RELATED',   label: 'Registry-related conviction' },
+  { value: 'PROPERTY_THEFT',     label: 'Property or theft-related conviction' },
+  { value: 'PROPERTY_BURGLARY',  label: 'Burglary-related conviction' },
+  { value: 'FINANCIAL_FRAUD',    label: 'Financial fraud-related conviction' },
+  { value: 'WEAPONS',            label: 'Weapons-related conviction' },
+  { value: 'DUI',                label: 'DUI/DWI-related conviction' },
+  { value: 'OTHER',              label: 'Other conviction' },
 ];
 
 type Props = {
@@ -96,8 +97,8 @@ export function ConvictionForm({ conviction, index, onChange, onRemove }: Props)
                checked={!!conviction.onProbation}
                onChange={(v) => update('onProbation', v)} />
         <Check label="Required to register under state law"
-               checked={!!conviction.sexOffenderRegistry}
-               onChange={(v) => update('sexOffenderRegistry', v)} />
+               checked={!!(conviction.registryStatus ?? conviction.sexOffenderRegistry)}
+               onChange={(v) => update('registryStatus', v)} />
       </div>
     </div>
   );

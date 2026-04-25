@@ -57,7 +57,9 @@ export class ProfilesService {
       onParole: c.onParole ?? false,
       onProbation: c.onProbation ?? false,
       supervisionEndDate: c.supervisionEndDate ? new Date(c.supervisionEndDate) : null,
-      sexOffenderRegistry: c.sexOffenderRegistry ?? false,
+      // Accept either the new `registryStatus` field or the legacy
+      // `sexOffenderRegistry` alias for one release cycle.
+      registryStatus: c.registryStatus ?? c.sexOffenderRegistry ?? false,
       notes: c.notes ?? null,
     };
   }

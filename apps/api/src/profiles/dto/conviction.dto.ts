@@ -32,6 +32,11 @@ export class ConvictionInputDto {
   @IsOptional() @IsBoolean() onParole?: boolean;
   @IsOptional() @IsBoolean() onProbation?: boolean;
   @IsOptional() @IsDateString() supervisionEndDate?: string;
+  /** Whether the conviction triggered a state registry. Renamed for
+   *  neutral terminology; legacy `sexOffenderRegistry` field still
+   *  accepted on input for backward compatibility. */
+  @IsOptional() @IsBoolean() registryStatus?: boolean;
+  /** @deprecated use registryStatus */
   @IsOptional() @IsBoolean() sexOffenderRegistry?: boolean;
 
   @IsOptional() @IsString() @MaxLength(500) notes?: string;

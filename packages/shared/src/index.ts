@@ -5,11 +5,21 @@ export type RiskTier = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type ConvictionCategory = 'FELONY' | 'MISDEMEANOR' | 'INFRACTION';
 
+/**
+ * Internal offense-type enum stored on Conviction rows. The user-facing
+ * compatibility engine maps these to its lowercase ConvictionType
+ * (`registry_related` etc.) — see `packages/shared/src/compatibility`.
+ *
+ * REGISTRY_RELATED replaces the older SEX_OFFENSE value to remove
+ * stigmatizing terminology from the schema. The legacy value is still
+ * accepted at runtime for backward compat with existing rows; new writes
+ * should always use REGISTRY_RELATED.
+ */
 export type OffenseType =
   | 'DRUG_POSSESSION'
   | 'DRUG_DISTRIBUTION'
   | 'VIOLENT'
-  | 'SEX_OFFENSE'
+  | 'REGISTRY_RELATED'
   | 'PROPERTY_THEFT'
   | 'PROPERTY_BURGLARY'
   | 'FINANCIAL_FRAUD'
@@ -26,6 +36,11 @@ export interface ConvictionDto {
   onParole?: boolean;
   onProbation?: boolean;
   supervisionEndDate?: string;
+  /** True if the conviction triggered a state registry. Renamed from
+   *  `sexOffenderRegistry` to remove stigmatizing terminology — the old
+   *  field is preserved as an alias on the DTO for one release cycle. */
+  registryStatus?: boolean;
+  /** @deprecated use registryStatus */
   sexOffenderRegistry?: boolean;
   notes?: string;
 }
@@ -162,3 +177,10 @@ export interface PaginatedJobsDto {
   offset: number;
   results: JobDto[];
 }
+
+/**
+ * Conviction-aware compatibility engine — public exports.
+ * Lives in its own subdirectory so it can be tree-shaken when only
+ * server-side DTOs are needed.
+ */
+export * from './compatibility';

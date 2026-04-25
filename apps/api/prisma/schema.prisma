@@ -55,7 +55,7 @@ enum OffenseType {
   DRUG_POSSESSION
   DRUG_DISTRIBUTION
   VIOLENT
-  SEX_OFFENSE
+  REGISTRY_RELATED
   PROPERTY_THEFT
   PROPERTY_BURGLARY
   FINANCIAL_FRAUD
@@ -139,7 +139,10 @@ model Conviction {
   onParole              Boolean            @default(false) @map("on_parole")
   onProbation           Boolean            @default(false) @map("on_probation")
   supervisionEndDate    DateTime?          @map("supervision_end_date")
-  sexOffenderRegistry   Boolean            @default(false) @map("sex_offender_registry")
+  // Renamed from `sexOffenderRegistry` to neutral terminology. Underlying
+  // column kept the same name to avoid a destructive rename — only the
+  // Prisma alias changed. Runs against existing data without migration.
+  registryStatus        Boolean            @default(false) @map("sex_offender_registry")
   notes                 String?
   createdAt             DateTime           @default(now()) @map("created_at")
   updatedAt             DateTime           @updatedAt @map("updated_at")
