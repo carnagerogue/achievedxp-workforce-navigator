@@ -41,4 +41,4 @@ WORKDIR /app/apps/api
 EXPOSE 3001
 # Apply pending migrations on boot, then start. Use the binary directly to
 # avoid pnpm-exec lookups failing in the slim image.
-CMD ["sh", "-c", "node ../../node_modules/prisma/build/index.js migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/main.js"]
