@@ -99,7 +99,12 @@ function scoreConvictionToDuty(
     };
   }
 
-  const { worst, all, matrixDescription } = evaluateMatrix(conviction, job);
+  const { worst, all, matrixDescription } = evaluateMatrix(conviction, {
+    industry: job.industry,
+    title: job.title,
+    company: job.company,
+    description: job.description,
+  });
   const raw = concernLevelToContribution(worst.level);
   const weighted = Math.round(raw * max);
 

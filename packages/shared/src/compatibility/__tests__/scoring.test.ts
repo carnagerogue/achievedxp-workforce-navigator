@@ -32,7 +32,7 @@ const baseProfile: CandidateProfile = {
   transportationAccess: true,
 };
 
-const baseJob: JobInput = {
+const baseJob: JobInput & { company: string } = {
   id: 'job-1',
   title: 'Generic Job',
   company: 'Generic Co',
@@ -387,6 +387,46 @@ describe('compatibility engine — acceptance', () => {
   // ─────────────────────────────────────────────────────────────────
   it('20. CONVICTION_LABELS.registry_related === "Registry-related conviction"', () => {
     expect(CONVICTION_LABELS.registry_related).toBe('Registry-related conviction');
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // 21. REGRESSION: registry-related + school district custodian
+  //     → MUST be Low (workplace = restricted setting), even when title
+  //     is generic "Custodian I" with no school keyword in title text.
+  // ─────────────────────────────────────────────────────────────────
+  it('21. Registry-related + custodian at a school district = Low Chance', () => {
+    const r = score(
+      profile({ convictionType: 'registry_related', releaseDate: 2019 }),
+      job({
+        title: 'Custodian I, McKnight/Dimmitt Split',
+        company: 'Renton School District 403',
+        description: 'General custodial duties on assigned shift. Maintain assigned area.',
+        industry: 'cleaning',
+        locationRegion: 'WA',
+      }),
+    );
+    expect(r.chance).toBe('low');
+    // The engine must specifically identify the workplace as restricted —
+    // not just rely on industry or title.
+    expect(r.riskFactors.join(' ').toLowerCase()).toMatch(/school|restricted|workplace/);
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // 22. REGRESSION: violence-related + custodian at a children's hospital
+  //     → MUST be Low even when title is generic
+  // ─────────────────────────────────────────────────────────────────
+  it("22. Violence-related + custodian at a children's hospital = Low Chance", () => {
+    const r = score(
+      profile({ convictionType: 'violent_offense', releaseDate: 2019 }),
+      job({
+        title: 'Environmental Services Tech',
+        company: "Children's Hospital of Seattle",
+        description: 'Daily cleaning of patient and common areas.',
+        industry: 'cleaning',
+        locationRegion: 'WA',
+      }),
+    );
+    expect(r.chance).toBe('low');
   });
 
   // ─────────────────────────────────────────────────────────────────

@@ -177,37 +177,78 @@ export class JoobleProvider implements JobProvider {
   }
 
   /**
-   * Extract numeric bounds from Jooble's free-form salary strings. Same
-   * tolerant regex Remotive uses — handles "$50,000 - $70,000",
-   * "USD 90k", "$25/hour", "60k+", etc.
+   * Extract numeric bounds from Jooble's free-form salary strings.
+   *
+   * Earlier version had a class of bug where Jooble strings combining
+   * hourly + annual figures, or stray numeric tokens (like "401k" or
+   * "2024"), were all annualized blindly — producing absurd numbers
+   * like a $443,040 pizza-maker. This rewrite is conservative:
+   *
+   *   1. Pair each number with its IMMEDIATELY-FOLLOWING unit token
+   *      (per hour, per year, per month, hr, yr, mo, k, …) — never
+   *      apply hourly conversion to a number that is itself written
+   *      as an annual figure.
+   *   2. Reject obvious non-salary numbers: years (1900-2100 alone),
+   *      "401k", "20%", anything > $750k annual, anything > $500/hr.
+   *   3. Drop the result entirely if the parsed value is implausible
+   *      rather than displaying garbage.
    */
   private parseSalary(raw: string): { min: number | null; max: number | null } {
     if (!raw) return { min: null, max: null };
+    const text = raw.replace(/\u2013|\u2014/g, '-').trim();
 
-    // Detect hourly rates: "$22/hr", "$22.50 per hour"
-    const hourly = /\b(\d+(?:\.\d+)?)\s*(?:\/|per\s+)?(?:h(?:r|our)?|hr)/i.test(raw);
+    // Walk the string and bind each numeric token to the unit that
+    // immediately follows it. Unrecognized contexts are skipped.
+    const tokenRe = /(\$?\s*\d{1,3}(?:[,.]\d{3})*(?:\.\d+)?)\s*([kKmM]?)\s*([a-zA-Z\/]*)/g;
+    type Salary = { value: number; cadence: 'hour' | 'year' | 'month' | 'unknown' };
+    const found: Salary[] = [];
 
-    const matches = [...raw.matchAll(/(\d{1,3}(?:[.,]\d{3})*(?:\.\d+)?)\s*([kK])?/g)];
-    const nums = matches
-      .map((m) => {
-        const n = Number(m[1].replace(/[.,]/g, ''));
-        if (!Number.isFinite(n)) return null;
-        return m[2] ? n * 1000 : n;
-      })
-      .filter((n): n is number => n !== null);
+    let match: RegExpExecArray | null;
+    while ((match = tokenRe.exec(text)) !== null) {
+      const numStr = match[1].replace(/[$,\s]/g, '');
+      const suffix = match[2];
+      const unit = (match[3] || '').toLowerCase();
+      let value = Number(numStr);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      if (suffix === 'k' || suffix === 'K') value *= 1000;
+      if (suffix === 'm' || suffix === 'M') value *= 1_000_000;
 
-    if (nums.length === 0) return { min: null, max: null };
+      // Skip known non-salary tokens
+      if (/^401/.test(numStr)) continue;             // "401k"
+      if (value >= 1900 && value <= 2100 && suffix === '') continue; // "2024"
+      if (/(percent|%)/i.test(unit)) continue;
 
-    // If hourly, assume 2,080 hrs/yr to convert to annual.
-    const annualize = (n: number) => (hourly ? Math.round(n * 2080) : Math.round(n));
+      let cadence: Salary['cadence'] = 'unknown';
+      if (/^(hr|hour|hourly|h|per\s*hour)$/i.test(unit)) cadence = 'hour';
+      else if (/^(\/?\s*hr|\/?\s*hour|\/h)$/i.test(unit)) cadence = 'hour';
+      else if (/^(yr|year|annual|annually|per\s*year)$/i.test(unit)) cadence = 'year';
+      else if (/^(mo|month|monthly|per\s*month)$/i.test(unit)) cadence = 'month';
 
-    const usable = nums.filter((n) => (hourly ? n > 5 : n > 1000));
-    if (usable.length === 0) return { min: null, max: null };
-    if (usable.length === 1) {
-      const v = annualize(usable[0]);
-      return { min: v, max: v };
+      // Heuristic if no explicit unit: large number → annual, small → hourly.
+      if (cadence === 'unknown') {
+        if (value >= 5000) cadence = 'year';
+        else if (value >= 5 && value <= 200) cadence = 'hour';
+        else continue; // implausible, skip
+      }
+
+      // Convert everything to annual, dropping implausible values.
+      const annual =
+        cadence === 'hour'  ? Math.round(value * 2080) :
+        cadence === 'month' ? Math.round(value * 12)   :
+                              Math.round(value);
+
+      // Reject obvious garbage outputs.
+      if (annual < 12_000) continue;     // <$12k/yr full-time = unusable
+      if (annual > 750_000) continue;    // >$750k for the kind of role we ingest = parse error
+
+      found.push({ value: annual, cadence });
     }
-    return { min: annualize(Math.min(...usable)), max: annualize(Math.max(...usable)) };
+
+    if (found.length === 0) return { min: null, max: null };
+    const annuals = found.map((f) => f.value);
+    const min = Math.min(...annuals);
+    const max = Math.max(...annuals);
+    return { min, max };
   }
 
   /**

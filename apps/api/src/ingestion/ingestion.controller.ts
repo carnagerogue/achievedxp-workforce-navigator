@@ -1,5 +1,6 @@
 import { Controller, DefaultValuePipe, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { IngestionService } from './ingestion.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Manual-trigger endpoint for dev/testing. Phase 4 will lock this behind
@@ -7,7 +8,10 @@ import { IngestionService } from './ingestion.service';
  */
 @Controller('ingestion')
 export class IngestionController {
-  constructor(private readonly ingestion: IngestionService) {}
+  constructor(
+    private readonly ingestion: IngestionService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post('run')
   runAll() {
@@ -24,5 +28,26 @@ export class IngestionController {
     @Query('min', new DefaultValuePipe(10), ParseIntPipe) min: number,
   ) {
     return this.ingestion.fillStateCoverage(Math.min(Math.max(min, 1), 200));
+  }
+
+  /**
+   * One-shot cleanup: null-out salaries above an implausible threshold
+   * across active jobs. Used after a parser bug to remove obviously-
+   * garbage values until the next ingest re-parses correctly.
+   */
+  @Post('null-bad-salaries')
+  async nullBadSalaries(
+    @Query('over', new DefaultValuePipe(300_000), ParseIntPipe) over: number,
+  ) {
+    const result = await this.prisma.job.updateMany({
+      where: {
+        OR: [
+          { salaryMin: { gt: over } },
+          { salaryMax: { gt: over } },
+        ],
+      },
+      data: { salaryMin: null, salaryMax: null },
+    });
+    return { nulledRows: result.count, threshold: over };
   }
 }

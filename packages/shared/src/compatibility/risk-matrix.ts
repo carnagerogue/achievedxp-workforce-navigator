@@ -80,8 +80,12 @@ const drugDistribution: ConvictionMatrix = {
 const violentOffense: ConvictionMatrix = {
   description: 'High concern in any role with access to children, vulnerable adults, healthcare patients, residents of facilities, or in-home services. Medium concern for customer-facing roles. Low concern for warehouse, construction, manufacturing, sanitation, and supervised labor.',
   rules: [
-    { level: 'high', ruleId: 'vo_children',            keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'daycare', 'youth program', 'after[- ]school'], reason: 'Roles with access to minors require fingerprint-based clearance; violent convictions disqualify.', surface: 'any' },
-    { level: 'high', ruleId: 'vo_vulnerable_adults',   keywords: ['elder care', 'nursing home', 'assisted living', 'residential care', 'long[- ]term care', 'vulnerable adult', 'in[- ]home'], reason: 'Roles serving vulnerable adults / residents typically disqualify violent convictions.', surface: 'any' },
+    // Workplace types — trip on company name (e.g. "Children's Hospital",
+    // "Renton School District 403", "YMCA"). Even back-of-house roles
+    // typically need fingerprint clearance at these workplaces.
+    { level: 'high', ruleId: 'vo_workplace_restricted', keywords: ['school district', 'public schools', 'unified school', 'elementary school', 'middle school', 'high school', 'kindergarten', 'preschool', 'daycare', 'childcare center', 'children\u2019s hospital', 'childrens hospital', 'pediatric', 'ymca', 'ywca', 'boys & girls club', 'boys and girls club', 'head start', 'foster care', 'group home', 'youth correctional', 'juvenile', 'nursing home', 'assisted living', 'memory care'], reason: 'Workplace serves children, residents, or vulnerable populations. Roles at these workplaces typically require fingerprint clearance regardless of duties.', surface: 'any' },
+    { level: 'high', ruleId: 'vo_children',            keywords: ['school', 'teacher', 'k-12', 'youth program', 'after[- ]school'], reason: 'Roles with access to minors require fingerprint-based clearance; violent convictions disqualify.', surface: 'any' },
+    { level: 'high', ruleId: 'vo_vulnerable_adults',   keywords: ['elder care', 'residential care', 'long[- ]term care', 'vulnerable adult', 'in[- ]home', 'home visit'], reason: 'Roles serving vulnerable adults / residents typically disqualify violent convictions.', surface: 'any' },
     { level: 'high', ruleId: 'vo_healthcare_direct',   keywords: ['patient[- ]facing', 'home health', 'caregiver', 'cna', 'personal care aide', 'hospice'], reason: 'Direct patient care roles weigh violent convictions heavily.', surface: 'any' },
     { level: 'high', ruleId: 'vo_security_or_le',      keywords: ['security guard', 'security officer', 'corrections', 'detention', 'police', 'sheriff', 'armed', 'armored'], reason: 'Security / law enforcement / corrections roles disqualify violent convictions.', surface: 'any' },
     { level: 'medium', ruleId: 'vo_customer_facing',   keywords: ['customer service', 'retail', 'cashier', 'host', 'reception', 'front desk', 'concierge'], reason: 'Public-facing roles may consider violent convictions during background review.', surface: 'any' },
@@ -95,12 +99,15 @@ const violentOffense: ConvictionMatrix = {
 const registryRelated: ConvictionMatrix = {
   description: 'Very high concern in restricted environments such as schools, childcare, youth programs, elder care, vulnerable-population settings, hospitals, residential facilities, in-home services, public recreation, parks programs, and unsupervised access to private homes.',
   rules: [
-    { level: 'high', ruleId: 'rr_restricted_minors',    keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'daycare', 'youth program', 'after[- ]school', 'park', 'recreation', 'minor', 'student'], reason: 'Role may involve restricted environments with access to minors. Caseworker or legal review is recommended before applying.', surface: 'any' },
-    { level: 'high', ruleId: 'rr_vulnerable_pop',       keywords: ['elder care', 'nursing home', 'assisted living', 'residential care', 'long[- ]term care', 'vulnerable adult', 'in[- ]home', 'home visit', 'residential access', 'group home'], reason: 'Role may involve vulnerable-population settings or residential access. Additional background review may apply.', surface: 'any' },
-    { level: 'high', ruleId: 'rr_healthcare_direct',    keywords: ['patient[- ]facing', 'home health', 'caregiver', 'hospital', 'clinical', 'cna', 'hospice'], reason: 'Healthcare environments are typically restricted. Caseworker review recommended.', surface: 'any' },
-    { level: 'high', ruleId: 'rr_public_facing_unsup',  keywords: ['transportation', 'rideshare', 'driver', 'delivery into home', 'door[- ]to[- ]door'], reason: 'Roles with unsupervised public / residential access may be restricted.', surface: 'any' },
+    // Workplace types — these trip on COMPANY name as well as title/description
+    // (e.g. "Renton School District 403", "Children's Hospital", "YMCA").
+    { level: 'high', ruleId: 'rr_workplace_restricted', keywords: ['school district', 'public schools', 'school board', 'unified school', 'independent school', 'elementary school', 'middle school', 'high school', 'kindergarten', 'preschool', 'daycare', 'childcare center', 'children\u2019s hospital', 'childrens hospital', 'pediatric', 'ymca', 'ywca', 'boys & girls club', 'boys and girls club', 'head start', 'foster care', 'department of children', 'department of family', 'group home', 'youth services', 'youth correctional', 'juvenile'], reason: 'Workplace is a restricted setting (school, childcare facility, or vulnerable-population provider). Registry-related convictions are typically barred from on-site roles regardless of duties. Caseworker or legal review is required before applying.', surface: 'any' },
+    { level: 'high', ruleId: 'rr_restricted_minors',    keywords: ['school', 'teacher', 'k-12', 'youth program', 'after[- ]school', 'minor', 'student', 'park ranger', 'recreation center'], reason: 'Role environment involves access to minors. Caseworker or legal review is recommended before applying.', surface: 'any' },
+    { level: 'high', ruleId: 'rr_vulnerable_pop',       keywords: ['elder care', 'nursing home', 'assisted living', 'residential care', 'long[- ]term care', 'vulnerable adult', 'in[- ]home', 'home visit', 'residential access', 'memory care', 'rehabilitation center'], reason: 'Workplace serves vulnerable-population settings or grants residential access. Additional background review may apply.', surface: 'any' },
+    { level: 'high', ruleId: 'rr_healthcare_direct',    keywords: ['patient[- ]facing', 'home health', 'caregiver', 'hospital', 'clinical setting', 'cna', 'hospice', 'medical center', 'health system'], reason: 'Healthcare environments are typically restricted. Caseworker review recommended.', surface: 'any' },
+    { level: 'high', ruleId: 'rr_public_facing_unsup',  keywords: ['rideshare', 'school bus', 'school transportation', 'delivery into home', 'door[- ]to[- ]door', 'in[- ]home delivery', 'in[- ]home installation'], reason: 'Roles with unsupervised public / residential access may be restricted.', surface: 'any' },
     { level: 'medium', ruleId: 'rr_customer_facing',    keywords: ['customer service', 'retail', 'host', 'reception'], reason: 'Customer-facing environments may carry restrictions depending on the workplace.', surface: 'any' },
-    { level: 'low',  ruleId: 'rr_low_risk',             keywords: ['warehouse', 'construction', 'manufacturing', 'sanitation', 'cleaning', 'janitorial', 'cook', 'back[- ]of[- ]house', 'remote', 'landscaping'], reason: 'Roles with no vulnerable-population or restricted-site access typically present low concern.', surface: 'any' },
+    { level: 'low',  ruleId: 'rr_low_risk',             keywords: ['warehouse', 'construction', 'manufacturing', 'sanitation', 'cleaning office', 'cook', 'back[- ]of[- ]house', 'remote work', 'landscaping'], reason: 'Roles with no vulnerable-population or restricted-site access typically present low concern.', surface: 'any' },
   ],
   defaultLevel: 'medium',
   defaultReason: 'Restrictions may apply depending on the workplace and applicable state law. Caseworker review recommended.',
@@ -211,15 +218,16 @@ export interface MatrixMatch {
 }
 
 /**
- * Normalize a string so substring matching ignores hyphen-vs-space
- * variation (e.g. "in-home" vs "in home") and case. Whitespace is
- * collapsed but boundaries are preserved.
+ * Normalize a string so substring matching is robust to common
+ * variations: case, hyphen-vs-space, smart vs straight quotes, and
+ * apostrophes (so "Children's" and "Childrens" both reach the matcher).
  */
 function normalize(s: string): string {
   return s
     .toLowerCase()
-    .replace(/[_\-]+/g, ' ')      // hyphens / underscores → space
-    .replace(/\s+/g, ' ')           // collapse whitespace
+    .replace(/[\u2018\u2019\u201A\u201B'\u2032`]/g, '') // strip apostrophes / single quotes (curly + straight)
+    .replace(/[_\-]+/g, ' ')                             // hyphens / underscores → space
+    .replace(/\s+/g, ' ')                                  // collapse whitespace
     .trim();
 }
 
@@ -243,10 +251,16 @@ function expandKeyword(kw: string): string[] {
  * The "worst-case" precedence is: high > medium > low. If multiple high
  * rules match, the first one in the matrix wins (rules are ordered most
  * specific → least specific).
+ *
+ * The "any" surface scans industry + title + COMPANY + description. The
+ * company field matters: a custodian role at "Renton School District 403"
+ * has no "school" keyword in the title — but the company name is the
+ * decisive signal that the workplace is school grounds. Skipping the
+ * company string was the biggest false-negative class in early QA.
  */
 export function evaluateMatrix(
   conviction: ConvictionType,
-  jobInput: { industry?: string | null; title?: string | null; description?: string | null },
+  jobInput: { industry?: string | null; title?: string | null; company?: string | null; description?: string | null },
 ): { worst: MatrixMatch; all: MatrixMatch[]; matrixDescription: string } {
   const matrix = CONVICTION_MATRIX[conviction];
   const corpus: Record<'industry' | 'title' | 'description', string> = {
@@ -254,7 +268,11 @@ export function evaluateMatrix(
     title: normalize(jobInput.title ?? ''),
     description: normalize(jobInput.description ?? ''),
   };
-  const corpusAll = `${corpus.industry}\n${corpus.title}\n${corpus.description}`;
+  const company = normalize(jobInput.company ?? '');
+  // The company string joins the "any"-surface haystack so company-only
+  // signals (e.g. "School District", "Hospital", "Children's Aid") fire
+  // even when the title and description are generic.
+  const corpusAll = `${corpus.industry}\n${corpus.title}\n${company}\n${corpus.description}`;
 
   const all: MatrixMatch[] = [];
 
