@@ -9,6 +9,12 @@ import type { ConvictionDto } from '@dxp/shared';
 import { createUser, upsertProfile } from '../../lib/api';
 import { getUserId, setUserId } from '../../lib/session';
 import { ConvictionForm, newConviction } from '../../components/ConvictionForm';
+import { RichChipPicker } from '../../components/RichChipPicker';
+import {
+  SKILL_CATEGORIES, SKILL_INDEX,
+  CERT_CATEGORIES, CERT_INDEX,
+  INDUSTRY_CATEGORIES, INDUSTRY_INDEX,
+} from '../../lib/catalogs';
 import { useToast } from '../../components/Toast';
 
 // Reference data — mirrors apps/api/prisma/seed.ts so skill/cert/industry
@@ -301,13 +307,37 @@ export default function OnboardingPage() {
         {step.id === 'goals' && (
           <>
             <FieldGroup title="Skills you bring" Icon={Wrench}>
-              <ChipGroup options={SKILL_OPTIONS}     selected={state.skills}         onToggle={(v) => toggle('skills', v)} />
+              <RichChipPicker
+                categories={SKILL_CATEGORIES}
+                index={SKILL_INDEX}
+                selected={state.skills}
+                onToggle={(v) => toggle('skills', v)}
+                onClear={() => setState((p) => ({ ...p, skills: new Set() }))}
+                itemNoun="skill"
+                recommendedMax={8}
+              />
             </FieldGroup>
             <FieldGroup title="Certifications you've earned" Icon={Award}>
-              <ChipGroup options={CERT_OPTIONS}      selected={state.certifications} onToggle={(v) => toggle('certifications', v)} />
+              <RichChipPicker
+                categories={CERT_CATEGORIES}
+                index={CERT_INDEX}
+                selected={state.certifications}
+                onToggle={(v) => toggle('certifications', v)}
+                onClear={() => setState((p) => ({ ...p, certifications: new Set() }))}
+                itemNoun="certification"
+              />
             </FieldGroup>
             <FieldGroup title="Industries you want to work in" Icon={Factory}>
-              <ChipGroup options={INDUSTRY_OPTIONS}  selected={state.desiredIndustries} onToggle={(v) => toggle('desiredIndustries', v)} />
+              <RichChipPicker
+                categories={INDUSTRY_CATEGORIES}
+                index={INDUSTRY_INDEX}
+                selected={state.desiredIndustries}
+                onToggle={(v) => toggle('desiredIndustries', v)}
+                onClear={() => setState((p) => ({ ...p, desiredIndustries: new Set() }))}
+                itemNoun="industry"
+                allowCustom={false}
+                recommendedMax={4}
+              />
             </FieldGroup>
           </>
         )}
