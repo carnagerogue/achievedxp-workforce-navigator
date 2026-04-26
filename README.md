@@ -1,130 +1,474 @@
 # AchieveDXP Workforce Navigator
 
-Production-grade job aggregation + matching platform for justice-impacted individuals.
-This repo is a **pnpm monorepo** containing a NestJS API (and, in Phase 3, a Next.js frontend).
+A production-grade job aggregation and matching platform built specifically for justice-impacted individuals. Real postings from federal, private-sector, and remote job boards are scored against each candidate's profile **and** their conviction history using two deterministic, fully auditable engines — never a black box.
 
-## Phase 1 — What's built
+The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)** with **1,800+** real postings ingested from four providers and **40+ Department of Labor data feeds** powering occupation, wage, training, and reentry-program lookups.
 
-| Area | Status |
-| --- | --- |
-| Monorepo + Docker Compose (Postgres 16, Redis 7) | ✅ |
-| NestJS API with Prisma + strict TS | ✅ |
-| All 8 core tables with indexes: `users`, `user_profiles`, `jobs`, `job_sources`, `job_raw_ingestion`, `job_scores`, `skills`, `certifications` | ✅ |
-| Ingestion pipeline (provider interface + mock provider + normalizer + dedup) | ✅ |
-| REST endpoints: `/users`, `/profile`, `/jobs`, `/matches/:userId`, `/ingestion/run` | ✅ |
-| Scheduled ingestion (cron + on-boot flag) | ✅ |
-| Shared `@dxp/shared` types package | ✅ |
-| Rule-based scoring, classification, frontend | ⏳ Phase 2 / 3 |
+---
 
-## Prerequisites
+## What problem this solves
 
-- Node.js **20+**
-- pnpm **9+** (`npm i -g pnpm`)
-- Docker + Docker Compose
+People with criminal records routinely encounter two failure modes in mainstream job search:
 
-## Local setup
+1. **Black-box rankings.** They apply to dozens of jobs only to be rejected after the background check. No one tells them *why* in advance.
+2. **Stigmatizing UX.** Onboarding flows force them to disclose conviction details using language ("sex offender," "violent felon") that strips dignity before they've even built a profile.
 
-```bash
-# 1. Clone & install
-cd workforce-navigator
-pnpm install
+This platform inverts both:
 
-# 2. Copy env file
-cp .env.example .env
+- **Every score is explainable.** Each component contributes a known number of points; each rule that fires is recorded in an audit trail; a caseworker can reproduce any ranking by hand.
+- **Dignity-centered terminology throughout.** Internal enums and user-facing labels both use neutral phrasing (`registry_related`, "Registry-related conviction") with no exceptions.
+- **Conviction-to-duty matching, not blanket exclusion.** Selecting "violent offense" doesn't hide all jobs — it scores each job against the *specific duties* of that conviction class, and shows the chance band (Strong / Possible / Challenging) with full reasons.
 
-# 3. Start Postgres + Redis
-pnpm docker:up
+---
 
-# 4. Generate Prisma client + run migrations
-pnpm db:generate
-pnpm db:migrate            # creates initial migration
+## Live deployment
 
-# 5. Seed reference data (sources, skills, certs)
-pnpm db:seed
+| Surface | URL |
+|---|---|
+| Web app | https://web-production-059d02.up.railway.app |
+| API | https://api-production-6ccf.up.railway.app/api/v1 |
+| API docs (Swagger) | https://api-production-6ccf.up.railway.app/api/docs |
+| GitHub | https://github.com/carnagerogue/achievedxp-workforce-navigator |
 
-# 6. Start the API (runs ingestion on boot, populates ~50 mock jobs)
-pnpm dev
-# → http://localhost:3001/api/v1
-```
+---
 
-## Verifying it works
-
-```bash
-# health
-curl http://localhost:3001/api/v1/health
-
-# list jobs (should have ~50 mock rows after first boot)
-curl "http://localhost:3001/api/v1/jobs?limit=5"
-
-# create a user
-curl -X POST http://localhost:3001/api/v1/users \
-  -H 'content-type: application/json' \
-  -d '{"email":"test@example.com","displayName":"Test User"}'
-
-# upsert profile (use the userId returned above)
-curl -X POST http://localhost:3001/api/v1/profile \
-  -H 'content-type: application/json' \
-  -d '{
-    "userId":"<USER_ID>",
-    "locationRegion":"OH",
-    "yearsExperience":3,
-    "hasTransportation":true,
-    "hasFelonyRecord":true,
-    "skills":["forklift_operation","warehouse_operations"],
-    "certifications":["osha_10","forklift"],
-    "desiredIndustries":["warehousing","construction"]
-  }'
-
-# matches (Phase 1: placeholder scores; real scoring arrives in Phase 2)
-curl "http://localhost:3001/api/v1/matches/<USER_ID>?limit=10"
-
-# manually trigger an ingestion run
-curl -X POST http://localhost:3001/api/v1/ingestion/run
-```
-
-## Project layout
+## Repository layout
 
 ```
 workforce-navigator/
 ├── apps/
-│   └── api/                         NestJS API
-│       ├── prisma/
-│       │   ├── schema.prisma        8 tables, indexes, enums
-│       │   └── seed.ts              reference data (sources, skills, certs)
-│       └── src/
-│           ├── main.ts              bootstrap, global pipes, CORS, prefix
-│           ├── app.module.ts        wires all feature modules
-│           ├── health.controller.ts /health (DB ping)
-│           ├── prisma/              PrismaService (global)
-│           ├── users/               POST/GET users
-│           ├── profiles/            POST/GET profile
-│           ├── jobs/                GET /jobs, GET /jobs/:id
-│           ├── matches/             GET /matches/:userId  (Phase 1 stub)
-│           └── ingestion/
-│               ├── providers/
-│               │   ├── job-provider.interface.ts   stable contract
-│               │   └── mock.provider.ts            dev data source
-│               ├── ingestion.service.ts            fetch → raw → normalize → dedup
-│               └── ingestion.controller.ts         POST /ingestion/run
+│   ├── api/                         NestJS 10 API
+│   │   ├── prisma/                  schema + migrations + seed
+│   │   └── src/
+│   │       ├── assessment/          O*NET RIASEC interest profiler
+│   │       ├── careeronestop/       DOL CareerOneStop wrapper (27 endpoints)
+│   │       ├── classification/      Job classifier (industry / risk / federal-suitability)
+│   │       ├── ingestion/           Provider pipeline
+│   │       │   └── providers/       USAJobs / Adzuna / Remotive / Jooble
+│   │       ├── jobs/                List / get / stats endpoints
+│   │       ├── location/            ZIP → city/state expansion
+│   │       ├── matches/             Personalization scoring + buckets
+│   │       ├── profiles/            User profiles + convictions
+│   │       └── scoring/             Per-user rule scorer + offense filters
+│   └── web/                         Next.js 14 App Router frontend
+│       ├── app/                     Page routes (jobs, dashboard, etc.)
+│       ├── components/              Shared UI (RiskBadge, JobCard, CompatibilityDrawer)
+│       └── lib/                     API client, formatters, hooks
 ├── packages/
-│   └── shared/                      JobDto, MatchDto, PaginatedJobsDto
-└── docker/
-    └── docker-compose.yml           Postgres 16 + Redis 7
+│   └── shared/
+│       ├── src/
+│       │   ├── compatibility/       Conviction-aware compatibility engine
+│       │   │   ├── types.ts         ConvictionType, CompatibilityRating, ScoreComponent
+│       │   │   ├── risk-matrix.ts   10 conviction × duty matrices
+│       │   │   ├── signals.ts       Hard-barrier + fair-chance phrase detection
+│       │   │   ├── industry-sensitivity.ts
+│       │   │   ├── scoring.ts       Main weighted scorer (7 components, 100 pts)
+│       │   │   ├── explanations.ts  Summary / risk factors / chance improvers
+│       │   │   └── __tests__/       21 acceptance tests
+│       │   └── index.ts             Shared DTOs (JobDto, ConvictionDto, etc.)
+├── docker/                          Local Postgres + Redis compose
+├── deploy-railway*.mjs              Provisioning scripts
+└── package.json                     pnpm workspace root
 ```
 
-## Adding a new job source (Phase 4 gets easier thanks to this shape)
+---
 
-1. Add a provider class implementing `JobProvider` from
-   `src/ingestion/providers/job-provider.interface.ts`.
-2. Register it in `IngestionModule` (`useFactory` provider array).
-3. Add a row to `job_sources` (update `seed.ts`).
+## Tech stack
 
-No core pipeline changes required.
+| Layer | Tech |
+|---|---|
+| API | NestJS 10, TypeScript 5 (strict), Prisma 5 |
+| Web | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide icons |
+| Database | PostgreSQL 16 |
+| Cache | Redis 7 |
+| Shared | `@dxp/shared` workspace package — DTOs + the compatibility engine (pure TS, runs server-side and in the browser) |
+| Tests | Jest |
+| Hosting | Railway (4 services: API, Web, Postgres, Redis) |
 
-## Scaling notes (already in place)
+---
 
-- Raw payloads stored verbatim in `job_raw_ingestion` (jsonb) — safe to re-normalize.
-- Canonical `jobs` deduped by sha256(`company|title|region|externalId`) — stable hash, cross-source.
-- Indexes on `(industry, locationRegion, postedAt desc)`, `(status, postedAt desc)`, `(riskTier)`.
-- Per-user scores stored with `@@unique([userId, jobId])` + `(userId, score desc)` index — cheap top-K reads.
-- `@nestjs/schedule` handles cron for now; Phase 4 swaps in Redis + BullMQ (already provisioned).
+## The two scoring engines
+
+The platform runs two deterministic engines that answer two different questions.
+
+### 1. Personalization scorer (existing, server-side)
+
+**Question:** "Is this user a good fit for this job in general?"
+
+Lives in `apps/api/src/scoring/rule.scorer.ts`. Powers the **Dashboard** (`/dashboard`) — the personalized Top / Medium / Avoid buckets at `GET /matches/:userId`. Six components × weights summing to 100:
+
+| Component | Max | What it measures |
+|---|---:|---|
+| Industry fit | 25 | Match against `desiredIndustries` + RIASEC bonus |
+| Skills | 25 | % of `requiredSkills` user has |
+| Certifications | 15 | % of `requiredCertifications` user has |
+| Experience | 15 | `yearsExperience` vs `minYearsExperience` |
+| Location | 10 | ZIP / region match + relocation willingness |
+| Risk tier | 10 | classifier output + years since release |
+
+Hard filters (federal suitability, offense × industry bars, currently incarcerated, restricted industries) drop a job into the **Avoid** bucket regardless of score, with a specific reason attached.
+
+### 2. Conviction-aware compatibility engine (new, runs in the browser)
+
+**Question:** "Given this specific conviction, what's the realistic chance for this specific role?"
+
+Lives in `packages/shared/src/compatibility/`. Triggered when a user picks a conviction in the `/jobs` filter — every visible job is rescored client-side and re-ranked instantly. Seven components × weights summing to 100:
+
+| Component | Max | What it measures |
+|---|---:|---|
+| Conviction-to-duty relevance | **30** | Does this conviction conflict with the role's specific duties? (e.g. drug-distribution + pharmacy access = high; drug-distribution + warehousing = low) |
+| Hard-barrier signals | **25** | "clean background required," "CJIS," "fingerprinting required," etc. |
+| Employer fair-chance posture | 15 | Positive (fair-chance language) → neutral → strict → very_strict |
+| Industry sensitivity | 10 | 0-4 table per industry (childcare = 4, construction = 0) |
+| Time since conviction/release | 10 | <1y, 1-3y, 3-7y, 7+y bands; +bonus if expunged; -penalty if pending charges |
+| Candidate strength offset | 5 | Recognized certs (OSHA, CDL, NCCER…) + relevant industry experience |
+| Location protections | 5 | State fair-chance laws (CA/NY/IL/MA/WA strong; 12 states some) |
+
+**Score floors** prevent strong components from drowning out hard duty conflicts:
+- Critical hard barrier → cap at 44
+- High duty conflict in sensitive industry (≥3) → cap at 44
+- Any high duty conflict → cap at 60
+
+**Output:** `0–100` score → chance band (`high ≥ 75`, `medium 45–74`, `low < 45`) → label (Strong / Possible / Challenging Match) — plus risk factors, positive factors, possible barriers, chance improvers, recommended next step, caseworker notes, and a full audit trail of every rule that fired.
+
+#### Conviction types
+
+The engine supports 10 conviction classes, each with its own risk matrix:
+
+| Internal | User-facing label |
+|---|---|
+| `drug_possession` | Drug possession-related conviction |
+| `drug_distribution` | Drug distribution-related conviction |
+| `violent_offense` | Violence-related conviction |
+| `registry_related` | Registry-related conviction |
+| `property_theft` | Property or theft-related conviction |
+| `burglary` | Burglary-related conviction |
+| `financial_fraud` | Financial fraud-related conviction |
+| `weapons_related` | Weapons-related conviction |
+| `dui_dwi` | DUI/DWI-related conviction |
+| `other` | Other conviction |
+
+The engine is unit-tested with 21 acceptance cases covering every conviction × duty combination called out in the spec, plus determinism and terminology checks.
+
+---
+
+## Job ingestion (4 providers)
+
+| Provider | Auth | Notes |
+|---|---|---|
+| **USAJobs** | API key + email user-agent | Federal civilian listings |
+| **Adzuna** | App ID + App Key | Private-sector aggregator |
+| **Remotive** | None | Remote-friendly postings, US-filterable |
+| **Jooble** | API key in URL path | Meta-aggregator over Indeed/Monster/ZipRecruiter |
+
+Each provider implements a single interface (`apps/api/src/ingestion/providers/job-provider.interface.ts`):
+
+```ts
+interface JobProvider {
+  readonly code: string;                          // matches job_sources.code
+  fetch(): Promise<RawJobPayload[]>;              // pull raw postings
+  normalize(raw: unknown): CanonicalJob;          // map to our shape
+}
+```
+
+Adding a new source = **one class + one seed row**. The classifier, scorer, and dedup pipeline pick it up automatically.
+
+### Classification + dedup
+
+Every ingested job is classified before insert:
+
+- **Industry** detected from title + description keywords
+- **Risk tier** (LOW / MEDIUM / HIGH) from industry × keyword rules
+- **Background check likely** from posting language
+- **Excludes felons** from explicit phrases AND federal-employer detection
+- **Apprenticeship** flag from title/description markers
+
+The federal-employer override is conservative by design: if the employer name matches military, federal law-enforcement, BoP, or installation patterns (Fort, AFB, NAS, MCAS, Joint Base, Pearl Harbor, etc.), the job is forced to `riskTier=HIGH` + `excludesFelons=true`. Better to flag a federal civilian job that *might* accept a felony than to mislead a candidate into wasting an application.
+
+Deduplication uses a `(title, company, locationCity, locationRegion)` hash so the same role from multiple aggregators only lands once.
+
+---
+
+## CareerOneStop integration (27 endpoints)
+
+The U.S. Department of Labor's **CareerOneStop** API gives us authoritative reentry, wage, training, and licensing data. We wrap every public endpoint listed at https://www.careeronestop.org/Developers/WebAPI/technical-information.aspx:
+
+**Local help**
+- `GET /careeronestop/centers` — American Job Centers near a ZIP
+- `GET /careeronestop/reentry` — reentry programs (filtered + all)
+- `GET /careeronestop/apprenticeships` — state apprenticeship offices
+- `GET /careeronestop/boards` — Workforce Development Boards
+- `GET /careeronestop/youth-programs` — WIOA youth programs
+- `GET /careeronestop/state-resources` — state agency contacts
+
+**Occupations**
+- `GET /careeronestop/occupation` — full O*NET profile (tasks, skills, knowledge, abilities, wages, projections)
+- `GET /careeronestop/occupations/search` — keyword search
+- `GET /careeronestop/occupations/report` — Fastest Growing / Most Openings / etc.
+
+**Wages / LMI**
+- `GET /careeronestop/wages` — BLS percentiles
+- `GET /careeronestop/wages/by-location` — multi-state comparison
+- `GET /careeronestop/lmi/occupation` — detailed labor-market data
+- `GET /careeronestop/employment-patterns` — industries that hire this occupation
+- `GET /careeronestop/unemployment` — BLS LAUS rates
+- `GET /careeronestop/ui-website` — state UI site
+
+**Licenses + certifications**
+- `GET /careeronestop/licenses` — state licensing requirements
+- `GET /careeronestop/certifications` — industry-recognized certs
+- `GET /careeronestop/licenses/:id`, `/certifications/:id`
+
+**Training**
+- `GET /careeronestop/training` — local training programs (ETPL + IPEDS)
+- `GET /careeronestop/training/institutions` — community colleges, technical schools
+
+**Skills**
+- `GET /careeronestop/skills-matcher/questions` — 40 standard skills
+- `POST /careeronestop/skills-matcher/submit` — score a candidate's ratings → ranked occupations
+- `GET /careeronestop/skills-gaps` — between two O*NET codes
+- `GET /careeronestop/tools/by-occupation`, `/tools/by-keyword`
+
+**Other**
+- `GET /careeronestop/jobs` — National Labor Exchange postings
+- `GET /careeronestop/job-description` — DOL Job Description Writer templates
+- `GET /careeronestop/associations` — professional associations
+- `GET /careeronestop/location/validate` — canonical city/state resolution
+
+All cached server-side with endpoint-specific TTLs (6 hours for AJCs/reentry, 24h for LMI, 60s for failures). Credentials never reach the browser.
+
+---
+
+## Database schema
+
+8 core tables (Postgres + Prisma). Highlights:
+
+| Table | Purpose |
+|---|---|
+| `users` | Email + display name |
+| `user_profiles` | First/last name, location, RIASEC scores, transportation, restricted industries |
+| `convictions` | Structured conviction history per profile (category, offenseType, year, supervision state, registry status) |
+| `jobs` | Canonical job rows with classifier output + dedup hash |
+| `job_sources` | Provider registry (`usajobs`, `adzuna`, `remotive`, `jooble`) |
+| `job_raw_ingestion` | Raw provider payloads — kept verbatim so we can re-normalize after rule changes |
+| `job_scores` | Cached personalization scores (per-user, per-job) |
+| `skills`, `certifications` | Lookup tables for the canonical skill/cert codes used in matching |
+
+The `OffenseType` enum uses **`REGISTRY_RELATED`** — never the older stigmatizing value. A non-destructive migration `ALTER TYPE` renames any historic rows in place.
+
+---
+
+## Local development
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm 9+ (`npm i -g pnpm`)
+- Docker + Docker Compose
+
+### Setup
+
+```bash
+# 1. Clone and install
+git clone https://github.com/carnagerogue/achievedxp-workforce-navigator.git
+cd achievedxp-workforce-navigator
+pnpm install
+
+# 2. Configure environment
+cp .env.example .env
+cp apps/web/.env.local.example apps/web/.env.local
+# Edit .env to add your API keys (USAJOBS, ADZUNA, JOOBLE, COS_*)
+
+# 3. Start Postgres + Redis
+pnpm docker:up
+
+# 4. Migrate + seed
+pnpm db:migrate
+pnpm db:seed
+
+# 5. Run the API and web in two terminals
+pnpm dev          # API at http://localhost:3001
+pnpm dev:web      # Web at http://localhost:3000
+```
+
+### Useful scripts
+
+```bash
+pnpm dev                          # API in watch mode
+pnpm dev:web                      # Next.js dev server
+pnpm build                        # Production build
+pnpm db:migrate                   # Apply pending migrations
+pnpm db:seed                      # Seed JobSource / skills / certifications
+pnpm docker:up                    # Postgres + Redis containers
+pnpm docker:down                  # Stop containers
+pnpm --filter @dxp/shared test    # Run compatibility-engine tests (21 cases)
+pnpm --filter api build           # Build just the API
+pnpm --filter web build           # Build just the web app
+```
+
+### Triggering ingestion locally
+
+```bash
+# Once the API is running:
+curl -X POST http://localhost:3001/api/v1/ingestion/run
+# Returns per-provider counts: { source, fetched, inserted, duplicates, failed }
+```
+
+`INGEST_RUN_ON_BOOT=true` in `.env` makes the API run a single ingestion at startup — handy for fresh DBs.
+
+---
+
+## Environment variables
+
+See `.env.example` for the full list. Critical ones:
+
+```bash
+# Postgres / Redis (Docker Compose defaults shown)
+DATABASE_URL=postgresql://dxp:dxp_dev_password@localhost:5432/workforce_navigator
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# USAJobs — register at developer.usajobs.gov
+USAJOBS_ENABLED=true
+USAJOBS_API_KEY=...
+USAJOBS_USER_AGENT=your@email.com
+
+# Adzuna — developer.adzuna.com
+ADZUNA_ENABLED=true
+ADZUNA_APP_ID=...
+ADZUNA_APP_KEY=...
+
+# Remotive — no auth
+REMOTIVE_ENABLED=true
+
+# Jooble — jooble.org/api/about (default 500 req/month)
+JOOBLE_ENABLED=true
+JOOBLE_API_KEY=...
+
+# CareerOneStop — register at careeronestop.org/Developers/WebAPI/registration.aspx
+COS_USER_ID=...
+COS_TOKEN=...
+```
+
+---
+
+## API reference
+
+A few representative endpoints. Full Swagger UI at https://api-production-6ccf.up.railway.app/api/docs.
+
+```
+GET  /api/v1/health                                  → { status, db, uptimeSeconds }
+GET  /api/v1/jobs?postalCode=43215&radiusMiles=50    → paginated jobs
+GET  /api/v1/jobs/stats                              → totals + breakdowns by source/industry/region
+GET  /api/v1/jobs/:id                                → single job
+GET  /api/v1/jobs/:id/similar                        → similar jobs
+
+POST /api/v1/users                                   → create user
+POST /api/v1/profile                                 → create/update profile (incl. convictions)
+POST /api/v1/assessment/:userId                      → submit RIASEC answers, get Holland code + occupations
+GET  /api/v1/matches/:userId                         → personalized top/medium/avoid buckets
+GET  /api/v1/matches/:userId/insights                → which certs/skills unlock the most new matches
+
+GET  /api/v1/careeronestop/centers?location=43215    → 16 OhioMeansJobs centers
+GET  /api/v1/careeronestop/wages?onet=53-3032.00     → BLS percentiles for Heavy Truck Drivers
+GET  /api/v1/careeronestop/occupation?onet=...       → full O*NET profile
+
+POST /api/v1/ingestion/run                           → trigger immediate ingest
+POST /api/v1/classify/backfill                       → re-classify every existing job
+```
+
+The list-jobs endpoint accepts `offenseType=DRUG_POSSESSION|...|REGISTRY_RELATED|...` to apply server-side hard filters. The legacy value `SEX_OFFENSE` is rejected with HTTP 400.
+
+---
+
+## Testing
+
+```bash
+pnpm --filter @dxp/shared test
+```
+
+Runs the 21-case acceptance suite for the compatibility engine. Each case maps to a line item in the engine spec:
+
+- DUI + CDL driver → Low Chance
+- Property/theft + bank teller → Low Chance
+- Property/theft + construction laborer → High Chance
+- Violence + childcare → Low Chance
+- Registry-related + school → Low Chance
+- Drug distribution + pharmacy tech → Low Chance
+- Weapons + security guard → Low Chance
+- Clean-record phrase significantly lowers score
+- Fair-chance language improves but doesn't override hard barriers
+- Expunged/sealed improves but doesn't erase hard legal barriers
+- 7+ year-old conviction improves score
+- Pending charges reduce score
+- ...plus terminology and determinism checks
+
+A full-site QA harness lives at `qa-full-site.py` (in the parent AchieveDXP folder). It exercises every Web page, every API endpoint, every CareerOneStop wrapper, runs an end-to-end persona walkthrough, and re-runs the unit tests — 63 checks total. Run with:
+
+```bash
+PYTHONIOENCODING=utf-8 python qa-full-site.py
+```
+
+---
+
+## Deployment (Railway)
+
+The platform runs on Railway with four services in a single project:
+
+- **API** — Dockerfile build from `apps/api/`, `prisma migrate deploy` + seed on boot
+- **Web** — Dockerfile build from `apps/web/` with Next.js standalone output
+- **Postgres** — `ghcr.io/railwayapp-templates/postgres-ssl:16` with a 1 GB volume at `/var/lib/postgresql/data`
+- **Redis** — `redis:7-alpine`
+
+Each app service uses Debian-slim base images (not Alpine) — Prisma's binary engine ships only for glibc + OpenSSL, and Alpine's musl + OpenSSL 3 caused runtime crashes.
+
+To redeploy:
+
+```bash
+# From workforce-navigator/
+railway up --service api --detach --ci
+railway up --service web --detach --ci
+```
+
+Future deploys can be wired through the Railway GitHub App for push-to-deploy. Today we use direct upload via the CLI because the GitHub App authorization step is manual.
+
+---
+
+## Extension points
+
+Designed for incremental growth without breaking changes:
+
+| Want to | Edit |
+|---|---|
+| Add a job source | new `apps/api/src/ingestion/providers/<name>.provider.ts` + register in `ingestion.module.ts` + add a row to `prisma/seed.ts` |
+| Add an offense × industry bar | append a rule to `OFFENSE_FILTER_RULES` in `apps/api/src/scoring/offense-filters.ts` |
+| Add a hard-barrier phrase | add a `PatternRule` to `HARD_BARRIER_PATTERNS` in `packages/shared/src/compatibility/signals.ts` |
+| Add a fair-chance phrase | same file, `FAIR_CHANCE_PATTERNS` array |
+| Tune a score weight | `SCORE_WEIGHTS` in `packages/shared/src/compatibility/types.ts`. Tests will catch drift. |
+| Add a conviction × duty rule | `CONVICTION_MATRIX[<type>].rules` in `packages/shared/src/compatibility/risk-matrix.ts` |
+| Tune industry sensitivity | `INDUSTRY_SENSITIVITY` map in the same folder |
+| Add state fair-chance protections | `scoreLocationProtections` in `packages/shared/src/compatibility/scoring.ts` (currently a hand-curated state list — TODO: expand with full state-by-state law tables) |
+| Add a CareerOneStop endpoint | new method on `CareerOneStopService` + a thin route on `CareerOneStopController` |
+
+Every rule fires through the audit trail — flip on / off without changing the engine.
+
+---
+
+## Limitations and TODOs
+
+| Area | Status | Notes |
+|---|---|---|
+| State fair-chance law table | Static (5 states "strong", 12 "some") | Expand with codified Fair Chance Acts, licensing-board disqualification lists, expungement timing by state |
+| Employer outcome feedback | Not yet wired | Future: feed application outcomes back to refine `employerFairChancePosture` per employer |
+| CareerOneStop NLX `/jobs` | Returns 404 from upstream for some queries | URL template uncertain; supplementary to our 4 providers |
+| Real-time search | Filter changes are in-memory client-side | Works fine at 50 jobs/page; >500 would push to API |
+| Federal-suitability nuance | VA classified the same as DoD | VA Title 5 roles are often more accessible than military; could add a separate "federal civilian non-military" tier |
+| Authentication | JWT scaffolded but not enforced | Phase 8 — add auth guards before any prod usage |
+
+---
+
+## License + credits
+
+Built for **Achieve DXP**. Job postings sourced from public APIs (USAJobs, Adzuna, Remotive, Jooble, CareerOneStop). Logos and trademarks of third-party employers belong to their respective owners. The platform is informational and does not predict any specific employer's hiring decision.
+
+Compatibility engine wording rules deliberately avoid stigmatizing terminology in every user-facing surface. If you find a word that doesn't meet that bar, open an issue.
