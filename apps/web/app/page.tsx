@@ -29,9 +29,9 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              We aggregate postings from federal, private-sector, and remote job boards and score
-              each one against your profile. You see the top matches, medium-fit options, and the
-              ones worth skipping — every ranking explained in plain English.
+              We aggregate postings from USAJobs, Adzuna, Remotive, and Jooble — and score every
+              role against your profile and your conviction history. You see strong, possible,
+              and challenging matches, with every ranking explained in plain English.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -64,24 +64,24 @@ export default function LandingPage() {
       {/* ─────────── Value props ─────────── */}
       <section className="mt-12 grid gap-5 sm:grid-cols-3">
         <Feature
+          Icon={ShieldCheck}
+          eyebrow="Conviction-aware"
+          title="Compatibility, not stigma"
+          body="Pick a conviction type and every job is rescored against the specific duties of the role. You get a Strong / Possible / Challenging Match chip with a full audit trail and caseworker-friendly notes."
+          tone="sunset"
+        />
+        <Feature
           Icon={Sparkles}
           eyebrow="Scoring"
           title="Transparent by design"
-          body="Every match shows industry fit, skills, certifications, experience, location, and risk as individual chips. No hidden logic."
+          body="Industry fit, skills, certifications, experience, location, risk — every component shown as a chip. No hidden logic. Same rules for everyone."
           tone="teal"
-        />
-        <Feature
-          Icon={ShieldCheck}
-          eyebrow="Fair chance"
-          title="Second-chance aware"
-          body="Hard filters remove roles that require a clean record — and explain why. Browse by conviction type to see what fits."
-          tone="sunset"
         />
         <Feature
           Icon={GraduationCap}
           eyebrow="Growth"
           title="Plan-aligned"
-          body="See which certifications unlock the most new matches. Close specific skill gaps on your dashboard."
+          body="Live Department of Labor data: nearby American Job Centers, reentry programs, BLS wages, state licensing rules, and apprenticeship offices."
           tone="navy"
         />
       </section>
@@ -100,8 +100,8 @@ export default function LandingPage() {
 
         <ol className="mt-8 grid gap-6 sm:grid-cols-3">
           <Step n={1} title="Build your profile" body="Location, skills, certifications, and (optionally) a structured conviction history so we apply the right filters." />
-          <Step n={2} title="We score every posting" body="Rule-based match across six components. Same rules for everyone — auditable by a caseworker." />
-          <Step n={3} title="Apply with context" body="Top / Medium / Avoid buckets on your dashboard. Each card explains the rating in plain English." />
+          <Step n={2} title="We score every posting" body="Two engines: a personalization scorer for your overall fit, and a conviction-aware compatibility engine that re-ranks roles against your specific history. Both deterministic, both auditable." />
+          <Step n={3} title="Apply with context" body="Strong / Possible / Challenging Match chips, full audit trails, recommended next steps, and caseworker notes. No black box." />
         </ol>
       </section>
 
@@ -136,15 +136,6 @@ export default function LandingPage() {
 
 // ───────── pieces ─────────
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <dt className="text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">{value}</dt>
-      <dd className="mt-1 text-xs uppercase tracking-wide text-slate-500">{label}</dd>
-    </div>
-  );
-}
-
 type LucideIcon = typeof Sparkles;
 function Feature({
   Icon, eyebrow, title, body, tone,
@@ -178,61 +169,61 @@ function Step({ n, title, body }: { n: number; title: string; body: string }) {
 }
 
 /**
- * Static preview of a dashboard-style card. Decorative — doesn't fetch real
- * data. Gives landing visitors an instant sense of what the app produces.
+ * Static preview of a job-card with the new compatibility engine UI.
+ * Decorative — doesn't fetch real data — but every label and signal here
+ * is faithful to what the live Browse Jobs page actually produces.
+ *
+ * Example role chosen to demonstrate the compatibility engine without
+ * misrepresenting any real employer:
+ *   - Apprentice Carpenter (real apprenticeship-tagged role from our feed)
+ *   - Property/theft-related conviction selected
+ *   - Engine output: Possible Match · 68% — construction industry has
+ *     low sensitivity, but the role lists "valid driver's license"
+ *     which dings the score slightly. This mirrors the actual scoring
+ *     behavior and shows the audit-friendly explanations.
  */
 function HeroPreview() {
   return (
     <div className="relative h-full min-h-[340px]">
-      {/* Floating match % ring */}
-      <div className="absolute -right-4 -top-4 z-10 animate-slide-up rounded-2xl border border-slate-200 bg-white p-3 shadow-card-hover">
-        <div className="flex items-center gap-2.5">
-          <div className="relative flex h-12 w-12 items-center justify-center">
-            <svg viewBox="0 0 48 48" className="-rotate-90">
-              <circle cx="24" cy="24" r="20" stroke="#e2e8f0" strokeWidth="4" fill="none" />
-              <circle
-                cx="24" cy="24" r="20"
-                stroke="#0f8a82" strokeWidth="4" fill="none"
-                strokeLinecap="round"
-                strokeDasharray="125.66"
-                strokeDashoffset="18.8"
-              />
-            </svg>
-            <span className="absolute text-sm font-bold text-teal-700">85</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Match</p>
-            <p className="text-xs font-semibold text-navy-900">Strong fit</p>
-          </div>
-        </div>
+      {/* Floating chance pill */}
+      <div className="absolute -right-4 -top-4 z-10 animate-slide-up rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 shadow-card-hover">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">Compatibility</p>
+        <p className="text-sm font-bold text-amber-800">Possible Match · 68%</p>
+        <p className="text-[10px] text-amber-700">scored against property/theft conviction</p>
       </div>
 
       {/* Main card */}
       <div className="relative animate-slide-up rounded-2xl border border-slate-200 bg-white p-5 shadow-card-hover">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-navy-200 bg-navy-50 px-2 py-0.5 text-[10px] font-medium text-navy-700">USAJobs</span>
-              <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700">Second-chance friendly</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="rounded-full border border-navy-200 bg-navy-50 px-2 py-0.5 text-[10px] font-medium text-navy-700">Adzuna</span>
+              <span className="rounded-full border border-sunset-200 bg-sunset-50 px-2 py-0.5 text-[10px] font-medium text-sunset-700">Apprenticeship</span>
             </div>
-            <h4 className="mt-2 text-base font-semibold text-navy-900">Forklift Operator</h4>
+            <h4 className="mt-2 text-base font-semibold text-navy-900">Apprentice Carpenter</h4>
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-600">
-              <Building2 className="h-3.5 w-3.5" /> Defense Logistics Agency
+              <Building2 className="h-3.5 w-3.5" /> Local 1750 Carpenters Union
               <span className="text-slate-300">·</span>
-              <MapPin className="h-3.5 w-3.5" /> Toledo, OH
+              <MapPin className="h-3.5 w-3.5" /> Columbus, OH
             </p>
           </div>
         </div>
 
         <p className="mt-3 rounded-lg bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-700">
-          <span className="font-semibold text-slate-900">Why this matches:</span>{' '}
-          warehousing aligns with your target industries; all required skills present;
-          OSHA 10 certification met; located in your region (OH).
+          <span className="font-semibold text-slate-900">Why this score:</span>{' '}
+          construction has minimal regulatory scrutiny, no clean-record language detected,
+          and the role doesn&rsquo;t involve cash or inventory custody. Posting requires a valid
+          driver&rsquo;s license — minor dock.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-1">
-          {[['industry','25/25'],['skills','25/25'],['certs','15/15'],['experience','15/15'],['location','10/10'],['risk','7/10']].map(([label,v]) => (
-            <span key={label} className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] text-teal-800">
+          {[
+            ['conviction-duty', '28/30'],
+            ['hard barriers', '23/25'],
+            ['employer posture', '7/15'],
+            ['industry', '10/10'],
+          ].map(([label,v]) => (
+            <span key={label} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800">
               {label} {v}
             </span>
           ))}
@@ -241,9 +232,9 @@ function HeroPreview() {
 
       {/* Under-card mini stats */}
       <div className="mt-4 grid grid-cols-3 gap-2 animate-slide-up" style={{ animationDelay: '80ms' }}>
-        <MiniCard Icon={CheckCircle2}   iconCls="text-teal-600"   label="Top" value="12" />
-        <MiniCard Icon={Briefcase}      iconCls="text-amber-600"  label="Medium" value="18" />
-        <MiniCard Icon={AlertTriangle}  iconCls="text-rose-600"   label="Avoid" value="3" />
+        <MiniCard Icon={CheckCircle2}   iconCls="text-emerald-600" label="Strong" value="62" />
+        <MiniCard Icon={Briefcase}      iconCls="text-amber-600"   label="Possible" value="184" />
+        <MiniCard Icon={AlertTriangle}  iconCls="text-rose-600"    label="Challenging" value="41" />
       </div>
     </div>
   );
