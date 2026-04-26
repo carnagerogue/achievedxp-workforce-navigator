@@ -17,17 +17,21 @@ const NAV = [
 ];
 
 /**
- * Responsive nav. Three breakpoints chosen so labels never wrap:
+ * Responsive nav. Four breakpoints, chosen so the rightmost icon is
+ * never clipped at any common laptop viewport width:
  *
- *   < md  : logo, icon-only nav, no Search button. Pages still reachable
- *           via icons; ⌘K / "/" still opens the palette globally.
- *   md+   : Search button shows; nav stays icon-only.
- *   xl+   : nav labels appear ("Dashboard", "Browse jobs", …) and the
- *           "· Workforce Navigator" tagline next to the logo.
+ *   < md   : logo + icon-only nav, no Search button. Pages still reachable
+ *            via icons; ⌘K / "/" still opens the palette globally.
+ *   md+    : Search button shows; nav stays icon-only.
+ *   xl+    : "· Workforce Navigator" tagline appears next to the logo.
+ *   2xl+   : nav labels appear ("Dashboard", "Browse jobs", …).
  *
- * Below xl the wordmark tagline used to wrap into the search button — that's
- * the visual collision being fixed here. Hiding it below xl keeps the
- * header to a single clean line at every viewport width.
+ * Why labels live at 2xl, not xl: with 7 nav items + the search button +
+ * the logo + tagline, the full-label nav exceeds the 1152px content
+ * container at 1280–1535px viewports — clipping the rightmost item
+ * (Profile avatar) just outside the header. Pushing labels to 2xl keeps
+ * the icon-only layout for the most common laptop widths and only
+ * expands to label form on actual desktop displays.
  */
 export function SiteHeader() {
   const pathname = usePathname() ?? '/';
@@ -107,7 +111,7 @@ export function SiteHeader() {
                 aria-current={active ? 'page' : undefined}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden xl:inline">{label}</span>
+                <span className="hidden 2xl:inline">{label}</span>
               </Link>
             );
           })}
