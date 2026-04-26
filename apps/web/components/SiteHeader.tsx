@@ -42,7 +42,12 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/75 backdrop-blur-md">
+    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-xl shadow-[0_1px_0_0_rgba(15,23,42,0.06)] supports-[backdrop-filter]:bg-white/70">
+      {/* Top accent rule — keeps the page edge visually anchored on every
+          breakpoint so the header never reads as 'floating' beneath the
+          browser chrome. Subtle gradient avoids a heavy 'application bar'
+          look while clearly marking the top of the page. */}
+      <div className="h-0.5 w-full bg-gradient-to-r from-teal-600 via-teal-500 to-sunset-500" />
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
         {/* Logo + tagline */}
         <Link
@@ -94,9 +99,9 @@ export function SiteHeader() {
                 href={href}
                 title={label}
                 className={
-                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition ' +
+                  'group relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition ' +
                   (active
-                    ? 'bg-teal-50 text-teal-700'
+                    ? 'bg-teal-50 text-teal-700 shadow-[inset_0_-2px_0_0_rgb(13,148,136)]'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900')
                 }
                 aria-current={active ? 'page' : undefined}

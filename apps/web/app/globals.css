@@ -4,6 +4,15 @@
 
 html, body {
   height: 100%;
+  /* Eliminate any UA gap above the sticky header — was the source of
+     the thin teal strip visible at the very top of certain captures. */
+  margin: 0;
+  padding: 0;
+}
+html {
+  /* Smoother in-page anchor jumps for users with prefers-reduced-motion off */
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
@@ -12,12 +21,34 @@ body {
     radial-gradient(700px 400px at -10% 20%, rgba(245, 91, 29, 0.05), transparent 60%);
   background-attachment: fixed;
   font-feature-settings: 'cv11', 'ss01', 'ss03';
+  /* OpenType: tabular numbers in dashboards, contextual alternates */
+  text-rendering: optimizeLegibility;
+}
+
+/* Selection color matches brand teal */
+::selection {
+  background: rgba(20, 184, 166, 0.20);
+  color: rgb(15, 76, 73);
 }
 
 /* Consistent focus rings across the app (teal, subtle offset). */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: none;
   @apply ring-2 ring-teal-500 ring-offset-2 ring-offset-white;
+}
+
+/* Custom scrollbar — slim, not invisible, matches palette */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.30); background-clip: content-box; border: 2px solid transparent; }
+}
+
+/* Tighter prose on print pages */
+@media print {
+  body { background: white !important; }
+  .print\:hidden { display: none !important; }
 }
 
 /* Skeleton shimmer — gradient background animated by the shimmer keyframes. */

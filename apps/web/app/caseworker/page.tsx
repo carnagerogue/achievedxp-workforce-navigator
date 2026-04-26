@@ -88,19 +88,28 @@ export default function CaseworkerPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero */}
-      <section className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <div className="flex items-start gap-4">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-navy-50 text-navy-700">
+      {/* Hero — premium gradient surface with stronger typography */}
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-8 text-white shadow-card sm:p-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_350px_at_85%_20%,rgba(245,91,29,0.18),transparent),radial-gradient(700px_350px_at_-10%_120%,rgba(30,166,156,0.25),transparent)]" />
+        <div className="relative flex items-start gap-4">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/20 backdrop-blur">
             <ClipboardList className="h-7 w-7" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy-700">Staff view</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Caseworker Mode</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-              Plug in a participant&rsquo;s situation and get top recommended jobs, training gaps, and a
-              printable 30/60/90-day career plan.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200">Staff view · Reentry navigator</p>
+            <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Caseworker Mode</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-teal-50/90">
+              Plug in a participant&rsquo;s situation and instantly get top recommended jobs, identified
+              training gaps, and a printable 30/60/90-day career action plan — all from real public
+              job-board data, scored deterministically.
             </p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {['Re-scored against conviction', 'Deterministic · auditable', 'Printable plan'].map((s) => (
+                <span key={s} className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-teal-50 backdrop-blur">
+                  {s}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>

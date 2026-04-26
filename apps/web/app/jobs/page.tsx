@@ -556,11 +556,14 @@ function JobRow({
   const salary = prettySalary(job.salaryMin, job.salaryMax, job.salaryCurrency);
 
   return (
-    <li className="group transition hover:bg-slate-50">
-      <div className="flex items-start justify-between gap-4 p-4">
+    <li className="group relative transition-colors hover:bg-slate-50/70">
+      {/* Vertical accent rule on hover — gives each row an immediate sense
+          of focus without a full-row outline. Subtle but unmistakable. */}
+      <span className="pointer-events-none absolute inset-y-2 left-0 w-0.5 origin-left scale-y-0 rounded-r bg-gradient-to-b from-teal-500 to-teal-700 transition-transform duration-200 group-hover:scale-y-100" aria-hidden />
+      <div className="flex items-start justify-between gap-4 p-4 pl-5">
         <Link href={`/jobs/${job.id}`} className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-navy-900 group-hover:text-teal-700">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className="truncate text-sm font-semibold text-navy-900 transition-colors group-hover:text-teal-700">
               {job.title}
             </h3>
             <SourceBadge code={job.sourceCode} />
@@ -569,8 +572,13 @@ function JobRow({
                 <HardHat className="h-3 w-3" /> Apprenticeship
               </span>
             )}
+            {job.remote && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                <Radio className="h-3 w-3" /> Remote
+              </span>
+            )}
           </div>
-          <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-slate-600">
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-slate-600">
             <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             <span className="font-medium text-slate-800">{job.company}</span>
             <span className="text-slate-300">·</span>
@@ -584,23 +592,16 @@ function JobRow({
               <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {prettyDate(job.postedAt)}</span>
             )}
             {salary && (
-              <span className="inline-flex items-center gap-1 font-medium text-teal-700">
+              <span className="inline-flex items-center gap-1 rounded-md border border-teal-200/70 bg-teal-50 px-2 py-0.5 font-semibold text-teal-800">
                 <Wallet className="h-3 w-3" /> {salary}
               </span>
             )}
-            {job.remote && (
-              <span className="inline-flex items-center gap-1 font-medium text-sunset-700">
-                <Radio className="h-3 w-3" /> Remote
-              </span>
-            )}
             {job.requiredSkills.length > 0 && (
-              <span className="truncate">Skills: {job.requiredSkills.join(', ')}</span>
+              <span className="truncate text-slate-500">Skills: {job.requiredSkills.join(', ')}</span>
             )}
           </div>
-          {/* One-line compatibility summary appears below skills/salary so it
-              never crowds the title row but is impossible to miss. */}
           {rating && (
-            <p className="mt-1.5 line-clamp-2 text-xs text-slate-600">
+            <p className="mt-2 line-clamp-2 max-w-2xl text-xs leading-relaxed text-slate-600">
               {rating.summary}
             </p>
           )}
@@ -615,7 +616,12 @@ function JobRow({
           ) : (
             <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
           )}
-          <Link href={`/jobs/${job.id}`} className="text-xs font-semibold text-teal-700 transition group-hover:translate-x-0.5">View →</Link>
+          <Link
+            href={`/jobs/${job.id}`}
+            className="text-xs font-semibold text-teal-700 transition-transform group-hover:translate-x-0.5"
+          >
+            View →
+          </Link>
         </div>
       </div>
     </li>
@@ -628,19 +634,25 @@ function JobRow({
  */
 function CompatibilityChip({ rating, onOpen }: { rating: CompatibilityRating; onOpen: () => void }) {
   const styles = {
-    high:   'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
-    medium: 'border-amber-300   bg-amber-50   text-amber-800   hover:bg-amber-100',
-    low:    'border-rose-300    bg-rose-50    text-rose-800    hover:bg-rose-100',
+    high:   'border-emerald-300 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-[0_0_0_3px_rgba(16,185,129,0.15)]',
+    medium: 'border-amber-300   bg-amber-50   text-amber-800   hover:border-amber-400   hover:bg-amber-100   hover:shadow-[0_0_0_3px_rgba(245,158,11,0.15)]',
+    low:    'border-rose-300    bg-rose-50    text-rose-800    hover:border-rose-400    hover:bg-rose-100    hover:shadow-[0_0_0_3px_rgba(244,63,94,0.15)]',
+  } as const;
+  const dotStyles = {
+    high:   'bg-emerald-500',
+    medium: 'bg-amber-500',
+    low:    'bg-rose-500',
   } as const;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${styles[rating.chance]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-all duration-150 ${styles[rating.chance]}`}
       aria-label={`${rating.label} — ${rating.score}%. Click for details.`}
     >
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotStyles[rating.chance]}`} />
       {rating.label} · {rating.score}%
-      <span aria-hidden className="text-[9px] opacity-70">▸</span>
+      <span aria-hidden className="text-[9px] opacity-60">▸</span>
     </button>
   );
 }
