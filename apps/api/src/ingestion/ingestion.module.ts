@@ -4,6 +4,7 @@ import { IngestionController } from './ingestion.controller';
 import { UsajobsProvider } from './providers/usajobs.provider';
 import { AdzunaProvider } from './providers/adzuna.provider';
 import { RemotiveProvider } from './providers/remotive.provider';
+import { JoobleProvider } from './providers/jooble.provider';
 import { JOB_PROVIDERS } from './providers/job-provider.interface';
 import { ClassificationModule } from '../classification/classifier.module';
 
@@ -17,14 +18,16 @@ import { ClassificationModule } from '../classification/classifier.module';
     UsajobsProvider,
     AdzunaProvider,
     RemotiveProvider,
+    JoobleProvider,
     {
       provide: JOB_PROVIDERS,
       useFactory: (
         usajobs: UsajobsProvider,
         adzuna: AdzunaProvider,
         remotive: RemotiveProvider,
-      ) => [usajobs, adzuna, remotive],
-      inject: [UsajobsProvider, AdzunaProvider, RemotiveProvider],
+        jooble: JoobleProvider,
+      ) => [usajobs, adzuna, remotive, jooble],
+      inject: [UsajobsProvider, AdzunaProvider, RemotiveProvider, JoobleProvider],
     },
   ],
   exports: [IngestionService],

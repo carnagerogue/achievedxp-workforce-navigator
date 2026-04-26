@@ -8,6 +8,7 @@ const SOURCES = [
   { code: 'usajobs',  displayName: 'USAJobs (US federal government)',      baseUrl: 'https://data.usajobs.gov' },
   { code: 'adzuna',   displayName: 'Adzuna (private-sector aggregator)',   baseUrl: 'https://api.adzuna.com' },
   { code: 'remotive', displayName: 'Remotive (remote-friendly postings)',  baseUrl: 'https://remotive.com' },
+  { code: 'jooble',   displayName: 'Jooble (multi-board meta-aggregator)', baseUrl: 'https://jooble.org' },
 ];
 
 const SKILLS = [
