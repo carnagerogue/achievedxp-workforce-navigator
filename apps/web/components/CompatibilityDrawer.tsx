@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { X, AlertTriangle, CheckCircle2, ShieldAlert, Lightbulb, ClipboardList, ListChecks } from 'lucide-react';
-import type { CompatibilityRating, CONVICTION_LABELS, ConvictionType } from '@dxp/shared';
-import { CONVICTION_LABELS as LABELS } from '@dxp/shared';
+import { useEffect, useMemo } from 'react';
+import { X, AlertTriangle, CheckCircle2, ShieldAlert, Lightbulb, ClipboardList, ListChecks, Wrench, Building2 } from 'lucide-react';
+import type { CompatibilityRating, ConvictionType, JobInput, CandidateProfile, TrainingBridgeStep } from '@dxp/shared';
+import { CONVICTION_LABELS as LABELS, buildTrainingBridge } from '@dxp/shared';
 
 /**
  * Detailed compatibility breakdown shown when the user clicks the chance
@@ -24,6 +24,9 @@ interface Props {
   jobTitle: string;
   company: string;
   conviction: ConvictionType | null;
+  /** Optional — when provided, the drawer renders a Training Bridge panel. */
+  job?: JobInput;
+  candidate?: CandidateProfile;
 }
 
 const CHANCE_STYLES: Record<CompatibilityRating['chance'], { ring: string; bg: string; text: string; label: string }> = {
@@ -32,7 +35,13 @@ const CHANCE_STYLES: Record<CompatibilityRating['chance'], { ring: string; bg: s
   low:    { ring: 'ring-rose-300',    bg: 'bg-rose-50',     text: 'text-rose-700',    label: 'Challenging Match' },
 };
 
-export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, conviction }: Props) {
+export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, conviction, job, candidate }: Props) {
+  // Compute Training Bridge once per (job, candidate) pair. Cheap & pure.
+  const bridge = useMemo(() => {
+    if (!job) return null;
+    return buildTrainingBridge(candidate ?? { convictionType: conviction ?? undefined }, job);
+  }, [job, candidate, conviction]);
+
   // Lock body scroll while drawer is open.
   useEffect(() => {
     if (!open) return;
@@ -153,6 +162,29 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
             </Section>
           )}
 
+          {/* Training Bridge — concrete pathway to close gaps */}
+          {bridge && (bridge.steps.length > 0 || bridge.steppingStone) && (
+            <Section title="Training Bridge" icon={<Wrench className="h-4 w-4 text-teal-600" />} tone="emerald">
+              {bridge.gaps.length > 0 && (
+                <p className="mb-2 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-800">Identified gaps:</span> {bridge.gaps.join(', ')}.
+                </p>
+              )}
+              {bridge.steppingStone && (
+                <div className="mb-2 rounded-md border border-emerald-200 bg-white p-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Stepping stone</p>
+                  <p className="text-sm font-medium text-slate-800">{bridge.steppingStone.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-600">{bridge.steppingStone.reason}</p>
+                </div>
+              )}
+              <ol className="space-y-2">
+                {bridge.steps.map((s, idx) => (
+                  <BridgeStepLi key={s.id} index={idx + 1} step={s} />
+                ))}
+              </ol>
+            </Section>
+          )}
+
           {/* Caseworker notes */}
           {rating.caseworkerNotes.length > 0 && (
             <Section title="Caseworker / auditor notes" icon={<ClipboardList className="h-4 w-4 text-slate-600" />} tone="slate">
@@ -216,6 +248,37 @@ function BulletList({ items }: { items: string[] }) {
     <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
       {items.map((s, i) => <li key={i}>{s}</li>)}
     </ul>
+  );
+}
+
+function BridgeStepLi({ index, step }: { index: number; step: TrainingBridgeStep }) {
+  const kindLabel = {
+    certification: 'Certification',
+    license: 'License',
+    training: 'Training',
+    experience: 'Experience',
+    application: 'Application',
+    document: 'Document',
+  }[step.kind];
+  return (
+    <li className="rounded-md border border-emerald-100 bg-white px-3 py-2">
+      <div className="flex items-baseline gap-2">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-semibold text-emerald-800">
+          {index}
+        </span>
+        <span className="text-sm font-semibold text-slate-800">{step.title}</span>
+        <span className="text-[10px] uppercase tracking-wider text-emerald-700">· {kindLabel}</span>
+      </div>
+      <p className="mt-1 text-xs text-slate-600">{step.reason}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+        {step.estDuration && <span>⏱ {step.estDuration}</span>}
+        {step.externalUrl && (
+          <a href={step.externalUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
+            Resource ↗
+          </a>
+        )}
+      </div>
+    </li>
   );
 }
 

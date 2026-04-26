@@ -459,6 +459,23 @@ export default function JobsPage() {
         jobTitle={drawerJob?.job.title ?? ''}
         company={drawerJob?.job.company ?? ''}
         conviction={offenseType ? OFFENSE_TO_CONVICTION[offenseType] : null}
+        job={drawerJob ? {
+          id: drawerJob.job.id,
+          title: drawerJob.job.title,
+          company: drawerJob.job.company,
+          description: drawerJob.job.description,
+          industry: drawerJob.job.industry,
+          riskTier: drawerJob.job.riskTier,
+          excludesFelons: drawerJob.job.excludesFelons,
+          backgroundCheckLikely: drawerJob.job.backgroundCheckLikely,
+          isApprenticeship: drawerJob.job.isApprenticeship,
+          remote: drawerJob.job.remote,
+          locationRegion: drawerJob.job.locationRegion,
+          locationCity: drawerJob.job.locationCity,
+          requiredSkills: drawerJob.job.requiredSkills,
+          requiredCertifications: drawerJob.job.requiredCertifications,
+        } : undefined}
+        candidate={offenseType ? { convictionType: OFFENSE_TO_CONVICTION[offenseType] } : undefined}
       />
     </div>
   );

@@ -14,3 +14,10 @@ export * from './signals';
 export * from './risk-matrix';
 export * from './explanations';
 export { scoreJobCompatibility } from './scoring';
+
+// New modules added in the caseworker-grade upgrade.
+export * from './training-bridge';
+export * from './background-explanation';
+export * from './user-context';
+export * from './employer-fair-chance';
+export * from './career-action-plan';

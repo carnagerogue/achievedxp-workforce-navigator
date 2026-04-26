@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Search, UserCircle2, Command, BarChart3, HardHat, HeartHandshake } from 'lucide-react';
+import { LayoutDashboard, Search, UserCircle2, Command, BarChart3, HardHat, HeartHandshake, ClipboardList } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/apprenticeships', label: 'Apprenticeships', Icon: HardHat },
   { href: '/local-help',      label: 'Local help',      Icon: HeartHandshake },
   { href: '/insights',        label: 'Insights',        Icon: BarChart3 },
+  { href: '/caseworker',      label: 'Caseworker',      Icon: ClipboardList },
   { href: '/onboarding',      label: 'Profile',         Icon: UserCircle2 },
 ];
 

@@ -89,13 +89,7 @@ export default function ApprenticeshipsPage() {
             {Array.from({ length: 5 }).map((_, i) => <JobRowSkeleton key={i} />)}
           </ul>
         ) : jobs.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
-            <p className="text-sm font-semibold text-navy-900">No apprenticeships in the pool right now.</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-slate-600">
-              Our providers ingest by keyword — run an ingestion cycle or check back after the
-              next refresh. Federal apprenticeships tend to post on USAJobs.
-            </p>
-          </div>
+          <ApprenticeshipEmptyState />
         ) : (
           <>
             <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
@@ -195,5 +189,122 @@ function ResourceChip({ label, href }: { label: string; href: string }) {
     >
       {label} ↗
     </a>
+  );
+}
+
+/**
+ * Helpful empty state for when no live apprenticeships match the current
+ * search. Apprenticeships are discoverable through many channels outside
+ * a job board (workforce boards, union halls, AJCs, pre-apprenticeship
+ * programs) — surface those instead of dead-ending the user.
+ */
+function ApprenticeshipEmptyState() {
+  return (
+    <div className="space-y-4">
+      {/* Headline + body */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-card sm:p-10">
+        <p className="text-base font-semibold text-navy-900">
+          No live apprenticeship postings found in this search yet.
+        </p>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+          Apprenticeships may still be available through local workforce boards, union training
+          centers, pre-apprenticeship programs, and American Job Centers. Below are concrete
+          next steps you can take today.
+        </p>
+      </div>
+
+      {/* Four-card grid of next steps */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* 1. Search related entry-level jobs */}
+        <NextStepCard
+          eyebrow="Step 1"
+          title="Search related entry-level jobs"
+          body="Build experience and credentials in roles that often hire while you wait for an apprenticeship slot."
+        >
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {[
+              { label: 'Construction Helper', q: 'construction helper' },
+              { label: 'Warehouse Trainee', q: 'warehouse trainee' },
+              { label: 'Manufacturing Assistant', q: 'manufacturing assistant' },
+              { label: 'General Laborer', q: 'general laborer' },
+              { label: 'Maintenance Assistant', q: 'maintenance assistant' },
+            ].map(({ label, q }) => (
+              <Link
+                key={q}
+                href={`/jobs?q=${encodeURIComponent(q)}`}
+                className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[11px] font-medium text-teal-800 hover:bg-teal-100"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </NextStepCard>
+
+        {/* 2. Local workforce support */}
+        <NextStepCard
+          eyebrow="Step 2"
+          title="Find local workforce support"
+          body="Free in-person help with applications, training referrals, and apprenticeship office contacts."
+        >
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Link href="/local-help" className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:border-teal-400 hover:text-teal-700">
+              American Job Centers
+            </Link>
+            <a href="https://www.dol.gov/agencies/eta/apprenticeship/contact" target="_blank" rel="noopener noreferrer" className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:border-teal-400 hover:text-teal-700">
+              State apprenticeship office ↗
+            </a>
+            <a href="https://www.apprenticeship.gov/finder/listings" target="_blank" rel="noopener noreferrer" className="rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-slate-700 hover:border-teal-400 hover:text-teal-700">
+              Apprenticeship.gov ↗
+            </a>
+          </div>
+        </NextStepCard>
+
+        {/* 3. Build readiness */}
+        <NextStepCard
+          eyebrow="Step 3"
+          title="Build readiness"
+          body="Most apprenticeship sponsors expect basic safety credentials and a reliable application packet."
+        >
+          <ul className="mt-2 space-y-1 text-xs text-slate-700">
+            <li>• OSHA 10 (construction) or OSHA 30</li>
+            <li>• Driver&rsquo;s license review and clean driving record where required</li>
+            <li>• Resume preparation (highlight transferable skills)</li>
+            <li>• Interview practice (common questions, calm tone)</li>
+            <li>• Background explanation statement (see <Link href="/background-statement" className="font-medium text-teal-700 hover:underline">Prepare Background Explanation</Link>)</li>
+          </ul>
+        </NextStepCard>
+
+        {/* 4. Caseworker action */}
+        <NextStepCard
+          eyebrow="Step 4"
+          title="Caseworker action"
+          body="If you&rsquo;re working with a caseworker or reentry coordinator, document this pathway and review it together."
+        >
+          <ul className="mt-2 space-y-1 text-xs text-slate-700">
+            <li>• Save this readiness plan</li>
+            <li>• <Link href="/caseworker" className="font-medium text-teal-700 hover:underline">Open Caseworker Mode</Link> to print the 30/60/90 plan</li>
+            <li>• Review local pre-apprenticeship programs together</li>
+          </ul>
+        </NextStepCard>
+      </div>
+    </div>
+  );
+}
+
+function NextStepCard({
+  eyebrow, title, body, children,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sunset-700">{eyebrow}</p>
+      <h3 className="mt-1 text-sm font-semibold text-navy-900">{title}</h3>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">{body}</p>
+      {children}
+    </div>
   );
 }
