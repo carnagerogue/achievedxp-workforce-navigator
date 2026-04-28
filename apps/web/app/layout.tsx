@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { CompareBar } from '../components/CompareBar';
 import { CommandPalette } from '../components/CommandPalette';
 import { KeyboardHelp } from '../components/KeyboardHelp';
+import { PrivacyShell } from '../components/PrivacyShell';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CompareBar />
           <CommandPalette />
           <KeyboardHelp />
+          <PrivacyShell />
         </ToastProvider>
       </body>
     </html>

@@ -3,12 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { JobStatus, RawIngestStatus } from '@prisma/client';
 import { createHash } from 'crypto';
+import type { Queue } from 'bullmq';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { ClassifierService } from '../classification/classifier.service';
 import { JOB_PROVIDERS, JobProvider, CanonicalJob } from './providers/job-provider.interface';
 import { sanitizeHtml } from './html-sanitize';
 import { AdzunaProvider, ADZUNA_STATES } from './providers/adzuna.provider';
+import { INGESTION_QUEUE_TOKEN } from '../queue/queue.module';
 
 export interface IngestSummary {
   source: string;
@@ -28,35 +30,76 @@ export class IngestionService implements OnApplicationBootstrap {
     private readonly classifier: ClassifierService,
     private readonly adzuna: AdzunaProvider,
     @Inject(JOB_PROVIDERS) private readonly providers: JobProvider[],
+    @Inject(INGESTION_QUEUE_TOKEN) private readonly queue: Queue,
   ) {}
+
+  /**
+   * Enqueue a run rather than executing inline. Callers — the on-boot
+   * hook, the cron, the HTTP trigger — all share the same code path so
+   * retries, observability, and scheduling stay consistent.
+   *
+   * Returns the BullMQ job id so HTTP callers can echo it back to the
+   * client for status polling.
+   */
+  async enqueueRunAll(triggeredBy: 'cron' | 'http' | 'boot'): Promise<string> {
+    const job = await this.queue.add(
+      'run_all',
+      { triggeredBy },
+      // Dedup: if a run is already queued, skip enqueueing another one.
+      // Stops a "click 5 times" admin from creating 5 duplicate runs.
+      { jobId: `run_all:${triggeredBy}:${Math.floor(Date.now() / 60_000)}` },
+    );
+    return job.id ?? 'unknown';
+  }
+
+  async enqueueFillStateCoverage(min: number): Promise<string> {
+    const job = await this.queue.add(
+      'fill_state_coverage',
+      { triggeredBy: 'http', min },
+      { jobId: `fill_state_coverage:${min}:${Math.floor(Date.now() / 60_000)}` },
+    );
+    return job.id ?? 'unknown';
+  }
+
+  async getQueueStatus() {
+    const counts = await this.queue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+    return counts;
+  }
 
   async onApplicationBootstrap() {
     const runOnBoot = String(this.config.get('INGEST_RUN_ON_BOOT') ?? 'false') === 'true';
     if (runOnBoot) {
-      this.logger.log('INGEST_RUN_ON_BOOT=true → running ingestion once at startup');
-      await this.runAll().catch((e) => this.logger.error('Bootstrap ingestion failed', e));
+      this.logger.log('INGEST_RUN_ON_BOOT=true → enqueueing ingestion run');
+      await this.enqueueRunAll('boot').catch((e) =>
+        this.logger.error('Bootstrap enqueue failed', e),
+      );
     }
   }
 
-  // Phase 4 will move this to BullMQ; for now, nightly in-process cron is fine.
+  // Cron now enqueues — the worker (apps/api/src/ingestion/ingestion.worker.ts)
+  // pulls from the queue and runs runAll(). This frees the cron to fire-and-
+  // forget rather than holding a request thread for the duration of the run.
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async scheduledRun() {
-    this.logger.log('Scheduled ingestion run starting');
-    await this.runAll();
+    this.logger.log('Scheduled ingestion: enqueueing run_all');
+    await this.enqueueRunAll('cron').catch((e) =>
+      this.logger.error('Scheduled enqueue failed', e),
+    );
   }
 
   async runAll(): Promise<IngestSummary[]> {
-    const summaries: IngestSummary[] = [];
-    for (const provider of this.providers) {
-      if (!this.isProviderEnabled(provider.code)) continue;
-      try {
-        summaries.push(await this.runProvider(provider));
-      } catch (err) {
-        this.logger.error(`Provider "${provider.code}" failed`, err as Error);
-        summaries.push({ source: provider.code, fetched: 0, inserted: 0, duplicates: 0, failed: 1 });
-      }
-    }
-    return summaries;
+    // Providers run in parallel — they're independent network calls and
+    // independent DB upserts (each scoped by sourceId), so one slow
+    // upstream can't stall the rest. allSettled keeps a single provider
+    // failure from cancelling the rest.
+    const enabled = this.providers.filter((p) => this.isProviderEnabled(p.code));
+    const results = await Promise.allSettled(enabled.map((p) => this.runProvider(p)));
+    return results.map((r, i) => {
+      if (r.status === 'fulfilled') return r.value;
+      const provider = enabled[i];
+      this.logger.error(`Provider "${provider.code}" failed`, r.reason as Error);
+      return { source: provider.code, fetched: 0, inserted: 0, duplicates: 0, failed: 1 };
+    });
   }
 
   /**

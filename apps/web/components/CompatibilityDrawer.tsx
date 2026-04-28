@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { X, AlertTriangle, CheckCircle2, ShieldAlert, Lightbulb, ClipboardList, ListChecks, Wrench, Building2 } from 'lucide-react';
 import type { CompatibilityRating, ConvictionType, JobInput, CandidateProfile, TrainingBridgeStep } from '@dxp/shared';
 import { CONVICTION_LABELS as LABELS, buildTrainingBridge } from '@dxp/shared';
+import { TrainingProgramsList } from './TrainingProgramsList';
 
 /**
  * Detailed compatibility breakdown shown when the user clicks the chance
@@ -179,7 +180,12 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
               )}
               <ol className="space-y-2">
                 {bridge.steps.map((s, idx) => (
-                  <BridgeStepLi key={s.id} index={idx + 1} step={s} />
+                  <BridgeStepLi
+                    key={s.id}
+                    index={idx + 1}
+                    step={s}
+                    locationRegion={job?.locationRegion ?? null}
+                  />
                 ))}
               </ol>
             </Section>
@@ -251,7 +257,13 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-function BridgeStepLi({ index, step }: { index: number; step: TrainingBridgeStep }) {
+function BridgeStepLi({
+  index, step, locationRegion,
+}: {
+  index: number;
+  step: TrainingBridgeStep;
+  locationRegion: string | null;
+}) {
   const kindLabel = {
     certification: 'Certification',
     license: 'License',
@@ -260,6 +272,12 @@ function BridgeStepLi({ index, step }: { index: number; step: TrainingBridgeStep
     application: 'Application',
     document: 'Document',
   }[step.kind];
+
+  // Local programs make sense for credentials you have to physically
+  // attend or apply to a school for; they don't for "prepare a statement"
+  // or "verify your driver's license is in good standing."
+  const showLocalPrograms = step.kind === 'certification' || step.kind === 'license' || step.kind === 'training';
+
   return (
     <li className="rounded-md border border-emerald-100 bg-white px-3 py-2">
       <div className="flex items-baseline gap-2">
@@ -278,8 +296,35 @@ function BridgeStepLi({ index, step }: { index: number; step: TrainingBridgeStep
           </a>
         )}
       </div>
+      {showLocalPrograms && (
+        <TrainingProgramsList
+          keyword={programSearchKeyword(step)}
+          locationRegion={locationRegion}
+        />
+      )}
     </li>
   );
+}
+
+/**
+ * Map a TrainingBridge step to a CareerOneStop training-search keyword.
+ * The step ids (forklift_cert, osha_10, cdl, …) work better than the
+ * full title ("Complete OSHA 10") because COS does substring matching
+ * against program names.
+ */
+function programSearchKeyword(step: TrainingBridgeStep): string {
+  const map: Record<string, string> = {
+    osha_10: 'OSHA 10',
+    osha_30: 'OSHA 30',
+    forklift_cert: 'forklift',
+    cdl: 'commercial driver license',
+    servsafe: 'food handler',
+    nccer_core: 'NCCER',
+    cna: 'certified nursing assistant',
+    security_license: 'security guard',
+    medical_cred: 'medical assistant',
+  };
+  return map[step.id] ?? step.title;
 }
 
 function Component({ keyName, component }: { keyName: string; component: CompatibilityRating['scoreBreakdown'][keyof CompatibilityRating['scoreBreakdown']] }) {

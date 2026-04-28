@@ -1,8 +1,21 @@
-import { Controller, DefaultValuePipe, Get, Param, ParseIntPipe, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { MatchesService } from './matches.service';
 import { InsightsService } from './insights.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OwnerGuard } from '../auth/owner.guard';
+import { AuditAction } from '../audit/audit.decorator';
 
 @Controller('matches')
+@UseGuards(JwtAuthGuard, OwnerGuard)
 export class MatchesController {
   constructor(
     private readonly matches: MatchesService,
@@ -17,6 +30,7 @@ export class MatchesController {
    *
    * The `limit` query param caps each bucket's length (default 20).
    */
+  @AuditAction('matches_read')
   @Get(':userId')
   getMatches(
     @Param('userId', new ParseUUIDPipe()) userId: string,
@@ -30,6 +44,7 @@ export class MatchesController {
    * Simulates adding each candidate certification/skill to the user's
    * profile and counts how many more jobs enter the top/medium buckets.
    */
+  @AuditAction('insights_read')
   @Get(':userId/insights')
   getInsights(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.insights.forUser(userId);

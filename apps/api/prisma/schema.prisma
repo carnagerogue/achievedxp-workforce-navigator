@@ -266,6 +266,35 @@ model JobScore {
   @@map("job_scores")
 }
 
+// ---------- Audit log ----------
+
+// Records every read/write of sensitive user data (profile, matches,
+// assessment, user lookup). Append-only — never updated, only inserted.
+//
+// Threat model coverage:
+//   - Detect a compromised caseworker account doing bulk reads
+//   - Give a user an "activity log" view of who has accessed their data
+//   - Compliance trail for an external audit
+//
+// Indexes are skewed toward the two access patterns we expect:
+//   - "What was accessed for user X recently?" (target_user_id desc time)
+//   - "What did viewer Y read recently?" (viewer_id desc time)
+model ProfileReadLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  viewerId      String   @map("viewer_id") @db.Uuid
+  targetUserId  String   @map("target_user_id") @db.Uuid
+  action        String                                          // e.g. 'profile_read'
+  route         String                                          // e.g. '/api/v1/profile/:userId'
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  viewedAt      DateTime @default(now()) @map("viewed_at")
+
+  @@index([targetUserId, viewedAt(sort: Desc)])
+  @@index([viewerId, viewedAt(sort: Desc)])
+  @@index([action, viewedAt(sort: Desc)])
+  @@map("profile_read_log")
+}
+
 // ---------- Skill & certification registries ----------
 
 model Skill {

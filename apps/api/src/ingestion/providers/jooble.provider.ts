@@ -76,6 +76,8 @@ export class JoobleProvider implements JobProvider {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               body: JSON.stringify(body),
+              // Hard timeout per (keyword × location × page) tuple.
+              signal: AbortSignal.timeout(10_000),
             });
           } catch (err) {
             this.logger.warn(`Jooble fetch failed (kw="${keyword}", loc="${location}", p=${page}): ${(err as Error).message}`);

@@ -167,6 +167,102 @@ export function clearCompare() {
   emit();
 }
 
+// ─────────────────────── Wipe everything ───────────────────────
+
+/**
+ * Every localStorage key this app may have written. Kept in one place so
+ * the "Clear my data" affordance and the idle-wipe sweep both stay in
+ * sync as we add new persisted state. Includes the caseworker plan blob
+ * (PII-bearing — name, conviction class, free-text notes) and the
+ * privacy-notice acknowledgement flag.
+ */
+const ALL_DXP_KEYS = [
+  SAVED_KEY,
+  APPS_KEY,
+  RECENT_KEY,
+  COMPARE_KEY,
+  'dxp.userId',                  // legacy session id (post-auth: cookie holds session)
+  'dxp:caseworker:plan',         // see apps/web/app/caseworker/page.tsx
+  'dxp.privacyNoticeAcknowledged',
+  'dxp.lastInteractionAt',
+];
+
+/**
+ * Clear every DXP-owned localStorage key and reset in-memory mirrors.
+ * Used by the header "Clear my data" button and by the idle-wipe sweep.
+ *
+ * Returns silently on the server. Caller is responsible for any router
+ * navigation (e.g. redirecting to /onboarding) that should follow.
+ */
+export function clearAllPersonalData() {
+  if (typeof window === 'undefined') return;
+  for (const key of ALL_DXP_KEYS) {
+    try { window.localStorage.removeItem(key); } catch { /* ignore quota / private-mode */ }
+  }
+  mirror.saved = [];
+  mirror.recent = [];
+  mirror.compare = [];
+  mirror.applications = {};
+  emit();
+}
+
+// ─────────────────────── Idle-wipe ───────────────────────
+
+const IDLE_WIPE_MS = 4 * 60 * 60 * 1000;       // 4h — long enough for a session, short enough for a kiosk
+const IDLE_TICK_KEY = 'dxp.lastInteractionAt';
+
+/** Refresh the idle clock. Cheap — used as a passive listener target. */
+function touch() {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(IDLE_TICK_KEY, String(Date.now())); } catch { /* ignore */ }
+}
+
+/**
+ * Initialise the idle-wipe behavior. Mount once at the app root.
+ *
+ * On mount: if more than IDLE_WIPE_MS has elapsed since the last
+ * recorded interaction, wipe everything before the page hydrates with
+ * stale data. Then attach passive listeners to refresh the clock on
+ * pointer / keyboard activity.
+ *
+ * Why localStorage rather than sessionStorage: localStorage survives
+ * tab close, which is exactly what we want — a user closing their tab
+ * on a library computer and walking away should still trigger the wipe
+ * the next time someone opens the site there.
+ */
+export function initIdleWipe() {
+  if (typeof window === 'undefined') return () => {};
+  // Stale-on-arrival check
+  try {
+    const last = Number(window.localStorage.getItem(IDLE_TICK_KEY) ?? 0);
+    if (last > 0 && Date.now() - last > IDLE_WIPE_MS) {
+      clearAllPersonalData();
+    }
+  } catch { /* ignore */ }
+  touch();
+
+  // pointerdown / keydown live on window; visibilitychange lives on
+  // document — wire them separately so TS keeps the right element types.
+  const winEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown'];
+  for (const e of winEvents) window.addEventListener(e, touch, { passive: true });
+  document.addEventListener('visibilitychange', touch, { passive: true });
+  // Periodic check while the tab is open — handles "user walked away
+  // mid-session" without us having to bind a setTimeout per event.
+  const interval = window.setInterval(() => {
+    try {
+      const last = Number(window.localStorage.getItem(IDLE_TICK_KEY) ?? 0);
+      if (last > 0 && Date.now() - last > IDLE_WIPE_MS) {
+        clearAllPersonalData();
+      }
+    } catch { /* ignore */ }
+  }, 60_000);
+  return () => {
+    for (const e of winEvents) window.removeEventListener(e, touch);
+    document.removeEventListener('visibilitychange', touch);
+    window.clearInterval(interval);
+  };
+}
+
 // ─────────────────────── React hooks ───────────────────────
 
 function subscribe(fn: Listener) {

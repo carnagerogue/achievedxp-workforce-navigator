@@ -27,6 +27,8 @@ import { useToast } from '../../../components/Toast';
 import { SaveJobButton } from '../../../components/SaveJobButton';
 import { CompareButton } from '../../../components/CompareButton';
 import { ApplicationStatusPicker } from '../../../components/ApplicationStatusPicker';
+import { JobLicensesPanel } from '../../../components/JobLicensesPanel';
+import { JobWagesPanel } from '../../../components/JobWagesPanel';
 import { useTrackRecentView } from '../../../lib/personal-store';
 import { prettyDate, prettyIndustry, prettySalary } from '../../../lib/format';
 import { parseDescription } from '../../../lib/description-format';
@@ -223,6 +225,20 @@ export default function JobDetailPage() {
           </div>
         )}
       </section>
+
+      {/* ─────────── Wage benchmark (BLS via CareerOneStop) ─────────── */}
+      <JobWagesPanel
+        keyword={job.title}
+        locationRegion={job.locationRegion}
+        postedSalaryMin={job.salaryMin}
+        postedSalaryMax={job.salaryMax}
+      />
+
+      {/* ─────────── State licensing requirements ─────────── */}
+      <JobLicensesPanel
+        jobTitle={job.title}
+        locationRegion={job.locationRegion}
+      />
 
       {/* ─────────── Similar jobs ─────────── */}
       {similar.length > 0 && (

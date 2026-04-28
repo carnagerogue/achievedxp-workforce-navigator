@@ -1,7 +1,9 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ClassifierService } from './classifier.service';
+import { AdminTokenGuard } from '../auth/admin-token.guard';
 
 @Controller('classify')
+@UseGuards(AdminTokenGuard)
 export class ClassifierController {
   constructor(private readonly classifier: ClassifierService) {}
 

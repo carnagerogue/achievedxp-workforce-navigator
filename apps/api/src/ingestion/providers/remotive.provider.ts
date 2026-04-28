@@ -36,7 +36,11 @@ export class RemotiveProvider implements JobProvider {
     if (category) url.searchParams.set('category', category);
 
     try {
-      const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+      const res = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+        // Hard timeout so a hung Remotive endpoint doesn't stall the cron.
+        signal: AbortSignal.timeout(10_000),
+      });
       if (!res.ok) {
         this.logger.warn(`Remotive ${res.status}: ${await res.text().catch(() => '')}`);
         return [];

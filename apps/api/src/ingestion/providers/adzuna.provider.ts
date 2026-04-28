@@ -91,7 +91,12 @@ export class AdzunaProvider implements JobProvider {
         if (where) url.searchParams.set('where', where);
 
         try {
-          const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+          const res = await fetch(url.toString(), {
+            headers: { Accept: 'application/json' },
+            // Hard timeout — Adzuna pages of 50 results can be slow; never
+            // let one stall the keyword × page sweep.
+            signal: AbortSignal.timeout(10_000),
+          });
           if (!res.ok) {
             const txt = await res.text().catch(() => '');
             this.logger.warn(`Adzuna ${res.status} for "${term}" p${page}: ${txt.slice(0, 200)}`);
@@ -149,7 +154,12 @@ export class AdzunaProvider implements JobProvider {
         url.searchParams.set('where', stateName);
 
         try {
-          const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+          const res = await fetch(url.toString(), {
+            headers: { Accept: 'application/json' },
+            // Hard timeout — Adzuna pages of 50 results can be slow; never
+            // let one stall the keyword × page sweep.
+            signal: AbortSignal.timeout(10_000),
+          });
           if (!res.ok) {
             this.logger.warn(`Adzuna state-fill ${res.status} for "${stateName}" p${page}`);
             break;

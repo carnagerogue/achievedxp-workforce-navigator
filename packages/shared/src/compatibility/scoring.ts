@@ -248,6 +248,7 @@ function scoreIndustrySensitivity(
 function scoreTimeSince(
   candidate: CandidateProfile,
   trail: AuditItem[],
+  now: Date,
 ): ScoreComponent {
   const max = SCORE_WEIGHTS.timeSinceConvictionOrRelease;
   // Prefer release date if present.
@@ -257,7 +258,7 @@ function scoreTimeSince(
   let signals: string[] = [];
 
   if (reference) {
-    const yearsAgo = (Date.now() - reference.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    const yearsAgo = (now.getTime() - reference.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
     if (yearsAgo < 1)        { raw = 0.2; explanation = 'Less than 1 year since conviction/release — recency lowers the score.'; }
     else if (yearsAgo < 3)   { raw = 0.4; explanation = '1–3 years since conviction/release — moderate negative impact.'; }
     else if (yearsAgo < 7)   { raw = 0.7; explanation = '3–7 years since conviction/release — minor negative impact.'; }
@@ -402,14 +403,29 @@ function deriveRiskLevel(
 // Public entry point
 // ────────────────────────────────────────────────────────────────────
 
+export interface ScoreOptions {
+  /**
+   * Reference "now" for time-since-conviction calculations. Defaults to
+   * `new Date()`. Pass an explicit value when you need reproducible scores
+   * — e.g., audit replays, deterministic tests, or batch scoring runs that
+   * span midnight and would otherwise produce subtly different numbers
+   * for the same (candidate, job) pair.
+   */
+  now?: Date;
+}
+
 /**
- * Score a single (candidate, job) pair. Pure / deterministic / O(text).
+ * Score a single (candidate, job) pair. Pure / deterministic / O(text)
+ * — given a fixed `options.now`, the same inputs always produce the same
+ * output.
  */
 export function scoreJobCompatibility(
   candidate: CandidateProfile,
   job: JobInput,
+  options: ScoreOptions = {},
 ): CompatibilityRating {
   const auditTrail: AuditItem[] = [];
+  const now = options.now ?? new Date();
 
   const signals = detectSignals({ title: job.title, company: job.company, description: job.description });
   const posture = classifyEmployerPosture(signals, { excludesFelons: job.excludesFelons, riskTier: job.riskTier, description: job.description });
@@ -421,7 +437,7 @@ export function scoreJobCompatibility(
   const barrierComp = scoreHardBarriers(signals, auditTrail);
   const postureComp = scoreEmployerPosture(posture, signals, auditTrail);
   const industryComp = scoreIndustrySensitivity(job, auditTrail);
-  const timeComp = scoreTimeSince(candidate, auditTrail);
+  const timeComp = scoreTimeSince(candidate, auditTrail, now);
   const strengthComp = scoreCandidateStrength(candidate, job, auditTrail);
   const locationComp = scoreLocationProtections(job, auditTrail);
 

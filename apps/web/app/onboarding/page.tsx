@@ -6,8 +6,8 @@ import {
   UserCircle2, MapPin, Scale, Wrench, Award, Factory, ArrowRight, ArrowLeft, Check, CheckCircle2,
 } from 'lucide-react';
 import type { ConvictionDto } from '@dxp/shared';
-import { createUser, upsertProfile } from '../../lib/api';
-import { getUserId, setUserId } from '../../lib/session';
+import { register, upsertProfile } from '../../lib/api';
+import { useCurrentUser, refreshSession } from '../../lib/session';
 import { ConvictionForm, newConviction } from '../../components/ConvictionForm';
 import { RichChipPicker } from '../../components/RichChipPicker';
 import {
@@ -83,6 +83,7 @@ const STEPS: Step[] = [
 
 interface WizardState {
   email: string;
+  password: string;
   displayName: string;
   locationCity: string;
   locationRegion: string;
@@ -101,12 +102,14 @@ interface WizardState {
 export default function OnboardingPage() {
   const router = useRouter();
   const toast = useToast();
+  const { user: currentUser } = useCurrentUser();
   const [stepIdx, setStepIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [state, setState] = useState<WizardState>({
     email: '',
+    password: '',
     displayName: '',
     locationCity: '',
     locationRegion: 'OH',
@@ -159,7 +162,13 @@ export default function OnboardingPage() {
   // block Next until *something* was provided on the Account step.
   const canAdvance = (): boolean => {
     if (step.id === 'account') {
-      return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(state.email);
+      // Already-authenticated users skip the email/password requirement —
+      // they're just editing their existing profile.
+      if (currentUser) return true;
+      return (
+        /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(state.email) &&
+        state.password.length >= 12
+      );
     }
     return true;
   };
@@ -178,19 +187,19 @@ export default function OnboardingPage() {
     setSubmitting(true);
     setError(null);
     try {
-      let userId = getUserId();
-      if (!userId) {
-        const user = await createUser({
+      if (!currentUser) {
+        // First-time signup: create the account, which sets the session
+        // cookie. Refresh session so subsequent requests authenticate.
+        await register({
           email: state.email,
+          password: state.password,
           displayName: state.displayName || undefined,
         });
-        userId = user.id;
-        setUserId(userId);
+        await refreshSession();
       }
 
       const hasFelonyRecord = state.convictions.some((c) => c.category === 'FELONY');
       await upsertProfile({
-        userId,
         locationCity: state.locationCity || undefined,
         locationRegion: state.locationRegion || undefined,
         locationPostalCode: state.locationPostalCode || undefined,
@@ -281,8 +290,20 @@ export default function OnboardingPage() {
       >
         {step.id === 'account' && (
           <FieldGroup title="Account" Icon={UserCircle2}>
-            <TextField label="Email"                         type="email" value={state.email}       onChange={(v) => update('email', v)} required />
-            <TextField label="Display name (optional)"        value={state.displayName} onChange={(v) => update('displayName', v)} />
+            {currentUser ? (
+              <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
+                You&rsquo;re signed in as <strong>{currentUser.email}</strong>. Continue to update your profile.
+              </p>
+            ) : (
+              <>
+                <TextField label="Email"                         type="email"    value={state.email}       onChange={(v) => update('email', v)} required />
+                <TextField label="Password (min 12 characters)"  type="password" value={state.password}    onChange={(v) => update('password', v)} required />
+                <TextField label="Display name (optional)"                       value={state.displayName} onChange={(v) => update('displayName', v)} />
+                <p className="text-[11px] text-slate-500">
+                  Already have an account? <a href="/login" className="font-semibold text-teal-700 hover:underline">Sign in</a> instead.
+                </p>
+              </>
+            )}
           </FieldGroup>
         )}
 
