@@ -67,8 +67,37 @@ export class MatchesService {
     }
     const { convictions, ...profile } = user.profile;
 
+    // ─── Geographic prefilter ──────────────────────────────────────────
+    // The old query took the 500 most-recent jobs globally, which broke
+    // for users in less-represented regions: an Idaho user whose 500
+    // most-recent jobs all clustered in CA/NY would see an empty top
+    // bucket even when good matches existed further back.
+    //
+    // Now we narrow the pool to jobs that actually pass the location
+    // filter the user cares about. Remote roles always come along for
+    // the ride; "willing to relocate" lifts the regional restriction
+    // entirely (back to the global pool).
+    const regionFilter = (() => {
+      if (profile.willingToRelocate) return undefined; // no geographic narrowing
+      const hasRegion = !!profile.locationRegion;
+      if (!hasRegion) return undefined;
+      // Match jobs in the user's region OR remote roles OR roles with no
+      // region tagged (some providers don't fill it). The OR keeps the
+      // pool from collapsing to zero on regions we ingest sparsely.
+      return {
+        OR: [
+          { locationRegion: profile.locationRegion },
+          { remote: true },
+          { locationRegion: null },
+        ],
+      };
+    })();
+
     const candidates = await this.prisma.job.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        status: 'ACTIVE',
+        ...(regionFilter ?? {}),
+      },
       orderBy: [{ postedAt: 'desc' }, { createdAt: 'desc' }],
       take: CANDIDATE_POOL_SIZE,
     });

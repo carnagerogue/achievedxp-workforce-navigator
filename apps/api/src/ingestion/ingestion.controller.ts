@@ -1,12 +1,18 @@
-import { Controller, DefaultValuePipe, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { IngestionService } from './ingestion.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdminTokenGuard } from '../auth/admin-token.guard';
 
 /**
- * Manual-trigger endpoint for dev/testing. Phase 4 will lock this behind
- * admin auth + queue it to BullMQ instead of running inline.
+ * Operations endpoints — gated behind `Authorization: Bearer <ADMIN_TOKEN>`.
+ * Set `ADMIN_TOKEN` on the API service; without it the routes return 503.
+ *
+ * Triggers enqueue a BullMQ job and return the job id; the heavy work
+ * happens on the in-process worker (apps/api/src/ingestion/ingestion.worker.ts).
+ * GET /ingestion/status reports queue depth + per-state counts.
  */
 @Controller('ingestion')
+@UseGuards(AdminTokenGuard)
 export class IngestionController {
   constructor(
     private readonly ingestion: IngestionService,
@@ -14,8 +20,9 @@ export class IngestionController {
   ) {}
 
   @Post('run')
-  runAll() {
-    return this.ingestion.runAll();
+  async runAll() {
+    const jobId = await this.ingestion.enqueueRunAll('http');
+    return { enqueued: true, jobId };
   }
 
   /**
@@ -24,10 +31,19 @@ export class IngestionController {
    * coverage after an initial run.
    */
   @Post('fill-coverage')
-  fillCoverage(
+  async fillCoverage(
     @Query('min', new DefaultValuePipe(10), ParseIntPipe) min: number,
   ) {
-    return this.ingestion.fillStateCoverage(Math.min(Math.max(min, 1), 200));
+    const jobId = await this.ingestion.enqueueFillStateCoverage(
+      Math.min(Math.max(min, 1), 200),
+    );
+    return { enqueued: true, jobId };
+  }
+
+  /** Queue depth + per-state counters. Useful for ops dashboards. */
+  @Get('status')
+  async status() {
+    return this.ingestion.getQueueStatus();
   }
 
   /**

@@ -66,6 +66,8 @@ export class UsajobsProvider implements JobProvider {
               'User-Agent': userAgent,
               'Authorization-Key': apiKey,
             },
+            // Hard timeout per page — keeps one slow keyword from stalling the run.
+            signal: AbortSignal.timeout(10_000),
           });
           if (!res.ok) {
             this.logger.warn(`USAJobs ${res.status} for "${term}" p${page}: ${await res.text().catch(() => '')}`);

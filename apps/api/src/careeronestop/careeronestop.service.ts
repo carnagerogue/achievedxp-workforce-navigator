@@ -72,6 +72,9 @@ export class CareerOneStopService {
           Authorization: `Bearer ${this.token}`,
           Accept: 'application/json',
         },
+        // Hard timeout — protects request handlers from a slow upstream
+        // and prevents the request thread from being held indefinitely.
+        signal: AbortSignal.timeout(8_000),
       });
       const text = await res.text();
       let data: unknown;
@@ -364,6 +367,7 @@ export class CareerOneStopService {
           Accept: 'application/json',
         },
         body: JSON.stringify({ SKAValueList: skills }),
+        signal: AbortSignal.timeout(8_000),
       });
       const text = await res.text();
       try { return JSON.parse(text); } catch { return { error: text.slice(0, 300), partial: true }; }

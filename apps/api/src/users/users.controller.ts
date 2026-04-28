@@ -1,18 +1,23 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OwnerGuard } from '../auth/owner.guard';
+import { AuditAction } from '../audit/audit.decorator';
 
+/**
+ * The user-creation route used to live here as `POST /users`. It moved to
+ * `POST /auth/register` so account creation, password hashing, and
+ * session-cookie issuance happen in a single transactional flow that's
+ * harder to bypass. Existing clients should use /auth/register instead.
+ */
 @Controller('users')
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 
-  @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.users.create(dto);
-  }
-
-  @Get(':id')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.users.findById(id);
+  @UseGuards(JwtAuthGuard, OwnerGuard)
+  @AuditAction('user_read')
+  @Get(':userId')
+  findOne(@Param('userId', new ParseUUIDPipe()) userId: string) {
+    return this.users.findById(userId);
   }
 }
