@@ -10,6 +10,7 @@ import { listJobs } from '../../lib/api';
 import { RiskBadge } from '../../components/RiskBadge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { JobRowSkeleton } from '../../components/Skeleton';
+import { ApprenticeshipOffices } from '../../components/ApprenticeshipOffices';
 import { prettyDate, prettyIndustry, prettySalary } from '../../lib/format';
 
 const PAGE_SIZE = 25;
@@ -108,6 +109,11 @@ export default function ApprenticeshipsPage() {
             )}
           </>
         )}
+      </div>
+
+      {/* State apprenticeship offices (CareerOneStop) */}
+      <div className="mt-10">
+        <ApprenticeshipOffices />
       </div>
 
       {/* Pre-apprenticeship / resources callout */}

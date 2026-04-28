@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Settings2, TrendingUp, SearchCheck, AlertTriangle, Trophy, RefreshCw, Bookmark, ClipboardList, History, Sparkles, Brain, ArrowRight, HeartHandshake } from 'lucide-react';
 import type { MatchesResponseDto } from '@dxp/shared';
-import { getMatches, getAssessmentResult, type AssessmentResultDto } from '../../lib/api';
-import { getUserId, clearUserId } from '../../lib/session';
+import { getMatches, getAssessmentResult, logout, type AssessmentResultDto } from '../../lib/api';
+import { useCurrentUser, refreshSession } from '../../lib/session';
 import { JobCard } from '../../components/JobCard';
 import { AvoidCard } from '../../components/AvoidCard';
 import { Section } from '../../components/Section';
@@ -22,11 +22,12 @@ import {
 import { statusLabel } from '../../components/ApplicationStatusPicker';
 
 export default function DashboardPage() {
+  const { user, status } = useCurrentUser();
   const [matches, setMatches] = useState<MatchesResponseDto | null>(null);
   const [assessment, setAssessment] = useState<AssessmentResultDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const userId = user?.id ?? null;
 
   const savedIds  = useSavedJobIds();
   const recentIds = useRecentJobIds();
@@ -34,39 +35,60 @@ export default function DashboardPage() {
   const appliedIds = Object.keys(applications);
 
   useEffect(() => {
-    const id = getUserId();
-    setUserIdState(id);
-    if (!id) {
+    if (status === 'loading') return;
+    if (!userId) {
       setLoading(false);
       return;
     }
     Promise.all([
-      getMatches(id, 20),
-      getAssessmentResult(id).catch(() => null),
+      getMatches(userId, 20),
+      getAssessmentResult(userId).catch(() => null),
     ])
       .then(([m, a]) => { setMatches(m); setAssessment(a); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [status, userId]);
 
   // ─────── Empty states ───────
 
-  if (!loading && !userId) {
+  if (status === 'loading' || loading) {
+    if (!userId && status !== 'loading') {
+      // fall through to the unauthenticated branch below
+    } else {
+      return (
+        <div className="animate-fade-in">
+          <SummarySkeleton />
+          <SectionSkeleton title="Top matches" />
+          <SectionSkeleton title="Medium matches" />
+        </div>
+      );
+    }
+  }
+
+  if (!userId) {
     return (
       <div className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-card animate-fade-in">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
           <SearchCheck className="h-6 w-6" />
         </div>
-        <h1 className="mt-4 text-xl font-semibold text-navy-900">Build your profile first</h1>
+        <h1 className="mt-4 text-xl font-semibold text-navy-900">Sign in or build your profile</h1>
         <p className="mx-auto mt-2 max-w-sm text-sm text-slate-600">
-          We need a profile before we can score jobs for you. Takes about two minutes.
+          We need an account before we can score jobs for you. Takes about two minutes.
         </p>
-        <Link
-          href="/onboarding"
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
-        >
-          Build my profile →
-        </Link>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href="/onboarding"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+          >
+            Build my profile →
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Sign in
+          </Link>
+        </div>
       </div>
     );
   }
@@ -86,24 +108,12 @@ export default function DashboardPage() {
             <RefreshCw className="h-4 w-4" /> Retry
           </button>
           <button
-            onClick={() => { clearUserId(); window.location.href = '/onboarding'; }}
+            onClick={async () => { await logout().catch(() => {}); await refreshSession(); window.location.href = '/onboarding'; }}
             className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
           >
-            Start over
+            Sign out
           </button>
         </div>
-      </div>
-    );
-  }
-
-  // ─────── Loading skeletons ───────
-
-  if (loading) {
-    return (
-      <div className="animate-fade-in">
-        <SummarySkeleton />
-        <SectionSkeleton title="Top matches" />
-        <SectionSkeleton title="Medium matches" />
       </div>
     );
   }

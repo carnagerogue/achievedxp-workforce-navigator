@@ -14,7 +14,7 @@ import {
   type AssessmentQuestionsDto,
   type AssessmentResultDto,
 } from '../../lib/api';
-import { getUserId } from '../../lib/session';
+import { useCurrentUser } from '../../lib/session';
 import { useToast } from '../../components/Toast';
 import { Skeleton } from '../../components/Skeleton';
 
@@ -33,21 +33,21 @@ const DIMENSION_TONES: Record<RiasecCode, string> = {
 };
 
 export default function AssessmentPage() {
-  const [userId, setUserIdState] = useState<string | null>(null);
+  const { user, status } = useCurrentUser();
+  const userId = user?.id ?? null;
   const [questions, setQuestions] = useState<AssessmentQuestionsDto | null>(null);
   const [existing, setExisting] = useState<AssessmentResultDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [retaking, setRetaking] = useState(false);
 
   useEffect(() => {
-    const id = getUserId();
-    setUserIdState(id);
+    if (status === 'loading') return;
     Promise.all([
       getAssessmentQuestions(),
-      id ? getAssessmentResult(id).catch(() => null) : Promise.resolve(null),
+      userId ? getAssessmentResult(userId).catch(() => null) : Promise.resolve(null),
     ]).then(([q, r]) => { setQuestions(q); setExisting(r); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [status, userId]);
 
   if (loading) {
     return (

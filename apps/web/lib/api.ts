@@ -14,30 +14,56 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
     cache: 'no-store',
+    // Send the HttpOnly session cookie on every request. The API issues
+    // it via /auth/login, /auth/register, /auth/claim — the browser holds
+    // it but JS cannot read it (immune to XSS theft). The API still needs
+    // it to identify the user, hence credentials: 'include'.
+    credentials: 'include',
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`API ${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
   }
+  // 204 No Content responses (e.g. logout) won't have a JSON body.
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
-// --- Users ---
+// --- Auth ---
 
-export interface CreatedUser {
+export interface AuthUser {
   id: string;
   email: string;
   displayName: string | null;
-  createdAt: string;
 }
 
-export const createUser = (body: { email: string; displayName?: string }) =>
-  request<CreatedUser>('/users', { method: 'POST', body: JSON.stringify(body) });
+export const register = (body: { email: string; password: string; displayName?: string }) =>
+  request<AuthUser>('/auth/register', { method: 'POST', body: JSON.stringify(body) });
+
+export const login = (body: { email: string; password: string }) =>
+  request<AuthUser>('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+
+/** Set a password for an account that was created during the pre-auth phase. */
+export const claimAccount = (body: { email: string; password: string }) =>
+  request<AuthUser>('/auth/claim', { method: 'POST', body: JSON.stringify(body) });
+
+export const logout = () => request<{ ok: true }>('/auth/logout', { method: 'POST' });
+
+/** Returns the current user, or null if not signed in. */
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  try {
+    return await request<AuthUser>('/auth/me');
+  } catch (err) {
+    // The API returns 401 when the cookie is missing or expired — treat
+    // that as "not logged in" rather than surfacing it to the caller.
+    if (err instanceof Error && err.message.startsWith('API 401')) return null;
+    throw err;
+  }
+}
 
 // --- Profile ---
 
 export interface ProfileInput {
-  userId: string;
   firstName?: string;
   lastName?: string;
   locationCity?: string;
@@ -173,16 +199,141 @@ export const getAjcCenters = (location: string, radius = 50) =>
 export const getReentryPrograms = (location: string, radius = 100) =>
   request<unknown>(`/careeronestop/reentry?location=${encodeURIComponent(location)}&radius=${radius}`);
 
+// ─── Wages (BLS percentiles via CareerOneStop) ─────────────────────
+//
+// Defensive types — CareerOneStop's response shape varies subtly across
+// occupations (some return a single area list, others nest by state vs
+// nation). Treat every field as optional and fall back gracefully.
+export interface CosWageArea {
+  AreaName?: string;
+  RateType?: string; // "Annual" | "Hourly"
+  Median?: string;
+  Pct10?: string;
+  Pct25?: string;
+  Pct75?: string;
+  Pct90?: string;
+  Mean?: string;
+}
+export interface CosOccupationWage {
+  OccupationTitle?: string;
+  OnetTitle?: string;
+  OnetCode?: string;
+  Wages?: { BLSAreaWagesList?: CosWageArea[] };
+}
+export interface CosWagesResponse {
+  RecordCount?: number;
+  OccupationDetail?: CosOccupationWage[];
+  error?: string;
+  partial?: boolean;
+}
+
 export const getCosWages = (onetCodeOrKeyword: string, location?: string) => {
   const q = `onet=${encodeURIComponent(onetCodeOrKeyword)}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
-  return request<unknown>(`/careeronestop/wages?${q}`);
+  return request<CosWagesResponse>(`/careeronestop/wages?${q}`);
 };
 
+// ─── Licenses ───────────────────────────────────────────────────────
+//
+// Critical for justice-impacted candidates: many state licenses have
+// conviction-related disqualifiers that the listing employer never spells
+// out. Wiring this in lets the candidate see — before they apply — what
+// licensing board governs the role and what its renewal/fee requirements
+// look like in their state.
+export interface CosLicense {
+  Title?: string;
+  AgencyName?: string;
+  AgencyUrl?: string;
+  Description?: string;
+  Fees?: string;
+  RenewalRequirements?: string;
+  InitialContinuingEducationRequirement?: string;
+  OnetTitle?: string;
+  ApplicableStates?: string;
+}
+export interface CosLicensesResponse {
+  RecordCount?: number;
+  LicenseList?: CosLicense[];
+  error?: string;
+  partial?: boolean;
+}
+
 export const getCosLicenses = (keyword: string, location: string) =>
-  request<unknown>(`/careeronestop/licenses?onet=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}`);
+  request<CosLicensesResponse>(
+    `/careeronestop/licenses?keyword=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}`,
+  );
+
+// ─── Training programs ──────────────────────────────────────────────
+//
+// Closes the loop on TrainingBridge: the engine names the credential
+// the user needs (CDL, OSHA 10, NCCER Core); CareerOneStop names the
+// schools and programs that issue it nearby.
+export interface CosTrainingProgram {
+  SchoolName?: string;
+  ProgramName?: string;
+  Address1?: string;
+  City?: string;
+  State?: string;
+  Zip?: string;
+  Phone?: string;
+  ProgramUrl?: string;
+  Cost?: string;
+  ProgramType?: string;
+}
+export interface CosTrainingResponse {
+  RecordCount?: number;
+  SchoolPrograms?: { SchoolProgramList?: CosTrainingProgram[] };
+  error?: string;
+  partial?: boolean;
+}
+
+export const getCosTraining = (keyword: string, location: string, radius = 50) =>
+  request<CosTrainingResponse>(
+    `/careeronestop/training?keyword=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}&radius=${radius}`,
+  );
 
 export const getCosCertifications = (keyword: string) =>
   request<unknown>(`/careeronestop/certifications?keyword=${encodeURIComponent(keyword)}`);
 
-export const getCosApprenticeships = (keyword: string, location: string, radius = 50) =>
-  request<unknown>(`/careeronestop/apprenticeships?keyword=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}&radius=${radius}`);
+// ─── State apprenticeship offices ───────────────────────────────────
+//
+// CareerOneStop's apprenticeshipfinder returns the state Office of
+// Apprenticeship + Apprenticeship Training Representative (ATR) contacts
+// for a location. These are the people who maintain the registered
+// apprenticeship roster for the area — calling them is the highest-yield
+// move for someone who can't find a slot via job boards.
+//
+// Field names vary across COS responses (Office vs OfficeName, etc.);
+// the component accesses everything optionally.
+export interface CosApprenticeshipOffice {
+  Office?: string;
+  OfficeName?: string;
+  Address1?: string;
+  Address2?: string;
+  City?: string;
+  State?: string;
+  StateAbbr?: string;
+  Zip?: string;
+  Phone?: string;
+  Email?: string;
+  ContactEmail?: string;
+  ContactName?: string;
+  Website?: string;
+  Url?: string;
+}
+export interface CosApprenticeshipsResponse {
+  RecordCount?: number;
+  ApprenticeshipOfficeList?: CosApprenticeshipOffice[];
+  // Some COS payloads use a different envelope name — accept either.
+  Apprenticeships?: CosApprenticeshipOffice[];
+  error?: string;
+  partial?: boolean;
+}
+
+export const getCosApprenticeshipOffices = (location: string, radius = 100) =>
+  request<CosApprenticeshipsResponse>(
+    `/careeronestop/apprenticeships?location=${encodeURIComponent(location)}&radius=${radius}`,
+  );
+
+/** @deprecated keyword arg is ignored by the upstream endpoint — use getCosApprenticeshipOffices. */
+export const getCosApprenticeships = (_keyword: string, location: string, radius = 50) =>
+  getCosApprenticeshipOffices(location, radius);

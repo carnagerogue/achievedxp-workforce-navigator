@@ -2,9 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Search, UserCircle2, Command, BarChart3, HardHat, HeartHandshake, ClipboardList } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, Search, UserCircle2, Command, BarChart3, HardHat, HeartHandshake, ClipboardList, Eraser } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { clearAllPersonalData } from '../lib/personal-store';
+import { logout } from '../lib/api';
+import { refreshSession } from '../lib/session';
 
 const NAV = [
   { href: '/dashboard',       label: 'Dashboard',       Icon: LayoutDashboard },
@@ -35,6 +38,7 @@ const NAV = [
  */
 export function SiteHeader() {
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const [modMeta, setModMeta] = useState(false);
   useEffect(() => {
     setModMeta(typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform));
@@ -43,6 +47,22 @@ export function SiteHeader() {
   const openPalette = () => {
     const ev = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });
     window.dispatchEvent(ev);
+  };
+
+  /**
+   * Wipe all DXP-owned localStorage AND end the server session in one
+   * action. Important for shared/library devices: we'd rather have the
+   * candidate over-clear than leave conviction context behind.
+   */
+  const handleClearData = async () => {
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm('Sign out and remove all data this browser has saved (saved jobs, applications, caseworker plan, recently viewed)?')
+      : true;
+    if (!confirmed) return;
+    clearAllPersonalData();
+    await logout().catch(() => { /* may already be signed out */ });
+    await refreshSession();
+    router.push('/');
   };
 
   return (
@@ -88,6 +108,19 @@ export function SiteHeader() {
             {modMeta ? <Command className="h-2.5 w-2.5" /> : 'Ctrl'}
             <span>K</span>
           </span>
+        </button>
+
+        {/* Clear-my-data — visible on all sizes; especially important for
+            users on shared/library devices where session leakage is the
+            single biggest privacy risk. */}
+        <button
+          type="button"
+          onClick={handleClearData}
+          title="Sign out and clear everything saved in this browser"
+          className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 sm:inline-flex"
+        >
+          <Eraser className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">Clear my data</span>
         </button>
 
         {/* Nav */}
