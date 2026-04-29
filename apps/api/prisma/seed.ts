@@ -9,6 +9,7 @@ const SOURCES = [
   { code: 'adzuna',   displayName: 'Adzuna (private-sector aggregator)',   baseUrl: 'https://api.adzuna.com' },
   { code: 'remotive', displayName: 'Remotive (remote-friendly postings)',  baseUrl: 'https://remotive.com' },
   { code: 'jooble',   displayName: 'Jooble (multi-board meta-aggregator)', baseUrl: 'https://jooble.org' },
+  { code: 'serpapi_google_jobs', displayName: 'SerpApi (Google Jobs)',     baseUrl: 'https://serpapi.com' },
 ];
 
 const SKILLS = [

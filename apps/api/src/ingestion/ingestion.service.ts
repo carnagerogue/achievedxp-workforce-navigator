@@ -235,6 +235,17 @@ export class IngestionService implements OnApplicationBootstrap {
 
     // 4. upsert canonical job by dedup hash — same posting seen from a
     //    different source updates metadata rather than creating duplicates.
+    // We pre-check for an existing canonical row so we can correctly
+    // distinguish 'inserted' vs 'duplicate' AND mark the raw row's
+    // status accordingly (NORMALIZED vs DUPLICATE). Without this check
+    // every upsert returned 'inserted' and the dup metric was wrong.
+    const existingCanonical = await this.prisma.job.findUnique({
+      where: { dedupHash },
+      select: { id: true, sourceId: true },
+    });
+    const isDuplicateOfOtherSource =
+      !!existingCanonical && existingCanonical.sourceId !== sourceId;
+
     const job = await this.prisma.job.upsert({
       where: { dedupHash },
       create: {
@@ -286,16 +297,22 @@ export class IngestionService implements OnApplicationBootstrap {
       },
     });
 
-    // 5. link raw → canonical
+    // 5. link raw → canonical. If this raw row corresponds to a posting
+    //    that was already ingested from a *different* source (cross-source
+    //    duplicate), record DUPLICATE on the raw row but still link
+    //    `normalizedJobId` to the existing canonical job so downstream
+    //    audits can trace which sources surfaced the same posting.
     await this.prisma.jobRawIngestion.update({
       where: { id: rawRow.id },
       data: {
-        status: RawIngestStatus.NORMALIZED,
+        status: isDuplicateOfOtherSource
+          ? RawIngestStatus.DUPLICATE
+          : RawIngestStatus.NORMALIZED,
         normalizedJobId: job.id,
       },
     });
 
-    return 'inserted';
+    return existingCanonical ? 'duplicate' : 'inserted';
   }
 
   /**
