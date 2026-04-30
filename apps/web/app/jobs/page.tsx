@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -88,7 +88,21 @@ const CHANCE_FILTER_OPTIONS: { value: ChanceFilter; label: string }[] = [
 
 const PAGE_SIZE = 50;
 
-export default function JobsPage() {
+/**
+ * Next.js 14 requires `useSearchParams()` to live under a Suspense
+ * boundary when the consuming page is statically pre-rendered. We wrap
+ * the real page component in Suspense at the default export so the
+ * /jobs route can keep its prerender + still honor URL params.
+ */
+export default function JobsPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <JobsPage />
+    </Suspense>
+  );
+}
+
+function JobsPage() {
   // Honor URL query params on first paint so deep links like /jobs?region=MN
   // (used by the U.S. coverage map and the bySource breakdown) actually
   // filter the catalog. Without this, the page would render unfiltered
