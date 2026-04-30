@@ -33,3 +33,6 @@ prisma/migrations/dev.db*
 # Misc
 tmp/
 .tmp/
+
+.git-commit-msg.txt
+
