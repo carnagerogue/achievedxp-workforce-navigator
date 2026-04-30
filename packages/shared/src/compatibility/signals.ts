@@ -63,8 +63,16 @@ const HARD_BARRIER_PATTERNS: PatternRule[] = [
   { id: 'clean_driving_record',      pattern: /\bclean driving record\b|\bclear (mvr|driving history)\b/, severity: 'high',     message: 'Clean driving record required.' },
   { id: 'cdl_required',              pattern: /\bcdl(\s+(required|class\s+[abc]))?\b/, severity: 'medium',   message: 'CDL (Commercial Driver\u2019s License) required.' },
   { id: 'home_visits',               pattern: /\bhome visits?\b|\bin[\s-]home (services|care|support)\b|\bresidential access\b/, severity: 'high',     message: 'Job involves entering private residences.' },
-  { id: 'children_or_minors',        pattern: /\b(minors?|child(ren)?|youth(\s|s)?|students?)\b/, severity: 'high',     message: 'Job environment involves minors / children / students.' },
-  { id: 'school_setting',            pattern: /\b(elementary|middle|high)\s+school\b|\bk-12\b|\bkindergarten\b|\bdaycare\b|\bchildcare\b/, severity: 'critical', message: 'School / childcare setting.' },
+  // "Children / minors / students" — too generic on its own ("minor injuries",
+  // "may receive student loan", "youth-friendly community"). Require the term
+  // be paired with workplace verbs like "work with" / "around" / "supervise"
+  // so we only fire when the role actually involves access to those people.
+  { id: 'children_or_minors',        pattern: /\b(work(s|ing)?\s+with|around|supervise|care\s+for|tutor|teach)\s+(minors?|child(ren)?|youth|students?)\b|\b(unsupervised\s+(access\s+to\s+)?(minors?|child(ren)?|youth|students?))\b/, severity: 'high', message: 'Job involves working with minors / children / students.' },
+  // School / childcare setting — must be a workplace marker, NOT an
+  // education-credential phrase. Vetoes "high school diploma / equivalent /
+  // graduate / GED" by requiring an actual workplace word nearby and
+  // explicitly excluding diploma-context "high school".
+  { id: 'school_setting',            pattern: /\b(?:elementary|middle)\s+school\b|\bk-12\b|\bkindergarten\b|\bdaycare\b|\bchild(?:\s|-)?care\b|\bschool\s+(district|setting|environment|campus|grounds|facility|building|board)\b|\bpre[\s-]?school\b/, severity: 'critical', message: 'School / childcare setting.' },
   { id: 'elder_or_residential',     pattern: /\belder care\b|\bnursing home\b|\bassisted living\b|\bresidential care\b|\blong[\s-]term care\b/, severity: 'high',     message: 'Elder care / residential care setting.' },
   { id: 'healthcare_facility',       pattern: /\b(hospital|healthcare facility|medical center|patient[\s-]facing|clinical setting)\b/, severity: 'medium',   message: 'Healthcare facility setting.' },
   { id: 'security_role',             pattern: /\b(unarmed )?security (officer|guard)\b|\barmed security\b/, severity: 'high',     message: 'Security role.' },

@@ -430,6 +430,61 @@ describe('compatibility engine — acceptance', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────
+  // 23. REGRESSION: registry-related + warehouse role whose description
+  //     happens to mention "high school diploma required" must NOT be
+  //     flagged as a school-environment role.
+  // ─────────────────────────────────────────────────────────────────
+  it('23. Registry-related + warehouse with "high school diploma" in JD = High Chance', () => {
+    const r = score(
+      profile({ convictionType: 'registry_related', releaseDate: 2018 }),
+      job({
+        title: 'Warehouse Associate',
+        company: 'Acme Distribution',
+        description: 'High school diploma or equivalent required. Lift up to 50 lbs. No prior experience needed.',
+        industry: 'warehousing',
+      }),
+    );
+    expect(['high', 'medium']).toContain(r.chance);
+    // Specifically, the workplace-restricted rule MUST NOT fire.
+    expect(r.auditTrail.find((a) => a.ruleId.includes('rr_workplace_restricted'))).toBeUndefined();
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // 24. REGRESSION: violent + warehouse with "high school diploma" must
+  //     NOT trip school-workplace detection either.
+  // ─────────────────────────────────────────────────────────────────
+  it('24. Violence-related + warehouse with "high school diploma" = High or Medium', () => {
+    const r = score(
+      profile({ convictionType: 'violent_offense', releaseDate: 2018 }),
+      job({
+        title: 'General Laborer',
+        company: 'Acme Manufacturing',
+        description: 'High school diploma required. Operate hand tools.',
+        industry: 'manufacturing',
+      }),
+    );
+    expect(['high', 'medium']).toContain(r.chance);
+    expect(r.auditTrail.find((a) => a.ruleId.includes('vo_workplace_restricted'))).toBeUndefined();
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // 25. REGRESSION: registry-related + actual school district custodian
+  //     must STILL be Low (the company-name detection still works).
+  // ─────────────────────────────────────────────────────────────────
+  it('25. Registry-related + Renton School District custodian = Low Chance', () => {
+    const r = score(
+      profile({ convictionType: 'registry_related', releaseDate: 2018 }),
+      job({
+        title: 'Custodian I',
+        company: 'Renton School District 403',
+        description: 'General custodial work. High school diploma required.',
+        industry: 'cleaning',
+      }),
+    );
+    expect(r.chance).toBe('low');
+  });
+
+  // ─────────────────────────────────────────────────────────────────
   // Bonus: deterministic — same inputs produce identical outputs
   // ─────────────────────────────────────────────────────────────────
   it('engine is deterministic across runs', () => {

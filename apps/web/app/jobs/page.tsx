@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Search as SearchIcon,
   MapPin,
@@ -88,6 +89,18 @@ const CHANCE_FILTER_OPTIONS: { value: ChanceFilter; label: string }[] = [
 const PAGE_SIZE = 50;
 
 export default function JobsPage() {
+  // Honor URL query params on first paint so deep links like /jobs?region=MN
+  // (used by the U.S. coverage map and the bySource breakdown) actually
+  // filter the catalog. Without this, the page would render unfiltered
+  // and the user would see "wrong states" — every state click landed on
+  // /jobs with no filter applied because we only read from text inputs.
+  const sp = useSearchParams();
+  const initialRegion       = sp?.get('region') ?? '';
+  const initialIndustry     = sp?.get('industry') ?? '';
+  const initialQ            = sp?.get('q') ?? '';
+  const initialOffenseType  = (sp?.get('offenseType') as OffenseType | null) ?? '';
+  const initialApprOnly     = sp?.get('apprenticeshipsOnly') === 'true';
+
   const [results, setResults] = useState<JobDto[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -95,15 +108,18 @@ export default function JobsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [q, setQ] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [locationInput, setLocationInput] = useState('');
+  const [q, setQ] = useState(initialQ);
+  const [industry, setIndustry] = useState(initialIndustry);
+  // When the URL specifies ?region=MN we seed the location text field so
+  // the existing parser does the right thing AND the user sees the
+  // active filter chip without needing to type anything.
+  const [locationInput, setLocationInput] = useState(initialRegion);
   const [radiusMiles, setRadiusMiles] = useState(25);
-  const [offenseType, setOffenseType] = useState<OffenseType | ''>('');
+  const [offenseType, setOffenseType] = useState<OffenseType | ''>(initialOffenseType);
   const [hideClosedRecord, setHideClosedRecord] = useState(false);
   const [minSalary, setMinSalary] = useState(0);
   const [postedWithinDays, setPostedWithinDays] = useState(0);
-  const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(false);
+  const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(initialApprOnly);
   const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
 
