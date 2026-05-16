@@ -14,6 +14,7 @@ import { ClassificationModule } from './classification/classifier.module';
 import { LocationModule } from './location/location.module';
 import { AssessmentModule } from './assessment/assessment.module';
 import { CareerOneStopModule } from './careeronestop/careeronestop.module';
+import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health.controller';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 
@@ -38,6 +39,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
     MatchesModule,
     AssessmentModule,
     CareerOneStopModule,
+    AuthModule,
   ],
   controllers: [HealthController],
   providers: [
