@@ -15,7 +15,10 @@ RUN pnpm install --frozen-lockfile
 
 # ── build ───────────────────────────────────────────────────────────────
 FROM base AS build
-ARG NEXT_PUBLIC_API_URL
+# Default to the in-app mock API layer so a fresh Railway deploy stands
+# on its own. Override with --build-arg or Railway's service variable if
+# pointing at a real NestJS backend.
+ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
