@@ -1,0 +1,1170 @@
+/**
+ * Bundled mock dataset used by the in-app API route handlers under
+ * /api/v1/*. Lets the web frontend stand on its own when the NestJS
+ * backend isn't deployed — useful for portfolio demos and PR previews.
+ *
+ * The handlers under app/api/v1 read from these helpers; nothing else
+ * in the app should import this file directly.
+ */
+
+import type {
+  JobDto,
+  PaginatedJobsDto,
+  JobsStatsDto,
+  MatchesResponseDto,
+  InsightsResponseDto,
+  ScoredJobDto,
+  PublicJobSummaryDto,
+  AvoidJobDto,
+  RiskTier,
+} from '@dxp/shared';
+
+const NOW = Date.now();
+const DAY = 24 * 60 * 60 * 1000;
+const daysAgo = (n: number) => new Date(NOW - n * DAY).toISOString();
+const daysAhead = (n: number) => new Date(NOW + n * DAY).toISOString();
+
+type SeedJob = {
+  title: string;
+  company: string;
+  city: string;
+  region: string;
+  postal: string;
+  industry: string;
+  salaryMin: number;
+  salaryMax: number;
+  riskTier: RiskTier;
+  excludesFelons: boolean;
+  backgroundCheckLikely: boolean;
+  remote?: boolean;
+  isApprenticeship?: boolean;
+  employmentType?: JobDto['employmentType'];
+  skills: string[];
+  certs: string[];
+  minYears: number;
+  postedDaysAgo: number;
+  description: string;
+  source: { code: string; name: string };
+};
+
+const SOURCES = {
+  usajobs:   { code: 'usajobs',   name: 'USAJobs' },
+  adzuna:    { code: 'adzuna',    name: 'Adzuna' },
+  remotive:  { code: 'remotive',  name: 'Remotive' },
+  jooble:    { code: 'jooble',    name: 'Jooble' },
+  serpapi:   { code: 'serpapi',   name: 'Google Jobs' },
+  direct:    { code: 'direct',    name: 'Employer direct' },
+};
+
+const SEED_JOBS: SeedJob[] = [
+  {
+    title: 'Warehouse Associate — Night Shift',
+    company: 'NorthStar Logistics',
+    city: 'Renton', region: 'WA', postal: '98057', industry: 'warehousing',
+    salaryMin: 42000, salaryMax: 52000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['warehouse_operations', 'forklift_operation', 'picking_packing'],
+    certs: ['osha_forklift'], minYears: 0, postedDaysAgo: 2,
+    description:
+      'Pick, pack, and stage outbound orders on the overnight shift. ' +
+      'Reach truck and stand-up forklift training provided. Steel-toe ' +
+      'boots required; full benefits after 60 days. No background ' +
+      'check for warehouse roles.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'CDL-A Regional Driver',
+    company: 'Cascade Freight Co.',
+    city: 'Tacoma', region: 'WA', postal: '98402', industry: 'transportation',
+    salaryMin: 68000, salaryMax: 92000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['commercial_driving', 'route_driving'],
+    certs: ['cdl_a'], minYears: 1, postedDaysAgo: 4,
+    description:
+      'Home weekends. Dedicated lanes across WA / OR / ID. Newer ' +
+      'Freightliner Cascadia fleet. Past felonies considered ' +
+      'individually — non-violent records welcome.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Building Maintenance Tech',
+    company: 'Pacific Property Group',
+    city: 'Seattle', region: 'WA', postal: '98101', industry: 'services',
+    salaryMin: 52000, salaryMax: 64000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['maintenance', 'plumbing', 'electrical', 'hvac'],
+    certs: ['epa_608'], minYears: 2, postedDaysAgo: 6,
+    description:
+      'Multi-site maintenance covering 14 buildings in downtown ' +
+      'Seattle. Independent route. Fair-chance employer; reviews ' +
+      'background individually with chance to respond.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Line Cook',
+    company: 'Harbor Grill',
+    city: 'Bellingham', region: 'WA', postal: '98225', industry: 'food_service',
+    salaryMin: 36000, salaryMax: 46000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['cooking', 'food_prep', 'grilling'],
+    certs: ['servsafe', 'food_handler_card'], minYears: 0, postedDaysAgo: 1,
+    description:
+      'Busy waterfront grill, evening service. Will train candidates ' +
+      'with prior kitchen experience. Tip share included. No ' +
+      'background check.',
+    source: SOURCES.remotive,
+  },
+  {
+    title: 'Electrical Apprentice (Year 1)',
+    company: 'IBEW Local 46',
+    city: 'Kent', region: 'WA', postal: '98032', industry: 'construction',
+    salaryMin: 44000, salaryMax: 58000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    isApprenticeship: true,
+    skills: ['electrical', 'general_labor'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 9,
+    description:
+      'Paid apprenticeship. Earn while you learn — wages step up ' +
+      'each year. Indentures begin quarterly. Open to candidates ' +
+      'with records; the program does not run background checks on ' +
+      'apprentices.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Janitorial Lead — Office Buildings',
+    company: 'Evergreen Facility Services',
+    city: 'Bellevue', region: 'WA', postal: '98004', industry: 'cleaning',
+    salaryMin: 38000, salaryMax: 47000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['janitorial', 'cleaning', 'maintenance'],
+    certs: [], minYears: 1, postedDaysAgo: 3,
+    description:
+      'Lead a 4-person crew, 6pm–2am, three Class-A office towers. ' +
+      'Reliable transportation required. Fair-chance friendly.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Welder — Structural Steel',
+    company: 'Kitsap Iron Works',
+    city: 'Bremerton', region: 'WA', postal: '98337', industry: 'manufacturing',
+    salaryMin: 58000, salaryMax: 78000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['welding', 'machining', 'sheet_metal'],
+    certs: ['aws_certified_welder', 'osha_10'], minYears: 2, postedDaysAgo: 5,
+    description:
+      'Day-shift MIG/flux-core on heavy structural plate. Weld test ' +
+      'on day one. No background check. OT routinely available.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Forklift Operator — Distribution Center',
+    company: 'BlueRiver Distribution',
+    city: 'Auburn', region: 'WA', postal: '98001', industry: 'warehousing',
+    salaryMin: 44000, salaryMax: 54000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['forklift_operation', 'reach_truck', 'warehouse_operations'],
+    certs: ['osha_forklift'], minYears: 1, postedDaysAgo: 7,
+    description:
+      'Sit-down and reach truck. 4-on / 4-off schedule. Boot and ' +
+      'safety glasses provided. Fair-chance employer.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Auto Service Tech (Tires + Brakes)',
+    company: 'PitStop Auto',
+    city: 'Lakewood', region: 'WA', postal: '98499', industry: 'automotive',
+    salaryMin: 42000, salaryMax: 58000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['auto_repair', 'tire_install', 'small_engine'],
+    certs: [], minYears: 0, postedDaysAgo: 11,
+    description:
+      'Hourly + commission. Will train motivated candidates. Past ' +
+      'records considered on a case-by-case basis; non-driving ' +
+      'positions available.',
+    source: SOURCES.serpapi,
+  },
+  {
+    title: 'Landscape Crew Member',
+    company: 'Greenline Landscapes',
+    city: 'Olympia', region: 'WA', postal: '98501', industry: 'landscaping',
+    salaryMin: 34000, salaryMax: 44000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['landscaping', 'general_labor', 'tractor_operation'],
+    certs: [], minYears: 0, postedDaysAgo: 1,
+    description:
+      'Residential and small commercial properties. Crew lead trains ' +
+      'on equipment. Year-round work — snow removal in winter.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Manufacturing Production Operator',
+    company: 'Cascade Polymers',
+    city: 'Vancouver', region: 'WA', postal: '98660', industry: 'manufacturing',
+    salaryMin: 46000, salaryMax: 58000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['general_labor', 'machining', 'maintenance'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 8,
+    description:
+      'Run extrusion and pelletizing lines. Rotating 12-hour shifts. ' +
+      'Step raises every 6 months. No background check.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'HVAC Apprentice',
+    company: 'NW Mechanical',
+    city: 'Spokane', region: 'WA', postal: '99201', industry: 'construction',
+    salaryMin: 42000, salaryMax: 55000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    isApprenticeship: true,
+    skills: ['hvac', 'general_labor'],
+    certs: [], minYears: 0, postedDaysAgo: 12,
+    description:
+      'Paid 4-year apprenticeship leading to journey-level wages. ' +
+      'High school diploma or equivalent. Open to applicants with ' +
+      'records.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Concrete Finisher',
+    company: 'Foundation Builders LLC',
+    city: 'Spokane Valley', region: 'WA', postal: '99216', industry: 'construction',
+    salaryMin: 48000, salaryMax: 64000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['concrete', 'masonry', 'general_labor'],
+    certs: ['osha_10'], minYears: 1, postedDaysAgo: 3,
+    description:
+      'Commercial flatwork and tilt-ups. Crew of 6. Truck allowance. ' +
+      'Fair-chance employer.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Custodian — Public Schools',
+    company: 'Spokane Public Schools',
+    city: 'Spokane', region: 'WA', postal: '99202', industry: 'cleaning',
+    salaryMin: 36000, salaryMax: 44000, riskTier: 'HIGH',
+    excludesFelons: true, backgroundCheckLikely: true,
+    skills: ['janitorial', 'cleaning', 'maintenance'],
+    certs: [], minYears: 0, postedDaysAgo: 10,
+    description:
+      'Note: state law requires a clean background check for any ' +
+      'role with student contact. Specific disqualifying offenses ' +
+      'listed in RCW 28A.400.303.',
+    source: SOURCES.usajobs,
+  },
+  {
+    title: 'Carpenter Helper',
+    company: 'Sound Construction',
+    city: 'Everett', region: 'WA', postal: '98201', industry: 'construction',
+    salaryMin: 40000, salaryMax: 52000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['carpentry', 'general_labor', 'drywall'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 6,
+    description:
+      'Residential framing and finish work. Will train. Steel-toe ' +
+      'boots required. Fair-chance employer.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Customer Service Rep — Inbound (Remote)',
+    company: 'Northbound Support',
+    city: 'Remote', region: 'WA', postal: '00000', industry: 'services',
+    salaryMin: 38000, salaryMax: 46000, riskTier: 'LOW', remote: true,
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['customer_service', 'phone_support', 'computer_literacy'],
+    certs: [], minYears: 0, postedDaysAgo: 2,
+    description:
+      'Fully remote. Inbound only — no cold calls. Equipment ' +
+      'provided. Fair-chance hiring.',
+    source: SOURCES.remotive,
+  },
+  {
+    title: 'Delivery Driver — Local Routes',
+    company: 'Coastal Delivery Co.',
+    city: 'Portland', region: 'OR', postal: '97201', industry: 'transportation',
+    salaryMin: 42000, salaryMax: 55000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['delivery_driving', 'box_truck_driving', 'route_planning'],
+    certs: [], minYears: 0, postedDaysAgo: 5,
+    description:
+      'Local routes, home daily. Class C; CDL not required. Clean ' +
+      'driving record needed. Fair-chance employer — past records ' +
+      'considered individually.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Production Line Worker',
+    company: 'Willamette Foods',
+    city: 'Salem', region: 'OR', postal: '97301', industry: 'manufacturing',
+    salaryMin: 38000, salaryMax: 46000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['general_labor', 'food_prep'],
+    certs: ['food_handler_card'], minYears: 0, postedDaysAgo: 4,
+    description:
+      'Bottling and packaging line. Multiple shifts. No background ' +
+      'check.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'CNA — Long Term Care',
+    company: 'Riverstone Care Center',
+    city: 'Boise', region: 'ID', postal: '83702', industry: 'healthcare',
+    salaryMin: 38000, salaryMax: 48000, riskTier: 'HIGH',
+    excludesFelons: true, backgroundCheckLikely: true,
+    skills: ['customer_service'],
+    certs: ['cna', 'cpr'], minYears: 0, postedDaysAgo: 14,
+    description:
+      'Long-term care facility. State licensing rules disqualify ' +
+      'most felonies for direct-patient roles.',
+    source: SOURCES.serpapi,
+  },
+  {
+    title: 'Logistics Coordinator',
+    company: 'Pacific Crossing Logistics',
+    city: 'Boise', region: 'ID', postal: '83704', industry: 'logistics',
+    salaryMin: 48000, salaryMax: 62000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['shipping_receiving', 'inventory_management', 'computer_literacy', 'excel'],
+    certs: [], minYears: 1, postedDaysAgo: 7,
+    description:
+      'Coordinate inbound + outbound shipments. Heavy spreadsheet ' +
+      'use. Will train on TMS. Fair-chance employer.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Roofing Crew Member',
+    company: 'Summit Roofing',
+    city: 'Sacramento', region: 'CA', postal: '95814', industry: 'construction',
+    salaryMin: 44000, salaryMax: 58000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['roofing', 'general_labor'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 2,
+    description:
+      'Residential reroofs. Will train candidates not afraid of ' +
+      'heights. Fall protection provided. Open to people with ' +
+      'records.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Cook II — Hotel Restaurant',
+    company: 'Cypress Hotel Group',
+    city: 'San Diego', region: 'CA', postal: '92101', industry: 'food_service',
+    salaryMin: 40000, salaryMax: 52000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['cooking', 'grilling', 'food_prep'],
+    certs: ['servsafe'], minYears: 1, postedDaysAgo: 8,
+    description:
+      'AAA Four Diamond property. Mediterranean menu. Tip pool. ' +
+      'Fair-chance hiring policy.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Plumber Apprentice',
+    company: 'UA Local 290',
+    city: 'Portland', region: 'OR', postal: '97214', industry: 'construction',
+    salaryMin: 42000, salaryMax: 56000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    isApprenticeship: true,
+    skills: ['plumbing', 'general_labor'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 13,
+    description:
+      'Paid 5-year apprenticeship. Drug test on intake. Open to ' +
+      'candidates with records.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Sanitation Worker',
+    company: 'Metro Waste Services',
+    city: 'Minneapolis', region: 'MN', postal: '55401', industry: 'sanitation',
+    salaryMin: 44000, salaryMax: 56000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['general_labor', 'recycling_waste'],
+    certs: [], minYears: 0, postedDaysAgo: 4,
+    description:
+      'Curb-side residential routes. 4-day workweek. Strong ' +
+      'fair-chance hiring track record — over 30% of our team has ' +
+      'past records.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Forklift Operator',
+    company: 'Twin Cities Cold Storage',
+    city: 'St. Paul', region: 'MN', postal: '55101', industry: 'warehousing',
+    salaryMin: 42000, salaryMax: 52000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['forklift_operation', 'warehouse_operations', 'reach_truck'],
+    certs: ['osha_forklift'], minYears: 1, postedDaysAgo: 6,
+    description:
+      'Freezer (-10°F) environment. Cold-weather gear provided. No ' +
+      'background check.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Heavy Equipment Operator (Bobcat)',
+    company: 'Northland Excavating',
+    city: 'Duluth', region: 'MN', postal: '55802', industry: 'construction',
+    salaryMin: 50000, salaryMax: 66000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['bobcat_skid_steer', 'excavator', 'backhoe'],
+    certs: ['osha_10'], minYears: 2, postedDaysAgo: 5,
+    description:
+      'Site prep and excavation. Seasonal layoffs in deep winter; ' +
+      'crews come back in March. Open to records.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Retail Associate — Garden Center',
+    company: 'Heartland Home Supply',
+    city: 'Des Moines', region: 'IA', postal: '50309', industry: 'retail',
+    salaryMin: 32000, salaryMax: 40000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['retail_sales', 'cashiering', 'customer_service'],
+    certs: [], minYears: 0, postedDaysAgo: 3,
+    description:
+      'Seasonal hire with year-round potential. Background check ' +
+      'standard but applied individually under Iowa fair-chance ' +
+      'guidance.',
+    source: SOURCES.serpapi,
+  },
+  {
+    title: 'CDL-B Local Driver',
+    company: 'Prairie State Beverage',
+    city: 'Chicago', region: 'IL', postal: '60601', industry: 'transportation',
+    salaryMin: 54000, salaryMax: 68000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['commercial_driving', 'delivery_driving', 'route_driving'],
+    certs: ['cdl_b'], minYears: 1, postedDaysAgo: 9,
+    description:
+      'Beverage distribution, home daily. Touch freight; will train ' +
+      'on pallet jack. Past records reviewed individually.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Mechanic — Diesel Truck',
+    company: 'Midwest Fleet Services',
+    city: 'Indianapolis', region: 'IN', postal: '46225', industry: 'automotive',
+    salaryMin: 56000, salaryMax: 78000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['auto_repair', 'small_engine', 'maintenance'],
+    certs: [], minYears: 2, postedDaysAgo: 4,
+    description:
+      'Heavy-duty truck repair. Tool allowance. Boot stipend. ' +
+      'Fair-chance employer.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Custodial Worker — Federal Building',
+    company: 'GSA Region 7',
+    city: 'Kansas City', region: 'MO', postal: '64108', industry: 'government',
+    salaryMin: 38000, salaryMax: 46000, riskTier: 'HIGH',
+    excludesFelons: true, backgroundCheckLikely: true,
+    skills: ['janitorial', 'cleaning'],
+    certs: [], minYears: 0, postedDaysAgo: 11,
+    description:
+      'Federal security clearance required — most felony convictions ' +
+      'disqualifying. Posting included so candidates can see what to ' +
+      'avoid based on background.',
+    source: SOURCES.usajobs,
+  },
+  {
+    title: 'Warehouse Selector — Night',
+    company: 'Southeast Food Service',
+    city: 'Atlanta', region: 'GA', postal: '30303', industry: 'warehousing',
+    salaryMin: 46000, salaryMax: 58000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['warehouse_operations', 'picking_packing', 'pallet_jack'],
+    certs: ['osha_forklift'], minYears: 0, postedDaysAgo: 1,
+    description:
+      'Voice-pick environment. $1.50 night-shift differential. ' +
+      'No background check.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Painter — Commercial',
+    company: 'Capital Painting',
+    city: 'Austin', region: 'TX', postal: '78701', industry: 'construction',
+    salaryMin: 42000, salaryMax: 56000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['painting', 'painting_residential', 'general_labor'],
+    certs: ['osha_10'], minYears: 1, postedDaysAgo: 7,
+    description:
+      'Commercial interior + exterior. Spray, brush, and roll. ' +
+      'Fair-chance hiring.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Welder Helper',
+    company: 'Gulf Coast Fabrication',
+    city: 'Houston', region: 'TX', postal: '77002', industry: 'manufacturing',
+    salaryMin: 40000, salaryMax: 50000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['welding', 'general_labor', 'sheet_metal'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 3,
+    description:
+      'Fitter / helper to journey-level welders. Will train. Path ' +
+      'to AWS certification on the company dime.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Tire Technician',
+    company: 'Big Country Tire',
+    city: 'Phoenix', region: 'AZ', postal: '85001', industry: 'automotive',
+    salaryMin: 36000, salaryMax: 44000, riskTier: 'MEDIUM',
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['tire_install', 'auto_repair', 'customer_service'],
+    certs: [], minYears: 0, postedDaysAgo: 5,
+    description:
+      'Will train. Bonus opportunities. Past records considered ' +
+      'individually under Arizona fair-chance guidance.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Construction Laborer',
+    company: 'Sunbelt General Contractors',
+    city: 'Las Vegas', region: 'NV', postal: '89101', industry: 'construction',
+    salaryMin: 40000, salaryMax: 54000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['general_labor', 'concrete', 'drywall'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 2,
+    description:
+      'Commercial buildouts. Steel-toe boots provided after first ' +
+      'paycheck. No background check.',
+    source: SOURCES.jooble,
+  },
+  {
+    title: 'Cook — High Volume',
+    company: 'Roadside Diner Co.',
+    city: 'Denver', region: 'CO', postal: '80202', industry: 'food_service',
+    salaryMin: 38000, salaryMax: 48000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['cooking', 'grilling', 'food_prep'],
+    certs: ['servsafe'], minYears: 0, postedDaysAgo: 6,
+    description:
+      'Breakfast diner, 4am start. Tip share. Strong fair-chance ' +
+      'hiring record.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Driller / Excavation Helper',
+    company: 'Frontier Drilling',
+    city: 'Casper', region: 'WY', postal: '82601', industry: 'energy_utilities',
+    salaryMin: 56000, salaryMax: 74000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['general_labor', 'excavator', 'bobcat_skid_steer'],
+    certs: ['osha_10'], minYears: 0, postedDaysAgo: 10,
+    description:
+      'Hitches of 14-on / 7-off. Company truck. Open to candidates ' +
+      'with records — drug test on intake only.',
+    source: SOURCES.direct,
+  },
+  {
+    title: 'Junior Network Tech (Remote-Optional)',
+    company: 'Cascade IT Partners',
+    city: 'Seattle', region: 'WA', postal: '98109', industry: 'it_general',
+    salaryMin: 52000, salaryMax: 66000, riskTier: 'MEDIUM', remote: true,
+    excludesFelons: false, backgroundCheckLikely: true,
+    skills: ['computer_repair', 'networking', 'customer_service'],
+    certs: ['comptia_a_plus', 'comptia_network_plus'], minYears: 0, postedDaysAgo: 4,
+    description:
+      'Help-desk + on-site networking work for SMB clients. Will ' +
+      'train. Background check standard but applied individually.',
+    source: SOURCES.adzuna,
+  },
+  {
+    title: 'Phlebotomy Technician',
+    company: 'Mercy Lab Services',
+    city: 'Cleveland', region: 'OH', postal: '44113', industry: 'healthcare',
+    salaryMin: 36000, salaryMax: 44000, riskTier: 'HIGH',
+    excludesFelons: true, backgroundCheckLikely: true,
+    skills: ['customer_service'],
+    certs: ['phlebotomy', 'cpr'], minYears: 0, postedDaysAgo: 15,
+    description:
+      'Health-system role. State board may disqualify certain ' +
+      'convictions for direct-patient roles. Apply if record is ' +
+      'older or unrelated.',
+    source: SOURCES.serpapi,
+  },
+  {
+    title: 'Manufacturing Maintenance Tech',
+    company: 'Crown Steel',
+    city: 'Pittsburgh', region: 'PA', postal: '15222', industry: 'manufacturing',
+    salaryMin: 58000, salaryMax: 78000, riskTier: 'LOW',
+    excludesFelons: false, backgroundCheckLikely: false,
+    skills: ['maintenance', 'electrical', 'machining', 'welding'],
+    certs: ['osha_10'], minYears: 2, postedDaysAgo: 8,
+    description:
+      'Heavy industrial. 12-hour rotating shifts. Strong union ' +
+      'shop. Fair-chance employer.',
+    source: SOURCES.direct,
+  },
+];
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+export const JOBS: JobDto[] = SEED_JOBS.map((s, i) => {
+  const id = `${slug(s.company)}-${slug(s.title)}-${i}`.slice(0, 80);
+  return {
+    id,
+    title: s.title,
+    company: s.company,
+    description: s.description,
+    descriptionHtml: null,
+    applyUrl: `https://example.com/apply/${id}`,
+    locationCity: s.city,
+    locationRegion: s.region,
+    locationPostalCode: s.postal,
+    locationCountry: 'US',
+    remote: !!s.remote,
+    employmentType: s.employmentType ?? 'FULL_TIME',
+    industry: s.industry,
+    salaryMin: s.salaryMin,
+    salaryMax: s.salaryMax,
+    salaryCurrency: 'USD',
+    requiredSkills: s.skills,
+    requiredCertifications: s.certs,
+    minYearsExperience: s.minYears,
+    riskTier: s.riskTier,
+    backgroundCheckLikely: s.backgroundCheckLikely,
+    excludesFelons: s.excludesFelons,
+    isApprenticeship: !!s.isApprenticeship,
+    postedAt: daysAgo(s.postedDaysAgo),
+    expiresAt: daysAhead(45 - s.postedDaysAgo),
+    sourceCode: s.source.code,
+    sourceName: s.source.name,
+  };
+});
+
+// ────────────────────────────────────────────────────────────────────
+// Query helpers
+// ────────────────────────────────────────────────────────────────────
+
+export interface JobsQuery {
+  q?: string;
+  industry?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  radiusMiles?: number;
+  offenseType?: string;
+  hideFelonExclusions?: boolean;
+  minSalary?: number;
+  postedWithinDays?: number;
+  apprenticeshipsOnly?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export function filterJobs(query: JobsQuery): PaginatedJobsDto {
+  let pool = JOBS.slice();
+
+  if (query.q) {
+    const needle = query.q.toLowerCase();
+    pool = pool.filter((j) =>
+      j.title.toLowerCase().includes(needle) ||
+      j.company.toLowerCase().includes(needle) ||
+      j.description.toLowerCase().includes(needle) ||
+      j.requiredSkills.some((s) => s.toLowerCase().includes(needle)) ||
+      j.requiredCertifications.some((c) => c.toLowerCase().includes(needle)),
+    );
+  }
+
+  if (query.industry) {
+    pool = pool.filter((j) => j.industry === query.industry);
+  }
+
+  if (query.region) {
+    pool = pool.filter((j) => j.locationRegion === query.region);
+  }
+
+  if (query.city) {
+    const needle = query.city.toLowerCase();
+    pool = pool.filter((j) => (j.locationCity ?? '').toLowerCase().includes(needle));
+  }
+
+  if (query.postalCode) {
+    // Bucket by first 2 zip digits — close enough for a demo of radius search.
+    const prefix = query.postalCode.slice(0, 2);
+    pool = pool.filter((j) => (j.locationPostalCode ?? '').startsWith(prefix));
+  }
+
+  if (query.hideFelonExclusions) {
+    pool = pool.filter((j) => !j.excludesFelons);
+  }
+
+  if (query.minSalary && query.minSalary > 0) {
+    pool = pool.filter((j) => (j.salaryMax ?? 0) >= query.minSalary!);
+  }
+
+  if (query.postedWithinDays && query.postedWithinDays > 0) {
+    const cutoff = NOW - query.postedWithinDays * DAY;
+    pool = pool.filter((j) => j.postedAt && new Date(j.postedAt).getTime() >= cutoff);
+  }
+
+  if (query.apprenticeshipsOnly) {
+    pool = pool.filter((j) => j.isApprenticeship);
+  }
+
+  const total = pool.length;
+  const offset = Math.max(0, query.offset ?? 0);
+  const limit  = Math.max(1, Math.min(200, query.limit ?? 50));
+  const results = pool.slice(offset, offset + limit);
+
+  return { total, limit, offset, results };
+}
+
+export function findJob(id: string): JobDto | undefined {
+  return JOBS.find((j) => j.id === id);
+}
+
+export function jobsByIds(ids: string[]): JobDto[] {
+  const set = new Set(ids);
+  return JOBS.filter((j) => set.has(j.id));
+}
+
+export function similarJobs(id: string, limit: number): JobDto[] {
+  const seed = findJob(id);
+  if (!seed) return [];
+  return JOBS
+    .filter((j) => j.id !== id)
+    .map((j) => ({ j, score: similarity(seed, j) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.j);
+}
+
+function similarity(a: JobDto, b: JobDto): number {
+  let score = 0;
+  if (a.industry && a.industry === b.industry) score += 4;
+  if (a.locationRegion && a.locationRegion === b.locationRegion) score += 2;
+  if (a.riskTier === b.riskTier) score += 1;
+  if (a.isApprenticeship === b.isApprenticeship) score += 1;
+  const overlap = a.requiredSkills.filter((s) => b.requiredSkills.includes(s)).length;
+  score += overlap;
+  return score;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Stats
+// ────────────────────────────────────────────────────────────────────
+
+export function jobsStats(): JobsStatsDto {
+  const countBy = <T extends string>(
+    keyFn: (j: JobDto) => T | null | undefined,
+  ): Array<{ key: T; count: number }> => {
+    const m = new Map<T, number>();
+    for (const j of JOBS) {
+      const k = keyFn(j);
+      if (k) m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return Array.from(m.entries())
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
+  const pretty = (s: string) =>
+    s.split(/[_\s-]+/).map((w) => w ? w[0].toUpperCase() + w.slice(1) : '').join(' ');
+
+  const byIndustry = countBy<string>((j) => j.industry).map((x) => ({
+    key: x.key, label: pretty(x.key), count: x.count,
+  }));
+  const byRegion = countBy<string>((j) => j.locationRegion).map((x) => ({
+    key: x.key, label: x.key, count: x.count,
+  }));
+  const bySource = countBy<string>((j) => j.sourceCode).map((x) => ({
+    key: x.key, label: pretty(x.key), count: x.count,
+  }));
+  const byRiskTier = countBy<string>((j) => j.riskTier).map((x) => ({
+    key: x.key, label: x.key, count: x.count,
+  }));
+
+  const skillsMap = new Map<string, number>();
+  for (const j of JOBS) for (const s of j.requiredSkills) skillsMap.set(s, (skillsMap.get(s) ?? 0) + 1);
+  const topSkills = Array.from(skillsMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([key, count]) => ({ key, label: pretty(key), count }));
+
+  const certsMap = new Map<string, number>();
+  for (const j of JOBS) for (const c of j.requiredCertifications) certsMap.set(c, (certsMap.get(c) ?? 0) + 1);
+  const topCertifications = Array.from(certsMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([key, count]) => ({ key, label: pretty(key), count }));
+
+  const salaryBands = [
+    { label: '< $40k',     min: 0,     max: 40000 },
+    { label: '$40k–$55k',  min: 40000, max: 55000 },
+    { label: '$55k–$70k',  min: 55000, max: 70000 },
+    { label: '$70k+',      min: 70000, max: null as number | null },
+  ].map((b) => ({
+    label: b.label,
+    min: b.min,
+    max: b.max,
+    count: JOBS.filter((j) => {
+      const mid = ((j.salaryMin ?? 0) + (j.salaryMax ?? 0)) / 2;
+      return mid >= b.min && (b.max == null || mid < b.max);
+    }).length,
+  }));
+
+  const fairChanceFriendly = JOBS.filter((j) => !j.excludesFelons && j.riskTier !== 'HIGH').length;
+  const remote = JOBS.filter((j) => j.remote).length;
+  const apprenticeships = JOBS.filter((j) => j.isApprenticeship).length;
+  const withSalary = JOBS.filter((j) => j.salaryMin && j.salaryMax).length;
+  const postedLast7Days = JOBS.filter((j) =>
+    j.postedAt && new Date(j.postedAt).getTime() >= NOW - 7 * DAY,
+  ).length;
+  const postedLast30Days = JOBS.filter((j) =>
+    j.postedAt && new Date(j.postedAt).getTime() >= NOW - 30 * DAY,
+  ).length;
+
+  return {
+    totals: {
+      active: JOBS.length,
+      fairChanceFriendly,
+      remote,
+      apprenticeships,
+      withSalary,
+      postedLast7Days,
+      postedLast30Days,
+    },
+    byIndustry,
+    byRegion,
+    bySource,
+    byRiskTier,
+    salaryBands,
+    topCertifications,
+    topSkills,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Matches + insights (rule-based mock scoring)
+// ────────────────────────────────────────────────────────────────────
+
+function publicSummary(j: JobDto): PublicJobSummaryDto {
+  return {
+    id: j.id,
+    title: j.title,
+    company: j.company,
+    locationCity: j.locationCity,
+    locationRegion: j.locationRegion,
+    industry: j.industry,
+    riskTier: j.riskTier,
+    backgroundCheckLikely: j.backgroundCheckLikely,
+    excludesFelons: j.excludesFelons,
+    applyUrl: j.applyUrl,
+    postedAt: j.postedAt,
+  };
+}
+
+function scoreFor(j: JobDto): ScoredJobDto {
+  // Deterministic per-job score so the demo feels stable across reloads.
+  const seed = [...j.id].reduce((acc, ch) => (acc + ch.charCodeAt(0)) % 97, 0);
+
+  const base = j.excludesFelons ? 10 : 60;
+  const industryBoost = j.industry && ['warehousing','construction','manufacturing','transportation'].includes(j.industry) ? 20 : 0;
+  const apprentice = j.isApprenticeship ? 12 : 0;
+  const lowRisk = j.riskTier === 'LOW' ? 10 : j.riskTier === 'MEDIUM' ? 4 : 0;
+  const fudge = (seed % 9);
+
+  const score = Math.max(0, Math.min(100, base + industryBoost + apprentice + lowRisk + fudge));
+
+  return {
+    jobId: j.id,
+    score,
+    breakdown: {
+      industry: industryBoost,
+      skills: Math.min(20, j.requiredSkills.length * 4),
+      certifications: Math.min(15, j.requiredCertifications.length * 5),
+      experience: 12,
+      location: 10,
+      risk: lowRisk,
+    },
+    explanation:
+      j.excludesFelons
+        ? `${j.company} is unlikely to hire candidates with felony records for this role.`
+        : `Fair-chance employer in ${j.industry ?? 'this industry'} — past records reviewed individually.`,
+    job: publicSummary(j),
+  };
+}
+
+export function matchesFor(userId: string, limit: number): MatchesResponseDto {
+  // userId doesn't change the demo distribution (we have no real profile),
+  // but we keep it in the response shape.
+  const all = JOBS.map(scoreFor).sort((a, b) => b.score - a.score);
+
+  const top = all.filter((m) => m.score >= 70).slice(0, limit);
+  const medium = all.filter((m) => m.score >= 40 && m.score < 70).slice(0, limit);
+  const avoidPool = all.filter((m) => m.score < 40);
+
+  const avoid: AvoidJobDto[] = avoidPool.map((m) => ({
+    jobId: m.jobId,
+    score: m.score,
+    reasons:
+      m.job.excludesFelons
+        ? ['Employer explicitly excludes felony records', 'High background-check risk']
+        : ['Lower fit based on skills + history'],
+    job: m.job,
+  }));
+
+  return {
+    userId,
+    counts: {
+      top: top.length,
+      medium: medium.length,
+      avoid: avoid.length,
+      pool: all.length,
+    },
+    topMatches: top,
+    mediumMatches: medium,
+    avoid,
+  };
+}
+
+export function insightsFor(userId: string): InsightsResponseDto {
+  const m = matchesFor(userId, 20);
+  return {
+    userId,
+    currentTop: m.counts.top,
+    currentMedium: m.counts.medium,
+    items: [
+      { kind: 'certification', code: 'cdl_a',       label: 'CDL Class A',                 unlocks: 4, promotesToTop: 2, demand: 18 },
+      { kind: 'certification', code: 'osha_10',     label: 'OSHA 10',                     unlocks: 6, promotesToTop: 3, demand: 22 },
+      { kind: 'certification', code: 'osha_forklift', label: 'OSHA forklift operator',    unlocks: 3, promotesToTop: 2, demand: 12 },
+      { kind: 'certification', code: 'servsafe',    label: 'ServSafe Food Handler',       unlocks: 2, promotesToTop: 1, demand: 6 },
+      { kind: 'skill',         code: 'forklift_operation', label: 'Forklift operation',   unlocks: 5, promotesToTop: 3, demand: 14 },
+      { kind: 'skill',         code: 'welding',     label: 'Welding',                     unlocks: 3, promotesToTop: 2, demand: 9 },
+      { kind: 'skill',         code: 'maintenance', label: 'Building maintenance',        unlocks: 4, promotesToTop: 2, demand: 11 },
+    ],
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Assessment (RIASEC short form)
+// ────────────────────────────────────────────────────────────────────
+
+export const ASSESSMENT_QUESTIONS = [
+  { id: 1,  dimension: 'R' as const, prompt: 'I enjoy fixing or building things with my hands.' },
+  { id: 2,  dimension: 'R' as const, prompt: 'I would rather work outdoors than at a desk.' },
+  { id: 3,  dimension: 'I' as const, prompt: 'I like figuring out how things work.' },
+  { id: 4,  dimension: 'I' as const, prompt: 'I enjoy solving puzzles or analyzing problems.' },
+  { id: 5,  dimension: 'A' as const, prompt: 'I like creating or designing things.' },
+  { id: 6,  dimension: 'A' as const, prompt: 'I prefer flexible work over strict routines.' },
+  { id: 7,  dimension: 'S' as const, prompt: 'I enjoy helping or teaching other people.' },
+  { id: 8,  dimension: 'S' as const, prompt: 'I am good at listening to others.' },
+  { id: 9,  dimension: 'E' as const, prompt: 'I am comfortable leading a team.' },
+  { id: 10, dimension: 'E' as const, prompt: 'I enjoy convincing or selling.' },
+  { id: 11, dimension: 'C' as const, prompt: 'I am organized and detail-oriented.' },
+  { id: 12, dimension: 'C' as const, prompt: 'I like following clear procedures.' },
+];
+
+export const ASSESSMENT_DIMENSIONS = {
+  R: { name: 'Realistic',     blurb: 'Hands-on, mechanical, outdoor work.' },
+  I: { name: 'Investigative', blurb: 'Analytical, problem-solving work.' },
+  A: { name: 'Artistic',      blurb: 'Creative, expressive, flexible work.' },
+  S: { name: 'Social',        blurb: 'Helping, teaching, supporting people.' },
+  E: { name: 'Enterprising',  blurb: 'Persuading, leading, selling.' },
+  C: { name: 'Conventional',  blurb: 'Organizing, recordkeeping, structured work.' },
+};
+
+export const ASSESSMENT_SCALE = [
+  { value: 1, label: 'Strongly disagree' },
+  { value: 2, label: 'Disagree' },
+  { value: 3, label: 'Neutral' },
+  { value: 4, label: 'Agree' },
+  { value: 5, label: 'Strongly agree' },
+];
+
+const ASSESSMENT_RESULTS = new Map<string, ReturnType<typeof scoreAssessment>>();
+
+export function scoreAssessment(userId: string, answers: Record<number, number>) {
+  const scores: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
+  const counts: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
+  for (const q of ASSESSMENT_QUESTIONS) {
+    const v = answers[q.id];
+    if (typeof v === 'number') {
+      scores[q.dimension] += v;
+      counts[q.dimension] += 1;
+    }
+  }
+  // Normalize to a 0–100 percent per dimension.
+  const normalized: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
+  (Object.keys(scores) as Array<keyof typeof scores>).forEach((k) => {
+    normalized[k] = counts[k] ? Math.round((scores[k] / (counts[k] * 5)) * 100) : 0;
+  });
+
+  const ordered = (Object.keys(normalized) as Array<keyof typeof normalized>)
+    .sort((a, b) => normalized[b] - normalized[a]);
+  const hollandCode = ordered.slice(0, 3).join('');
+  const topDimensions = ordered.slice(0, 3).map((code) => ({
+    code,
+    name:  ASSESSMENT_DIMENSIONS[code].name,
+    blurb: ASSESSMENT_DIMENSIONS[code].blurb,
+    score: normalized[code],
+  }));
+
+  const industryMap: Record<keyof typeof normalized, string[]> = {
+    R: ['construction', 'manufacturing', 'warehousing', 'automotive'],
+    I: ['it_general', 'energy_utilities', 'healthcare'],
+    A: ['services', 'food_service', 'retail'],
+    S: ['healthcare', 'education', 'services'],
+    E: ['retail', 'services', 'logistics'],
+    C: ['logistics', 'finance', 'government'],
+  };
+  const recommended = Array.from(new Set(ordered.slice(0, 3).flatMap((c) => industryMap[c]))).slice(0, 5);
+
+  const occupations = [
+    { onetCode: '47-2111.00', title: 'Electrician',          hollandCode: 'RIE', jobZone: 3, industry: 'construction',
+      description: 'Install and repair electrical systems in homes, businesses, and factories.',
+      preparation: '4-year apprenticeship; journeyman license.', typicalWage: '$56k – $98k',
+      fairChanceFriendly: true },
+    { onetCode: '53-3032.00', title: 'CDL Truck Driver',      hollandCode: 'RCE', jobZone: 2, industry: 'transportation',
+      description: 'Operate heavy trucks to transport goods over local or long-distance routes.',
+      preparation: 'CDL-A training program (4–8 weeks).', typicalWage: '$52k – $92k',
+      fairChanceFriendly: true },
+    { onetCode: '49-9071.00', title: 'Maintenance + Repair Worker', hollandCode: 'RIE', jobZone: 2, industry: 'services',
+      description: 'Perform a wide variety of repair tasks on buildings and equipment.',
+      preparation: 'On-the-job training; trade school helpful.', typicalWage: '$38k – $72k',
+      fairChanceFriendly: true },
+    { onetCode: '35-2014.00', title: 'Restaurant Cook',       hollandCode: 'RCS', jobZone: 2, industry: 'food_service',
+      description: 'Prepare and cook food in a restaurant kitchen.',
+      preparation: 'Short-term on-the-job training; ServSafe.', typicalWage: '$30k – $52k',
+      fairChanceFriendly: true },
+    { onetCode: '47-2031.00', title: 'Carpenter',             hollandCode: 'RIA', jobZone: 3, industry: 'construction',
+      description: 'Construct, install, and repair structures made of wood, drywall, and other materials.',
+      preparation: 'Apprenticeship or trade school.', typicalWage: '$42k – $84k',
+      fairChanceFriendly: true },
+    { onetCode: '51-4121.00', title: 'Welder',                hollandCode: 'RIC', jobZone: 2, industry: 'manufacturing',
+      description: 'Join metal parts using welding equipment in fabrication and repair work.',
+      preparation: 'Trade-school program (6–18 months); AWS certs.', typicalWage: '$45k – $78k',
+      fairChanceFriendly: true },
+  ];
+
+  const result = {
+    userId,
+    scores: normalized,
+    hollandCode,
+    topDimensions,
+    recommendedIndustries: recommended,
+    occupations: occupations.map((o) => {
+      // Weight occupations toward the user's top dimension.
+      const w = o.hollandCode[0] as keyof typeof normalized;
+      const fitPercent = Math.round((normalized[w] + 50) / 2);
+      const liveJobCount = JOBS.filter((j) => j.industry === o.industry).length;
+      return {
+        ...o,
+        fitPercent,
+        liveJobCount,
+        jobsQuery: `?industry=${encodeURIComponent(o.industry)}`,
+      };
+    }).sort((a, b) => b.fitPercent - a.fitPercent),
+    completedAt: new Date().toISOString(),
+  };
+
+  ASSESSMENT_RESULTS.set(userId, result);
+  return result;
+}
+
+export function getAssessmentResultFor(userId: string) {
+  return ASSESSMENT_RESULTS.get(userId) ?? null;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CareerOneStop (mock — real API needs DOL auth)
+// ────────────────────────────────────────────────────────────────────
+
+export function mockAjcCenters(location: string) {
+  return {
+    OneStopCenterList: [
+      {
+        ID: 'WA-SEATTLE-01',
+        Name: 'Seattle WorkSource Affiliate',
+        Address1: '2nd Avenue Office',
+        City: 'Seattle', StateAbbr: 'WA', Zip: '98101',
+        Phone: '(206) 555-0142',
+        Distance: '0.0',
+        ProgramType: 'WorkSource',
+        OpenHour: 'Mon–Fri 8a–5p',
+        Latitude: 47.6062, Longitude: -122.3321,
+        WebSiteUrl: 'https://www.worksourcewa.com/',
+      },
+      {
+        ID: 'WA-RENTON-02',
+        Name: 'WorkSource Renton',
+        Address1: '500 SW 7th St',
+        City: 'Renton', StateAbbr: 'WA', Zip: '98057',
+        Phone: '(425) 555-0118',
+        Distance: '11.4',
+        ProgramType: 'WorkSource',
+        OpenHour: 'Mon–Thu 8:30a–4:30p',
+        Latitude: 47.4829, Longitude: -122.2171,
+        WebSiteUrl: 'https://www.worksourcewa.com/',
+      },
+      {
+        ID: 'WA-TACOMA-03',
+        Name: 'WorkSource Pierce',
+        Address1: '1313 Tacoma Ave S',
+        City: 'Tacoma', StateAbbr: 'WA', Zip: '98402',
+        Phone: '(253) 555-0177',
+        Distance: '32.1',
+        ProgramType: 'WorkSource',
+        OpenHour: 'Mon–Fri 8a–5p',
+        Latitude: 47.2529, Longitude: -122.4443,
+        WebSiteUrl: 'https://www.worksourcewa.com/',
+      },
+    ],
+    RecordCount: 3,
+    partial: false,
+  };
+}
+
+export function mockReentryPrograms(_location: string) {
+  return {
+    items: [
+      { name: 'Pioneer Human Services',  city: 'Seattle',  region: 'WA', focus: 'Employment, housing, treatment' },
+      { name: 'FreeAmerica Project',     city: 'Tacoma',   region: 'WA', focus: 'Reentry employment + advocacy' },
+      { name: 'Post-Prison Education Program', city: 'Seattle', region: 'WA', focus: 'Education + mentorship' },
+    ],
+  };
+}
+
+export function mockWages(_onetOrKeyword: string) {
+  return {
+    OccupationDetail: {
+      Wages: {
+        NationalWagesList: [
+          { RateType: 'Annual', Pct10: '32000', Pct25: '38000', Median: '46000', Pct75: '58000', Pct90: '72000' },
+        ],
+      },
+    },
+  };
+}
+
+export function mockLicenses(_kw: string, location: string) {
+  return {
+    LicenseList: [
+      { Title: 'CDL Class A', Region: location || 'WA', Description: 'Commercial Driver License for combination vehicles.' },
+      { Title: 'OSHA 10',     Region: location || 'WA', Description: '10-hour OSHA construction or general industry card.' },
+    ],
+  };
+}
+
+export function mockCertifications(_kw: string) {
+  return {
+    CertificationList: [
+      { Name: 'OSHA Forklift Operator', Issuer: 'OSHA',  Description: 'Powered industrial truck operator card.' },
+      { Name: 'ServSafe Food Handler',  Issuer: 'NRA',   Description: 'Food handler certification accepted by most states.' },
+      { Name: 'AWS Certified Welder',   Issuer: 'AWS',   Description: 'Performance-based weld certification.' },
+    ],
+  };
+}
+
+export function mockApprenticeships(_kw: string, location: string) {
+  return {
+    ApprenticeshipList: [
+      { Title: 'Electrical Apprentice',  Sponsor: 'IBEW Local 46',         Region: location || 'WA' },
+      { Title: 'Plumber Apprentice',     Sponsor: 'UA Local 290',          Region: location || 'OR' },
+      { Title: 'HVAC Apprentice',        Sponsor: 'NW Mechanical',         Region: location || 'WA' },
+      { Title: 'Carpenter Apprentice',   Sponsor: 'Northwest Carpenters',  Region: location || 'WA' },
+    ],
+  };
+}

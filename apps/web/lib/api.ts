@@ -7,7 +7,10 @@ import type {
   JobsStatsDto,
 } from '@dxp/shared';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+// Defaults to the in-app mock layer at /api/v1 so the deployed web service
+// is self-sufficient. Point at a real NestJS backend by setting
+// NEXT_PUBLIC_API_URL (e.g. https://api.example.com/api/v1) at build time.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
