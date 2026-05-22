@@ -31,7 +31,6 @@ import type { JobDto } from '@dxp/shared';
 import type { JobProvider } from './types';
 import { applyClassification } from './classify';
 
-const BASE = 'https://api.careeronestop.org/v1';
 const DEFAULT_KEYWORDS = ['warehouse', 'forklift', 'cdl driver', 'maintenance', 'custodian', 'cook', 'laborer', 'manufacturing'];
 
 interface CosJob {
@@ -76,8 +75,15 @@ export const careerOneStopProvider: JobProvider = {
     const out: JobDto[] = [];
     for (const kw of keywords) {
       const k = encodeSeg(kw);
-      const path = `/jobsearch/${encodeSeg(userId)}/${k}/${location}/${radius}/${postedDays}/Distance/asc/0/${limit}/false`;
-      const fullUrl = `${BASE}${path}`;
+      // Correct path per current CareerOneStop docs (verified May 2026):
+      //   /v1/jobsearch/{userId}/{keyword}/{location}/{radius}/{sortColumns}/{sortOrder}/{startRecord}/{pageSize}/{days}?showFilters=false
+      // The original NestJS api/src had postedDays at segment 5 and a
+      // trailing /false, both wrong. v2 is now available and may give
+      // richer fields; flip CAREERONESTOP_VERSION=v2 once you've requested
+      // v2 access on the CareerOneStop developer portal.
+      const version = process.env.CAREERONESTOP_VERSION ?? 'v1';
+      const path = `/${version}/jobsearch/${encodeSeg(userId)}/${k}/${location}/${radius}/Distance/asc/0/${limit}/${postedDays}?showFilters=false`;
+      const fullUrl = `https://api.careeronestop.org${path}`;
       if (debug) console.log(`[cos] kw="${kw}" url=${fullUrl}`);
       let data: unknown;
       try {
