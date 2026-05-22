@@ -21,6 +21,9 @@ import { joobleProvider } from './jooble';
 import { museProvider } from './muse';
 import { ziprecruiterProvider } from './ziprecruiter';
 import { monsterProvider } from './monster';
+import { atsBoardsProvider } from './ats-boards';
+import { workdayProvider } from './workday';
+import { careerOneStopProvider } from './careeronestop';
 
 const ALL_PROVIDERS: JobProvider[] = [
   usajobsProvider,
@@ -30,6 +33,9 @@ const ALL_PROVIDERS: JobProvider[] = [
   museProvider,
   ziprecruiterProvider,
   monsterProvider,
+  atsBoardsProvider,
+  workdayProvider,
+  careerOneStopProvider,
 ];
 
 interface CacheEntry {
