@@ -75,14 +75,16 @@ export const careerOneStopProvider: JobProvider = {
     const out: JobDto[] = [];
     for (const kw of keywords) {
       const k = encodeSeg(kw);
-      // Correct path per current CareerOneStop docs (verified May 2026):
-      //   /v1/jobsearch/{userId}/{keyword}/{location}/{radius}/{sortColumns}/{sortOrder}/{startRecord}/{pageSize}/{days}?showFilters=false
-      // The original NestJS api/src had postedDays at segment 5 and a
-      // trailing /false, both wrong. v2 is now available and may give
-      // richer fields; flip CAREERONESTOP_VERSION=v2 once you've requested
-      // v2 access on the CareerOneStop developer portal.
-      const version = process.env.CAREERONESTOP_VERSION ?? 'v1';
-      const path = `/${version}/jobsearch/${encodeSeg(userId)}/${k}/${location}/${radius}/Distance/asc/0/${limit}/${postedDays}?showFilters=false`;
+      // Correct path per current CareerOneStop docs (verified May 2026
+      // via the API Explorer at https://api.careeronestop.org/api-explorer/):
+      //   /v2/jobsearch/{userId}/{keyword}/{location}/{radius}/{sortColumns}/{sortOrder}/{startRecord}/{pageSize}/{days}
+      //     ?showFilters=false&enableJobDescriptionSnippet=true&enableMetaData=false
+      // Default to v2 because v1 was retired in 2024 and most newly-issued
+      // credentials only have v2 access. Override with CAREERONESTOP_VERSION=v1
+      // if you're on the legacy tier.
+      const version = process.env.CAREERONESTOP_VERSION ?? 'v2';
+      const query = '?showFilters=false&enableJobDescriptionSnippet=true&enableMetaData=false';
+      const path = `/${version}/jobsearch/${encodeSeg(userId)}/${k}/${location}/${radius}/Distance/asc/0/${limit}/${postedDays}${query}`;
       const fullUrl = `https://api.careeronestop.org${path}`;
       if (debug) console.log(`[cos] kw="${kw}" url=${fullUrl}`);
       let data: unknown;
