@@ -20,6 +20,7 @@ import { remotiveProvider } from './remotive';
 import { joobleProvider } from './jooble';
 import { museProvider } from './muse';
 import { ziprecruiterProvider } from './ziprecruiter';
+import { monsterProvider } from './monster';
 
 const ALL_PROVIDERS: JobProvider[] = [
   usajobsProvider,
@@ -28,6 +29,7 @@ const ALL_PROVIDERS: JobProvider[] = [
   joobleProvider,
   museProvider,
   ziprecruiterProvider,
+  monsterProvider,
 ];
 
 interface CacheEntry {
