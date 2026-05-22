@@ -42,17 +42,16 @@ interface WorkdayEmployer {
 // hiring practices, using Workday as their ATS. Sourced from the
 // Second-Chance Business Coalition member list + public verification
 // of their career sites.
+// Each entry confirmed responding 200 to the public CXS POST as of this
+// commit. Workday tenants migrate slugs occasionally; if a tenant starts
+// 404'ing or 422'ing, browse the company's public career site, watch
+// the network tab for the `/wday/cxs/.../jobs` POST, and copy the new
+// baseUrl here.
 const DEFAULT_EMPLOYERS: WorkdayEmployer[] = [
-  { name: 'Aramark',     baseUrl: 'https://aramark.wd1.myworkdayjobs.com/wday/cxs/aramark/aramarkcareers' },
-  { name: 'Hilton',      baseUrl: 'https://hilton.wd1.myworkdayjobs.com/wday/cxs/hilton/Hilton' },
-  { name: 'McDonalds',   baseUrl: 'https://mcdonalds.wd3.myworkdayjobs.com/wday/cxs/mcdonalds/corporate' },
-  { name: 'Best Buy',    baseUrl: 'https://bestbuy.wd5.myworkdayjobs.com/wday/cxs/bestbuy/External' },
-  { name: 'JLL',         baseUrl: 'https://jll.wd1.myworkdayjobs.com/wday/cxs/jll/jllcareers' },
-  { name: 'Aerotek',     baseUrl: 'https://allegisgroup.wd5.myworkdayjobs.com/wday/cxs/allegisgroup/Aerotek' },
-  { name: 'Verizon',     baseUrl: 'https://verizon.wd12.myworkdayjobs.com/wday/cxs/verizon/Careers' },
-  { name: 'JPMorgan',    baseUrl: 'https://jpmc.fa.oraclecloud.com/wday/cxs/jpmc/External' }, // best-effort; JPMC uses Oracle too
-  { name: 'Cisco',       baseUrl: 'https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/External_Career_Site' },
-  { name: 'Dell',        baseUrl: 'https://dell.wd1.myworkdayjobs.com/wday/cxs/dell/External' },
+  { name: 'JLL',     baseUrl: 'https://jll.wd1.myworkdayjobs.com/wday/cxs/jll/jllcareers' },
+  { name: 'Target',  baseUrl: 'https://target.wd5.myworkdayjobs.com/wday/cxs/target/targetcareers' },
+  { name: 'Comcast', baseUrl: 'https://comcast.wd5.myworkdayjobs.com/wday/cxs/comcast/Comcast_Careers' },
+  { name: 'Dell',    baseUrl: 'https://dell.wd1.myworkdayjobs.com/wday/cxs/dell/External' },
 ];
 
 interface WorkdayJob {
@@ -73,7 +72,10 @@ export const workdayProvider: JobProvider = {
   async fetch() {
     if (!this.enabled()) return [];
     const employers = parseEmployers(process.env.WORKDAY_EMPLOYERS) ?? DEFAULT_EMPLOYERS;
-    const pages = Number(process.env.WORKDAY_PAGES ?? 2);
+    // 5 pages × 20 per page = 100 jobs per employer. With ~4 working
+    // tenants by default that's ~400 jobs from Workday. Bump WORKDAY_PAGES
+    // if you've added enough custom employers to want more.
+    const pages = Number(process.env.WORKDAY_PAGES ?? 5);
 
     const results = await Promise.allSettled(
       employers.map((e) => fetchEmployer(e, pages)),
@@ -103,6 +105,7 @@ function parseEmployers(raw: string | undefined): WorkdayEmployer[] | null {
 
 async function fetchEmployer(e: WorkdayEmployer, pages: number): Promise<JobDto[]> {
   const out: JobDto[] = [];
+  const origin = e.baseUrl.replace(/\/wday\/cxs\/.+$/, '');
   for (let p = 0; p < pages; p++) {
     let res;
     try {
@@ -111,6 +114,12 @@ async function fetchEmployer(e: WorkdayEmployer, pages: number): Promise<JobDto[
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          // Workday rejects bare POSTs without browser-like headers
+          // (returns HTTP 422 with empty body). Origin + Referer are
+          // the ones that actually matter for CSRF-like checks.
+          Origin: origin,
+          Referer: `${origin}/`,
+          'User-Agent': 'Mozilla/5.0 (compatible; AchieveDXP/1.0)',
         },
         body: JSON.stringify({
           appliedFacets: {},

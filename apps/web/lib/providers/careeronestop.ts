@@ -71,6 +71,7 @@ export const careerOneStopProvider: JobProvider = {
     const postedDays = Number(process.env.COS_POSTED_DAYS ?? 30);
     const limit = Math.min(Number(process.env.COS_LIMIT ?? 50), 100);
 
+    const debug = process.env.DEBUG_COS === 'true';
     const out: JobDto[] = [];
     for (const kw of keywords) {
       const k = encodeSeg(kw);
@@ -84,12 +85,27 @@ export const careerOneStopProvider: JobProvider = {
           },
           signal: AbortSignal.timeout(20000),
         });
-        if (!res.ok) continue;
+        if (debug) console.log(`[cos] kw="${kw}" → HTTP ${res.status}`);
+        if (!res.ok) {
+          if (debug) {
+            const body = await res.text().catch(() => '');
+            console.log(`[cos] error body: ${body.slice(0, 300)}`);
+          }
+          continue;
+        }
         data = await res.json();
-      } catch {
+      } catch (e) {
+        if (debug) console.log(`[cos] kw="${kw}" fetch error:`, e);
         continue;
       }
       const jobs = extractJobs(data);
+      if (debug) {
+        const keys = data && typeof data === 'object' ? Object.keys(data as Record<string, unknown>).slice(0, 8) : [];
+        console.log(`[cos] kw="${kw}" extracted ${jobs.length} jobs (top-level keys: ${keys.join(', ')})`);
+        if (jobs.length === 0 && jobs !== null) {
+          console.log(`[cos] raw shape sample: ${JSON.stringify(data).slice(0, 400)}`);
+        }
+      }
       for (const j of jobs) {
         const normalized = normalize(j);
         if (normalized.title && normalized.applyUrl) out.push(normalized);
