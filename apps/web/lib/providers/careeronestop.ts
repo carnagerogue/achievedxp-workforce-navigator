@@ -72,13 +72,16 @@ export const careerOneStopProvider: JobProvider = {
     const limit = Math.min(Number(process.env.COS_LIMIT ?? 50), 100);
 
     const debug = process.env.DEBUG_COS === 'true';
+    if (debug) console.log(`[cos] userId len=${userId.length} token len=${token.length}`);
     const out: JobDto[] = [];
     for (const kw of keywords) {
       const k = encodeSeg(kw);
       const path = `/jobsearch/${encodeSeg(userId)}/${k}/${location}/${radius}/${postedDays}/Distance/asc/0/${limit}/false`;
+      const fullUrl = `${BASE}${path}`;
+      if (debug) console.log(`[cos] kw="${kw}" url=${fullUrl}`);
       let data: unknown;
       try {
-        const res = await fetch(`${BASE}${path}`, {
+        const res = await fetch(fullUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
@@ -189,11 +192,13 @@ function mapEmployment(t: string | undefined): JobDto['employmentType'] {
   return 'FULL_TIME';
 }
 
-function encodeSeg(s: string): string {
-  // CareerOneStop's path segments need URL-encoding but they also have
-  // a quirk where '/' inside a segment breaks routing; we replace with
-  // space then encode.
-  return encodeURIComponent(s.replace(/\//g, ' '));
+function encodeSeg(s: string | null | undefined): string {
+  // CareerOneStop's path segments need URL-encoding and must not be empty
+  // (their router treats empty segments as 404). Matches the api's seg()
+  // helper that handled whitespace from env var transit.
+  const trimmed = String(s ?? '').trim();
+  if (!trimmed) return '0';
+  return encodeURIComponent(trimmed.replace(/\//g, ' '));
 }
 
 function hash(s: string): string {
