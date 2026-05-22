@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { filterJobs } from '../../../../lib/mock-data';
+import { filterJobs, getJobPool } from '../../../../lib/mock-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const num = (k: string) => {
     const v = sp.get(k);
@@ -18,6 +18,7 @@ export function GET(req: NextRequest) {
     return v && v !== '' ? v : undefined;
   };
 
+  const { jobs } = await getJobPool();
   const data = filterJobs({
     q: str('q'),
     industry: str('industry'),
@@ -32,6 +33,6 @@ export function GET(req: NextRequest) {
     apprenticeshipsOnly: bool('apprenticeshipsOnly'),
     limit: num('limit'),
     offset: num('offset'),
-  });
+  }, jobs);
   return NextResponse.json(data);
 }

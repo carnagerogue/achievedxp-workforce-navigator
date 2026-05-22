@@ -653,8 +653,8 @@ export interface JobsQuery {
   offset?: number;
 }
 
-export function filterJobs(query: JobsQuery): PaginatedJobsDto {
-  let pool = JOBS.slice();
+export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): PaginatedJobsDto {
+  let pool = source.slice();
 
   if (query.q) {
     const needle = query.q.toLowerCase();
@@ -711,19 +711,19 @@ export function filterJobs(query: JobsQuery): PaginatedJobsDto {
   return { total, limit, offset, results };
 }
 
-export function findJob(id: string): JobDto | undefined {
-  return JOBS.find((j) => j.id === id);
+export function findJob(id: string, source: JobDto[] = JOBS): JobDto | undefined {
+  return source.find((j) => j.id === id);
 }
 
-export function jobsByIds(ids: string[]): JobDto[] {
+export function jobsByIds(ids: string[], source: JobDto[] = JOBS): JobDto[] {
   const set = new Set(ids);
-  return JOBS.filter((j) => set.has(j.id));
+  return source.filter((j) => set.has(j.id));
 }
 
-export function similarJobs(id: string, limit: number): JobDto[] {
-  const seed = findJob(id);
+export function similarJobs(id: string, limit: number, source: JobDto[] = JOBS): JobDto[] {
+  const seed = findJob(id, source);
   if (!seed) return [];
-  return JOBS
+  return source
     .filter((j) => j.id !== id)
     .map((j) => ({ j, score: similarity(seed, j) }))
     .sort((a, b) => b.score - a.score)
@@ -746,12 +746,12 @@ function similarity(a: JobDto, b: JobDto): number {
 // Stats
 // ────────────────────────────────────────────────────────────────────
 
-export function jobsStats(): JobsStatsDto {
+export function jobsStats(source: JobDto[] = JOBS): JobsStatsDto {
   const countBy = <T extends string>(
     keyFn: (j: JobDto) => T | null | undefined,
   ): Array<{ key: T; count: number }> => {
     const m = new Map<T, number>();
-    for (const j of JOBS) {
+    for (const j of source) {
       const k = keyFn(j);
       if (k) m.set(k, (m.get(k) ?? 0) + 1);
     }
@@ -777,14 +777,14 @@ export function jobsStats(): JobsStatsDto {
   }));
 
   const skillsMap = new Map<string, number>();
-  for (const j of JOBS) for (const s of j.requiredSkills) skillsMap.set(s, (skillsMap.get(s) ?? 0) + 1);
+  for (const j of source) for (const s of j.requiredSkills) skillsMap.set(s, (skillsMap.get(s) ?? 0) + 1);
   const topSkills = Array.from(skillsMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([key, count]) => ({ key, label: pretty(key), count }));
 
   const certsMap = new Map<string, number>();
-  for (const j of JOBS) for (const c of j.requiredCertifications) certsMap.set(c, (certsMap.get(c) ?? 0) + 1);
+  for (const j of source) for (const c of j.requiredCertifications) certsMap.set(c, (certsMap.get(c) ?? 0) + 1);
   const topCertifications = Array.from(certsMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
@@ -799,26 +799,26 @@ export function jobsStats(): JobsStatsDto {
     label: b.label,
     min: b.min,
     max: b.max,
-    count: JOBS.filter((j) => {
+    count: source.filter((j) => {
       const mid = ((j.salaryMin ?? 0) + (j.salaryMax ?? 0)) / 2;
       return mid >= b.min && (b.max == null || mid < b.max);
     }).length,
   }));
 
-  const fairChanceFriendly = JOBS.filter((j) => !j.excludesFelons && j.riskTier !== 'HIGH').length;
-  const remote = JOBS.filter((j) => j.remote).length;
-  const apprenticeships = JOBS.filter((j) => j.isApprenticeship).length;
-  const withSalary = JOBS.filter((j) => j.salaryMin && j.salaryMax).length;
-  const postedLast7Days = JOBS.filter((j) =>
+  const fairChanceFriendly = source.filter((j) => !j.excludesFelons && j.riskTier !== 'HIGH').length;
+  const remote = source.filter((j) => j.remote).length;
+  const apprenticeships = source.filter((j) => j.isApprenticeship).length;
+  const withSalary = source.filter((j) => j.salaryMin && j.salaryMax).length;
+  const postedLast7Days = source.filter((j) =>
     j.postedAt && new Date(j.postedAt).getTime() >= NOW - 7 * DAY,
   ).length;
-  const postedLast30Days = JOBS.filter((j) =>
+  const postedLast30Days = source.filter((j) =>
     j.postedAt && new Date(j.postedAt).getTime() >= NOW - 30 * DAY,
   ).length;
 
   return {
     totals: {
-      active: JOBS.length,
+      active: source.length,
       fairChanceFriendly,
       remote,
       apprenticeships,
@@ -887,10 +887,10 @@ function scoreFor(j: JobDto): ScoredJobDto {
   };
 }
 
-export function matchesFor(userId: string, limit: number): MatchesResponseDto {
+export function matchesFor(userId: string, limit: number, source: JobDto[] = JOBS): MatchesResponseDto {
   // userId doesn't change the demo distribution (we have no real profile),
   // but we keep it in the response shape.
-  const all = JOBS.map(scoreFor).sort((a, b) => b.score - a.score);
+  const all = source.map(scoreFor).sort((a, b) => b.score - a.score);
 
   const top = all.filter((m) => m.score >= 70).slice(0, limit);
   const medium = all.filter((m) => m.score >= 40 && m.score < 70).slice(0, limit);
@@ -920,8 +920,8 @@ export function matchesFor(userId: string, limit: number): MatchesResponseDto {
   };
 }
 
-export function insightsFor(userId: string): InsightsResponseDto {
-  const m = matchesFor(userId, 20);
+export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsResponseDto {
+  const m = matchesFor(userId, 20, source);
   return {
     userId,
     currentTop: m.counts.top,
@@ -1168,3 +1168,36 @@ export function mockApprenticeships(_kw: string, location: string) {
     ],
   };
 }
+
+// ────────────────────────────────────────────────────────────────────
+// Live-or-mock pool resolver
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * Return the active job pool for /api/v1/* handlers to operate on:
+ *   - If any configured provider returned jobs → live (real) data.
+ *   - Otherwise → the bundled mock dataset, so the demo never goes blank.
+ *
+ * Route handlers call this once per request and pass the result into the
+ * pool-taking helpers (filterJobs, findJob, jobsStats, etc.).
+ *
+ * Implemented as a thin wrapper around lib/providers so this file stays
+ * import-cycle-free; if no providers are configured this returns the
+ * bundled JOBS immediately without paying for a network round trip.
+ */
+export async function getJobPool(): Promise<{
+  jobs: JobDto[];
+  isMock: boolean;
+  perProvider: Array<{ code: string; name: string; count: number; ok: boolean }>;
+}> {
+  // Lazy-load to avoid pulling providers (which use Node-only APIs like
+  // AbortSignal.timeout) into bundles that don't need them.
+  const { fetchLiveJobs, listEnabledProviders } = await import('./providers');
+  if (listEnabledProviders().length === 0) {
+    return { jobs: JOBS, isMock: true, perProvider: [] };
+  }
+  const live = await fetchLiveJobs();
+  if (!live) return { jobs: JOBS, isMock: true, perProvider: [] };
+  return { jobs: live.jobs, isMock: false, perProvider: live.perProvider };
+}
+
