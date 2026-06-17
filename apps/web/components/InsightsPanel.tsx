@@ -84,16 +84,25 @@ export function InsightsPanel({ userId }: { userId: string }) {
                 <span className="text-teal-700">{it.label}</span>
               </p>
               <p className="mt-0.5 text-xs text-slate-600">
-                <strong className="font-semibold text-navy-900">+{it.unlocks}</strong>{' '}
-                new {it.unlocks === 1 ? 'match' : 'matches'}
-                {it.promotesToTop > 0 && (
-                  <>, <strong className="font-semibold text-navy-900">{it.promotesToTop}</strong> promoted to Top</>
+                {it.unlocks + it.promotesToTop > 0 ? (
+                  <>
+                    <strong className="font-semibold text-navy-900">+{it.unlocks}</strong>{' '}
+                    new {it.unlocks === 1 ? 'match' : 'matches'}
+                    {it.promotesToTop > 0 && (
+                      <>, <strong className="font-semibold text-navy-900">{it.promotesToTop}</strong> promoted to Top</>
+                    )}
+                    <span className="ml-2 text-slate-400">· {it.demand} postings require it</span>
+                  </>
+                ) : (
+                  <>
+                    <strong className="font-semibold text-navy-900">{it.demand}</strong>{' '}
+                    {it.demand === 1 ? 'posting requires' : 'postings require'} it — a common ask in your target roles
+                  </>
                 )}
-                <span className="ml-2 text-slate-400">· {it.demand} postings require it</span>
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">
-              +{it.unlocks + it.promotesToTop}
+              {it.unlocks + it.promotesToTop > 0 ? `+${it.unlocks + it.promotesToTop}` : 'In demand'}
             </span>
           </li>
         ))}
