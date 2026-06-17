@@ -1180,13 +1180,19 @@ export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsRe
     return { kind, code, label: prettyCode(code), unlocks, promotesToTop, demand };
   };
 
-  const items = [
+  const ranked = [
     ...Array.from(certDemand.entries()).map(([code, demand]) => evaluate('certification', code, demand)),
     ...Array.from(skillDemand.entries()).map(([code, demand]) => evaluate('skill', code, demand)),
-  ]
-    .filter((it) => it.unlocks > 0 || it.promotesToTop > 0)
-    .sort((a, b) => (b.unlocks * 2 + b.promotesToTop) - (a.unlocks * 2 + a.promotesToTop))
-    .slice(0, 7);
+  ].sort((a, b) =>
+    // Impact first (unlocks weighted 2× over promotions), then raw demand so
+    // the list is never empty — a credential that doesn't cross a tier line
+    // on today's pool can still be the most in-demand one worth pursuing.
+    (b.unlocks * 2 + b.promotesToTop) - (a.unlocks * 2 + a.promotesToTop) || b.demand - a.demand,
+  );
+  const impactful = ranked.filter((it) => it.unlocks > 0 || it.promotesToTop > 0);
+  // Prefer threshold-crossing credentials; backfill with highest-demand gaps
+  // so caseworkers always get actionable suggestions.
+  const items = (impactful.length >= 3 ? impactful : ranked).slice(0, 7);
 
   return {
     userId,
