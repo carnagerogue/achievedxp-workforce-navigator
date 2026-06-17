@@ -13,6 +13,7 @@ export * from './industry-sensitivity';
 export * from './signals';
 export * from './risk-matrix';
 export * from './explanations';
+export * from './offense-hard-filters';
 export { scoreJobCompatibility } from './scoring';
 
 // New modules added in the caseworker-grade upgrade.
