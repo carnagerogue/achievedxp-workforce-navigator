@@ -125,7 +125,11 @@ export class ClassifierService {
     /\bMarine Corps (Air Station|Base|Logistics)\b/i,
     /\bMCAS\b/,
     /\bMCB Camp\b/i,
-    /\bFort\s+[A-Z][a-zA-Z]+/, // Fort Bragg, Fort Hood, Fort Bliss, etc.
+    // Fort Bragg, Fort Hood, Fort Bliss, etc. — but NOT civilian metros that
+    // merely sit in a "Fort" city (Fort Worth, Fort Collins, Fort Lauderdale,
+    // Fort Myers, Fort Wayne, Fort Smith, …), which would wrongly flag
+    // ordinary employers there as federal/military.
+    /\bFort\s+(?!Worth|Collins|Lauderdale|Myers|Wayne|Smith|Pierce|Dodge|Walton|Mill|Madison)[A-Z][a-zA-Z]+/,
     /\bCamp\s+(Pendleton|Lejeune|Geiger|Foster|Hansen|Schwab|Courtney|Casey|Humphreys|Carroll|Walker|Zama)\b/i,
     /\bSchofield Barracks\b/i,
     /\bPearl Harbor\b/i,

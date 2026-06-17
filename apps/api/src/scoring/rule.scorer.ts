@@ -10,12 +10,34 @@ import {
 import { OFFENSE_FILTER_RULES } from './offense-filters';
 
 function yearsSinceRelease(convictions: Conviction[]): number | null {
-  const releases = convictions
-    .map((c) => c.releaseYear)
+  // Prefer release year; fall back to conviction year when the person was
+  // never incarcerated (probation-only) or the release year wasn't captured.
+  // Previously a missing releaseYear collapsed to null → treated as 0 years
+  // → over-penalized people whose conviction was decades ago.
+  const years = convictions
+    .map((c) => c.releaseYear ?? c.convictionYear)
     .filter((y): y is number => typeof y === 'number');
-  if (releases.length === 0) return null;
-  const mostRecent = Math.max(...releases);
+  if (years.length === 0) return null;
+  const mostRecent = Math.max(...years);
   return Math.max(0, new Date().getFullYear() - mostRecent);
+}
+
+/** Normalize an industry tag for case-insensitive comparison. */
+function normIndustry(industry: string | null | undefined): string | null {
+  return industry ? industry.toLowerCase().trim() : null;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Whole-word title match — avoids substring mis-fires like "elder" inside
+ * "welder" or "minor" inside "minority". Mirrors the shared engine's
+ * `isOffenseHardBlocked` matching.
+ */
+function titleMatchesKeyword(titleLower: string, keyword: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i').test(titleLower);
 }
 
 /**
@@ -84,24 +106,25 @@ export class RuleScorer implements Scorer {
     }
 
     // --- 2. User-declared restricted industry (parole/probation condition) ---
+    const jobIndustry = normIndustry(job.industry);
     if (
       profile.restrictedIndustries.length > 0 &&
-      job.industry &&
-      profile.restrictedIndustries.includes(job.industry)
+      jobIndustry &&
+      profile.restrictedIndustries.map((i) => i.toLowerCase().trim()).includes(jobIndustry)
     ) {
       reasons.push(
         `Your profile lists "${job.industry}" as a restricted industry (parole/probation condition).`,
       );
     }
 
-    // --- 3. Per-conviction × industry bars (registry-related, fraud, DUI, weapons) ---
+    // --- 3. Per-conviction × industry bars (all 10 conviction types) ---
     const jobTitleLower = job.title.toLowerCase();
     for (const c of convictions) {
       for (const rule of OFFENSE_FILTER_RULES) {
         if (!rule.matchConviction(c)) continue;
 
-        const industryHit = job.industry !== null && rule.blocksIndustry.has(job.industry);
-        const titleHit    = rule.blocksTitleKeyword.some((k) => jobTitleLower.includes(k));
+        const industryHit = jobIndustry !== null && rule.blocksIndustry.has(jobIndustry);
+        const titleHit    = rule.blocksTitleKeyword.some((k) => titleMatchesKeyword(jobTitleLower, k));
         if (industryHit || titleHit) {
           if (!reasons.includes(rule.reason)) reasons.push(rule.reason);
         }

@@ -29,34 +29,98 @@ export interface OffenseFilterRule {
   reason: string;
 }
 
+/**
+ * NOTE: these rules mirror the dignity-centered single source of truth at
+ * `packages/shared/src/compatibility/offense-hard-filters.ts`
+ * (`OFFENSE_HARD_FILTERS`). They are duplicated here as Prisma-aware
+ * `OffenseFilterRule`s (with `matchConviction` / `matchOffenseType`
+ * predicates) rather than imported, to avoid pulling the shared TS source
+ * into the Nest build graph. Keep the two in sync — the shared package's
+ * test suite and `offense-hard-filters.test.ts` lock the expected behavior.
+ *
+ * Previously only 4 of the 10 conviction types were covered, so the other 6
+ * (drug possession/distribution, violence, theft, burglary) had NO hard
+ * filter on the API side even though the compatibility engine modeled them.
+ */
 export const OFFENSE_FILTER_RULES: ReadonlyArray<OffenseFilterRule> = [
   {
     matchConviction: (c) => c.offenseType === OffenseType.REGISTRY_RELATED || c.registryStatus,
     matchOffenseType: (t) => t === OffenseType.REGISTRY_RELATED,
     blocksIndustry: new Set(['education', 'healthcare', 'childcare', 'schools']),
-    blocksTitleKeyword: ['school', 'daycare', 'childcare', 'minor', 'pediatric', 'caregiver', 'youth'],
+    blocksTitleKeyword: [
+      'school', 'daycare', 'childcare', 'minor', 'pediatric', 'caregiver',
+      'youth', 'teacher', 'tutor', 'paraeducator', 'nanny', 'coach', 'camp',
+      'home health', 'in-home', 'elder',
+    ],
     reason:
       'Registry-related conviction status may legally bar roles involving minors, schools, or vulnerable-population settings. Caseworker review recommended.',
   },
   {
+    matchConviction: (c) => c.offenseType === OffenseType.VIOLENT,
+    matchOffenseType: (t) => t === OffenseType.VIOLENT,
+    blocksIndustry: new Set(['childcare', 'schools']),
+    blocksTitleKeyword: [
+      'childcare', 'daycare', 'school', 'minor', 'pediatric', 'youth',
+      'caregiver', 'home health', 'patient care', 'security guard', 'armed',
+    ],
+    reason:
+      'A violence-related conviction can bar roles with unsupervised access to children or vulnerable adults, and most armed-security positions. Individualized assessment recommended.',
+  },
+  {
+    matchConviction: (c) => c.offenseType === OffenseType.DRUG_DISTRIBUTION,
+    matchOffenseType: (t) => t === OffenseType.DRUG_DISTRIBUTION,
+    blocksIndustry: new Set<string>(),
+    blocksTitleKeyword: [
+      'pharmacy', 'pharmacist', 'pharmacy tech', 'medication', 'controlled substance',
+      'dispensary', 'cannabis',
+    ],
+    reason:
+      'A drug-distribution conviction commonly bars roles handling controlled substances or medication (pharmacy, dispensing).',
+  },
+  {
+    matchConviction: (c) => c.offenseType === OffenseType.DRUG_POSSESSION,
+    matchOffenseType: (t) => t === OffenseType.DRUG_POSSESSION,
+    blocksIndustry: new Set<string>(),
+    blocksTitleKeyword: ['pharmacy', 'pharmacist', 'pharmacy tech', 'controlled substance'],
+    reason:
+      'A drug-possession conviction may restrict roles directly handling controlled substances.',
+  },
+  {
     matchConviction: (c) => c.offenseType === OffenseType.FINANCIAL_FRAUD,
     matchOffenseType: (t) => t === OffenseType.FINANCIAL_FRAUD,
-    blocksIndustry: new Set(['finance']),
-    blocksTitleKeyword: ['teller', 'accountant', 'bookkeeper', 'cashier', 'cash handling', 'payroll'],
-    reason: 'A financial-fraud conviction typically disqualifies cash-handling and finance roles.',
+    blocksIndustry: new Set(['finance', 'insurance']),
+    blocksTitleKeyword: [
+      'teller', 'accountant', 'bookkeeper', 'cashier', 'cash handling', 'payroll',
+      'financial', 'controller', 'treasurer', 'auditor',
+    ],
+    reason: 'A financial-fraud conviction typically disqualifies cash-handling, finance, and fiduciary roles.',
+  },
+  {
+    matchConviction: (c) => c.offenseType === OffenseType.PROPERTY_THEFT,
+    matchOffenseType: (t) => t === OffenseType.PROPERTY_THEFT,
+    blocksIndustry: new Set<string>(),
+    blocksTitleKeyword: ['cashier', 'teller', 'cash handling'],
+    reason: 'A property/theft conviction can restrict cash-handling roles.',
+  },
+  {
+    matchConviction: (c) => c.offenseType === OffenseType.PROPERTY_BURGLARY,
+    matchOffenseType: (t) => t === OffenseType.PROPERTY_BURGLARY,
+    blocksIndustry: new Set<string>(),
+    blocksTitleKeyword: ['in-home', 'in home', 'home services', 'locksmith', 'residential'],
+    reason: 'A burglary conviction can bar roles with unsupervised access to private residences (in-home services, locksmithing).',
   },
   {
     matchConviction: (c) => c.offenseType === OffenseType.WEAPONS,
     matchOffenseType: (t) => t === OffenseType.WEAPONS,
     blocksIndustry: new Set(['security']),
-    blocksTitleKeyword: ['armed', 'firearm', 'security guard'],
+    blocksTitleKeyword: ['armed', 'firearm', 'security guard', 'armed guard'],
     reason: 'A weapons-related conviction bars security roles requiring firearms eligibility.',
   },
   {
     matchConviction: (c) => c.offenseType === OffenseType.DUI,
     matchOffenseType: (t) => t === OffenseType.DUI,
     blocksIndustry: new Set<string>(),
-    blocksTitleKeyword: ['driver', 'cdl', 'delivery', 'chauffeur'],
+    blocksTitleKeyword: ['driver', 'cdl', 'delivery', 'chauffeur', 'trucking', 'truck driver'],
     reason: 'A recent DUI conviction disqualifies most commercial driving roles (DOT regulation).',
   },
 ];
