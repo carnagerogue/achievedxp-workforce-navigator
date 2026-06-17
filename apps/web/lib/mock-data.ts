@@ -17,7 +17,17 @@ import type {
   PublicJobSummaryDto,
   AvoidJobDto,
   RiskTier,
+  CandidateProfile,
+  CompatibilityRating,
+  JobInput,
 } from '@dxp/shared';
+import { scoreJobCompatibility, isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
+import {
+  getProfile,
+  candidateProfilesFromStored,
+  convictionTypesFor,
+  type StoredProfile,
+} from './profile-store';
 
 const NOW = Date.now();
 const DAY = 24 * 60 * 60 * 1000;
@@ -703,6 +713,19 @@ export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): Paginated
     pool = pool.filter((j) => j.isApprenticeship);
   }
 
+  // Conviction-aware exclusion. When a conviction type is supplied we drop
+  // only jobs with a CATEGORICAL legal/licensing bar for that conviction
+  // (e.g. registry-related + school custodian). Graded "low chance but
+  // possible" roles are intentionally left in so the Browse page can still
+  // re-rank and rate them — the chance-band control on the client removes
+  // those if the user wants. Previously this param was silently ignored.
+  if (query.offenseType) {
+    const conviction = convictionForOffenseType(query.offenseType);
+    pool = pool.filter(
+      (j) => !isOffenseHardBlocked(conviction, { industry: j.industry, title: j.title }).blocked,
+    );
+  }
+
   const total = pool.length;
   const offset = Math.max(0, query.offset ?? 0);
   const limit  = Math.max(1, Math.min(200, query.limit ?? 50));
@@ -856,85 +879,320 @@ function publicSummary(j: JobDto): PublicJobSummaryDto {
   };
 }
 
-function scoreFor(j: JobDto): ScoredJobDto {
-  // Deterministic per-job score so the demo feels stable across reloads.
-  const seed = [...j.id].reduce((acc, ch) => (acc + ch.charCodeAt(0)) % 97, 0);
+function jobToInput(j: JobDto): JobInput {
+  return {
+    id: j.id,
+    title: j.title,
+    company: j.company,
+    description: j.description,
+    industry: j.industry,
+    riskTier: j.riskTier,
+    excludesFelons: j.excludesFelons,
+    backgroundCheckLikely: j.backgroundCheckLikely,
+    isApprenticeship: j.isApprenticeship,
+    remote: j.remote,
+    locationRegion: j.locationRegion,
+    locationCity: j.locationCity,
+    requiredSkills: j.requiredSkills,
+    requiredCertifications: j.requiredCertifications,
+  };
+}
 
-  const base = j.excludesFelons ? 10 : 60;
-  const industryBoost = j.industry && ['warehousing','construction','manufacturing','transportation'].includes(j.industry) ? 20 : 0;
-  const apprentice = j.isApprenticeship ? 12 : 0;
-  const lowRisk = j.riskTier === 'LOW' ? 10 : j.riskTier === 'MEDIUM' ? 4 : 0;
-  const fudge = (seed % 9);
+/**
+ * Worst-case conviction compatibility across every conviction a person
+ * carries. Fair-chance stance: never over-promise — the lowest-scoring
+ * conviction governs the match. `candidates` is always non-empty.
+ */
+function worstCompatibility(job: JobDto, candidates: CandidateProfile[]): CompatibilityRating {
+  const input = jobToInput(job);
+  let worst = scoreJobCompatibility(candidates[0], input);
+  for (let i = 1; i < candidates.length; i++) {
+    const r = scoreJobCompatibility(candidates[i], input);
+    if (r.score < worst.score) worst = r;
+  }
+  return worst;
+}
 
-  const score = Math.max(0, Math.min(100, base + industryBoost + apprentice + lowRisk + fudge));
+interface PersonalizationResult {
+  total: number;
+  breakdown: ScoredJobDto['breakdown'];
+}
+
+/**
+ * 0–100 personalization fit from the stored profile (skills, certs,
+ * industry preference, experience, location, risk tier). Mirrors the
+ * NestJS RuleScorer component weights so the two backends agree.
+ */
+function personalizationScore(profile: StoredProfile | null, j: JobDto): PersonalizationResult {
+  const lower = (xs: string[] | undefined) => new Set((xs ?? []).map((s) => s.toLowerCase()));
+  const skills = lower(profile?.skills);
+  const certs = lower(profile?.certifications);
+  const desired = lower(profile?.desiredIndustries);
+
+  // industry (0..25)
+  let industry: number;
+  if (!j.industry) industry = 12;
+  else if (desired.size === 0) industry = 13;
+  else industry = desired.has(j.industry.toLowerCase()) ? 25 : 6;
+
+  // skills (0..25) — no requirement = neutral half credit
+  let skillsPts: number;
+  if (j.requiredSkills.length === 0) skillsPts = 13;
+  else {
+    const matched = j.requiredSkills.filter((s) => skills.has(s.toLowerCase())).length;
+    skillsPts = Math.round(25 * (matched / j.requiredSkills.length));
+  }
+
+  // certifications (0..15) — no requirement = full credit (no barrier)
+  let certPts: number;
+  if (j.requiredCertifications.length === 0) certPts = 15;
+  else {
+    const matched = j.requiredCertifications.filter((c) => certs.has(c.toLowerCase())).length;
+    certPts = Math.round(15 * (matched / j.requiredCertifications.length));
+  }
+
+  // experience (0..15)
+  const required = j.minYearsExperience ?? 0;
+  const yrs = profile?.yearsExperience ?? 0;
+  const expPts = required === 0 ? 15 : Math.min(15, Math.round(15 * (yrs / required)));
+
+  // location (0..10)
+  let locPts: number;
+  if (j.remote) locPts = 10;
+  else if (profile?.locationPostalCode && j.locationPostalCode && profile.locationPostalCode === j.locationPostalCode) locPts = 10;
+  else if (!profile?.locationRegion || !j.locationRegion) locPts = 5;
+  else if (profile.locationRegion === j.locationRegion) locPts = 8;
+  else if (profile.willingToRelocate) locPts = 5;
+  else locPts = 0;
+
+  // risk tier (0..10)
+  const riskPts = j.riskTier === 'LOW' ? 10 : j.riskTier === 'MEDIUM' ? 7 : 4;
+
+  const total = Math.max(0, Math.min(100, industry + skillsPts + certPts + expPts + locPts + riskPts));
+  return {
+    total,
+    breakdown: { industry, skills: skillsPts, certifications: certPts, experience: expPts, location: locPts, risk: riskPts },
+  };
+}
+
+interface ScoredInternal {
+  jobId: string;
+  score: number;
+  chance: CompatibilityRating['chance'];
+  breakdown: ScoredJobDto['breakdown'];
+  explanation: string;
+  rating: CompatibilityRating;
+  hardBlockReason: string | null;
+  job: JobDto;
+}
+
+/**
+ * Conviction-only context for a job — independent of the user's credentials,
+ * so it can be computed once and reused while simulating credential gains.
+ */
+interface JobConvictionContext {
+  rating: CompatibilityRating;
+  hardBlockReason: string | null;
+}
+
+function convictionContext(
+  j: JobDto,
+  candidates: CandidateProfile[],
+  convictionTypes: string[],
+): JobConvictionContext {
+  const rating = worstCompatibility(j, candidates);
+  let hardBlockReason: string | null = null;
+  for (const ct of convictionTypes) {
+    const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: j.industry, title: j.title });
+    if (hit.blocked) { hardBlockReason = hit.reason; break; }
+  }
+  return { rating, hardBlockReason };
+}
+
+/**
+ * Blend conviction compatibility with personalization. When the person has
+ * a record, the conviction engine leads; otherwise personalization
+ * (skills/location/industry) does most of the differentiating. A categorical
+ * legal bar caps the score so the role lands in "Jobs to approach carefully".
+ */
+function blendScore(ratingScore: number, persTotal: number, hasConvictions: boolean, hardBlocked: boolean): number {
+  const s = hasConvictions
+    ? Math.round(0.65 * ratingScore + 0.35 * persTotal)
+    : Math.round(0.4 * ratingScore + 0.6 * persTotal);
+  return hardBlocked ? Math.min(s, 25) : s;
+}
+
+function scoreJobForProfile(
+  j: JobDto,
+  profile: StoredProfile | null,
+  candidates: CandidateProfile[],
+  convictionTypes: string[],
+  hasConvictions: boolean,
+): ScoredInternal {
+  const ctx = convictionContext(j, candidates, convictionTypes);
+  const pers = personalizationScore(profile, j);
+  const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
 
   return {
     jobId: j.id,
     score,
-    breakdown: {
-      industry: industryBoost,
-      skills: Math.min(20, j.requiredSkills.length * 4),
-      certifications: Math.min(15, j.requiredCertifications.length * 5),
-      experience: 12,
-      location: 10,
-      risk: lowRisk,
-    },
-    explanation:
-      j.excludesFelons
-        ? `${j.company} is unlikely to hire candidates with felony records for this role.`
-        : `Fair-chance employer in ${j.industry ?? 'this industry'} — past records reviewed individually.`,
-    job: publicSummary(j),
+    chance: ctx.rating.chance,
+    breakdown: pers.breakdown,
+    explanation: ctx.rating.summary,
+    rating: ctx.rating,
+    hardBlockReason: ctx.hardBlockReason,
+    job: j,
   };
 }
 
 export function matchesFor(userId: string, limit: number, source: JobDto[] = JOBS): MatchesResponseDto {
-  // userId doesn't change the demo distribution (we have no real profile),
-  // but we keep it in the response shape.
-  const all = source.map(scoreFor).sort((a, b) => b.score - a.score);
+  const profile = getProfile(userId);
+  const candidates = candidateProfilesFromStored(profile);
+  const convictionTypes = convictionTypesFor(profile);
+  const hasConvictions = (profile?.convictions?.length ?? 0) > 0;
 
-  const top = all.filter((m) => m.score >= 70).slice(0, limit);
-  const medium = all.filter((m) => m.score >= 40 && m.score < 70).slice(0, limit);
-  const avoidPool = all.filter((m) => m.score < 40);
+  const scored = source
+    .map((j) => scoreJobForProfile(j, profile, candidates, convictionTypes, hasConvictions))
+    .sort((a, b) => b.score - a.score);
 
-  const avoid: AvoidJobDto[] = avoidPool.map((m) => ({
+  const toScored = (m: ScoredInternal): ScoredJobDto => ({
     jobId: m.jobId,
     score: m.score,
-    reasons:
-      m.job.excludesFelons
-        ? ['Employer explicitly excludes felony records', 'High background-check risk']
-        : ['Lower fit based on skills + history'],
-    job: m.job,
-  }));
+    breakdown: m.breakdown,
+    explanation: m.explanation,
+    job: publicSummary(m.job),
+  });
+
+  const isAvoid = (m: ScoredInternal) =>
+    m.hardBlockReason !== null || m.chance === 'low' || m.score < 40 || m.job.excludesFelons;
+
+  const top = scored
+    .filter((m) => !isAvoid(m) && m.score >= 70 && m.chance === 'high')
+    .slice(0, limit)
+    .map(toScored);
+
+  const topIds = new Set(top.map((t) => t.jobId));
+  const medium = scored
+    .filter((m) => !isAvoid(m) && !topIds.has(m.jobId))
+    .slice(0, limit)
+    .map(toScored);
+
+  const avoid: AvoidJobDto[] = scored
+    .filter(isAvoid)
+    .slice(0, limit)
+    .map((m) => {
+      const reasons: string[] = [];
+      if (m.hardBlockReason) reasons.push(m.hardBlockReason);
+      if (m.job.excludesFelons) reasons.push('Employer states this role requires a clean record.');
+      reasons.push(...m.rating.possibleBarriers);
+      if (reasons.length === 0) reasons.push(...m.rating.riskFactors);
+      if (reasons.length === 0) reasons.push('Lower overall fit based on your profile and this role.');
+      return { jobId: m.jobId, score: m.score, reasons: Array.from(new Set(reasons)).slice(0, 3), job: publicSummary(m.job) };
+    });
 
   return {
     userId,
-    counts: {
-      top: top.length,
-      medium: medium.length,
-      avoid: avoid.length,
-      pool: all.length,
-    },
+    counts: { top: top.length, medium: medium.length, avoid: avoid.length, pool: scored.length },
     topMatches: top,
     mediumMatches: medium,
     avoid,
   };
 }
 
+const INSIGHT_LABELS: Record<string, string> = {
+  cdl_a: 'CDL Class A',
+  cdl_b: 'CDL Class B',
+  osha_10: 'OSHA 10',
+  osha_30: 'OSHA 30',
+  osha_forklift: 'Forklift operator (OSHA)',
+  forklift: 'Forklift certification',
+  servsafe: 'ServSafe Food Handler',
+  nccer: 'NCCER credential',
+  welding: 'Welding',
+  forklift_operation: 'Forklift operation',
+  maintenance: 'Building maintenance',
+};
+const prettyCode = (code: string) =>
+  INSIGHT_LABELS[code] ?? code.split(/[_\s-]+/).map((w) => (w ? w[0].toUpperCase() + w.slice(1) : '')).join(' ');
+
+/**
+ * Real impact analysis: for each certification / skill the user is missing
+ * but that some job requires, simulate adding it and count how many jobs it
+ * would move up a tier. Ranked by unlocks (cross the medium line) weighted
+ * over promotions (cross into top). Replaces the previously hardcoded list.
+ */
 export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsResponseDto {
-  const m = matchesFor(userId, 20, source);
+  const profile = getProfile(userId);
+  const baseline = matchesFor(userId, source.length, source);
+  const tierOf = (score: number): 0 | 1 | 2 => (score >= 70 ? 2 : score >= 40 ? 1 : 0);
+
+  const candidates = candidateProfilesFromStored(profile);
+  const convictionTypes = convictionTypesFor(profile);
+  const hasConvictions = (profile?.convictions?.length ?? 0) > 0;
+
+  // Precompute the conviction context per job ONCE. Adding a credential
+  // changes only the personalization component, never the conviction
+  // rating or the hard-block — so there's no need to re-run the engine for
+  // every simulated credential.
+  const ctxByJob = new Map<string, JobConvictionContext>();
+  const baseTier = new Map<string, 0 | 1 | 2>();
+  for (const j of source) {
+    const ctx = convictionContext(j, candidates, convictionTypes);
+    ctxByJob.set(j.id, ctx);
+    const pers = personalizationScore(profile, j);
+    const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
+    const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
+    baseTier.set(j.id, blockedOrLow ? 0 : tierOf(score));
+  }
+
+  const have = new Set([
+    ...(profile?.certifications ?? []).map((s) => s.toLowerCase()),
+    ...(profile?.skills ?? []).map((s) => s.toLowerCase()),
+  ]);
+
+  // Candidate credentials: anything a job requires that the user lacks.
+  const certDemand = new Map<string, number>();
+  const skillDemand = new Map<string, number>();
+  for (const j of source) {
+    for (const c of j.requiredCertifications) if (!have.has(c.toLowerCase())) certDemand.set(c, (certDemand.get(c) ?? 0) + 1);
+    for (const s of j.requiredSkills) if (!have.has(s.toLowerCase())) skillDemand.set(s, (skillDemand.get(s) ?? 0) + 1);
+  }
+
+  const evaluate = (kind: 'certification' | 'skill', code: string, demand: number) => {
+    const augmented: StoredProfile = {
+      userId: profile?.userId ?? userId,
+      ...profile,
+      certifications: kind === 'certification' ? [...(profile?.certifications ?? []), code] : profile?.certifications ?? [],
+      skills: kind === 'skill' ? [...(profile?.skills ?? []), code] : profile?.skills ?? [],
+    };
+    let unlocks = 0;
+    let promotesToTop = 0;
+    for (const j of source) {
+      const ctx = ctxByJob.get(j.id)!;
+      const before = baseTier.get(j.id) ?? 0;
+      const pers = personalizationScore(augmented, j);
+      const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
+      const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
+      const after = blockedOrLow ? 0 : tierOf(score);
+      if (before === 0 && after >= 1) unlocks++;
+      if (before <= 1 && after === 2) promotesToTop++;
+    }
+    return { kind, code, label: prettyCode(code), unlocks, promotesToTop, demand };
+  };
+
+  const items = [
+    ...Array.from(certDemand.entries()).map(([code, demand]) => evaluate('certification', code, demand)),
+    ...Array.from(skillDemand.entries()).map(([code, demand]) => evaluate('skill', code, demand)),
+  ]
+    .filter((it) => it.unlocks > 0 || it.promotesToTop > 0)
+    .sort((a, b) => (b.unlocks * 2 + b.promotesToTop) - (a.unlocks * 2 + a.promotesToTop))
+    .slice(0, 7);
+
   return {
     userId,
-    currentTop: m.counts.top,
-    currentMedium: m.counts.medium,
-    items: [
-      { kind: 'certification', code: 'cdl_a',       label: 'CDL Class A',                 unlocks: 4, promotesToTop: 2, demand: 18 },
-      { kind: 'certification', code: 'osha_10',     label: 'OSHA 10',                     unlocks: 6, promotesToTop: 3, demand: 22 },
-      { kind: 'certification', code: 'osha_forklift', label: 'OSHA forklift operator',    unlocks: 3, promotesToTop: 2, demand: 12 },
-      { kind: 'certification', code: 'servsafe',    label: 'ServSafe Food Handler',       unlocks: 2, promotesToTop: 1, demand: 6 },
-      { kind: 'skill',         code: 'forklift_operation', label: 'Forklift operation',   unlocks: 5, promotesToTop: 3, demand: 14 },
-      { kind: 'skill',         code: 'welding',     label: 'Welding',                     unlocks: 3, promotesToTop: 2, demand: 9 },
-      { kind: 'skill',         code: 'maintenance', label: 'Building maintenance',        unlocks: 4, promotesToTop: 2, demand: 11 },
-    ],
+    currentTop: baseline.counts.top,
+    currentMedium: baseline.counts.medium,
+    items,
   };
 }
 
@@ -943,18 +1201,42 @@ export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsRe
 // ────────────────────────────────────────────────────────────────────
 
 export const ASSESSMENT_QUESTIONS = [
+  // Realistic — hands-on, mechanical, outdoor
   { id: 1,  dimension: 'R' as const, prompt: 'I enjoy fixing or building things with my hands.' },
   { id: 2,  dimension: 'R' as const, prompt: 'I would rather work outdoors than at a desk.' },
-  { id: 3,  dimension: 'I' as const, prompt: 'I like figuring out how things work.' },
-  { id: 4,  dimension: 'I' as const, prompt: 'I enjoy solving puzzles or analyzing problems.' },
-  { id: 5,  dimension: 'A' as const, prompt: 'I like creating or designing things.' },
-  { id: 6,  dimension: 'A' as const, prompt: 'I prefer flexible work over strict routines.' },
-  { id: 7,  dimension: 'S' as const, prompt: 'I enjoy helping or teaching other people.' },
-  { id: 8,  dimension: 'S' as const, prompt: 'I am good at listening to others.' },
-  { id: 9,  dimension: 'E' as const, prompt: 'I am comfortable leading a team.' },
-  { id: 10, dimension: 'E' as const, prompt: 'I enjoy convincing or selling.' },
-  { id: 11, dimension: 'C' as const, prompt: 'I am organized and detail-oriented.' },
-  { id: 12, dimension: 'C' as const, prompt: 'I like following clear procedures.' },
+  { id: 3,  dimension: 'R' as const, prompt: 'I like operating tools, machines, or equipment.' },
+  { id: 4,  dimension: 'R' as const, prompt: 'I would enjoy a job that keeps me physically active.' },
+  { id: 5,  dimension: 'R' as const, prompt: 'I take pride in finishing a job I can see and touch.' },
+  // Investigative — analytical, problem-solving
+  { id: 6,  dimension: 'I' as const, prompt: 'I like figuring out how things work.' },
+  { id: 7,  dimension: 'I' as const, prompt: 'I enjoy solving puzzles or analyzing problems.' },
+  { id: 8,  dimension: 'I' as const, prompt: 'I like learning new facts and researching topics in depth.' },
+  { id: 9,  dimension: 'I' as const, prompt: 'I enjoy working with numbers, data, or measurements.' },
+  { id: 10, dimension: 'I' as const, prompt: 'I ask a lot of "why" and "how" questions.' },
+  // Artistic — creative, expressive
+  { id: 11, dimension: 'A' as const, prompt: 'I like creating or designing things.' },
+  { id: 12, dimension: 'A' as const, prompt: 'I prefer flexible work over strict routines.' },
+  { id: 13, dimension: 'A' as const, prompt: 'I enjoy expressing ideas through art, music, or writing.' },
+  { id: 14, dimension: 'A' as const, prompt: 'I like coming up with original ideas and approaches.' },
+  { id: 15, dimension: 'A' as const, prompt: 'I notice colors, shapes, and design in the world around me.' },
+  // Social — helping, teaching, supporting
+  { id: 16, dimension: 'S' as const, prompt: 'I enjoy helping or teaching other people.' },
+  { id: 17, dimension: 'S' as const, prompt: 'I am good at listening to others.' },
+  { id: 18, dimension: 'S' as const, prompt: 'People come to me when they need support or advice.' },
+  { id: 19, dimension: 'S' as const, prompt: 'I feel good when I help someone solve a personal problem.' },
+  { id: 20, dimension: 'S' as const, prompt: 'I work well as part of a team.' },
+  // Enterprising — persuading, leading, selling
+  { id: 21, dimension: 'E' as const, prompt: 'I am comfortable leading a team.' },
+  { id: 22, dimension: 'E' as const, prompt: 'I enjoy convincing or selling.' },
+  { id: 23, dimension: 'E' as const, prompt: 'I like setting goals and pushing to reach them.' },
+  { id: 24, dimension: 'E' as const, prompt: 'I would enjoy starting or running my own business.' },
+  { id: 25, dimension: 'E' as const, prompt: 'I am comfortable making decisions for a group.' },
+  // Conventional — organizing, structured work
+  { id: 26, dimension: 'C' as const, prompt: 'I am organized and detail-oriented.' },
+  { id: 27, dimension: 'C' as const, prompt: 'I like following clear procedures.' },
+  { id: 28, dimension: 'C' as const, prompt: 'I keep careful records and track of things.' },
+  { id: 29, dimension: 'C' as const, prompt: 'I prefer clear instructions over open-ended tasks.' },
+  { id: 30, dimension: 'C' as const, prompt: 'I am dependable about deadlines and schedules.' },
 ];
 
 export const ASSESSMENT_DIMENSIONS = {
@@ -974,7 +1256,13 @@ export const ASSESSMENT_SCALE = [
   { value: 5, label: 'Strongly agree' },
 ];
 
-const ASSESSMENT_RESULTS = new Map<string, ReturnType<typeof scoreAssessment>>();
+// Singleton across route handlers (see profile-store.ts for rationale).
+const globalForAssessment = globalThis as unknown as {
+  __dxpAssessment?: Map<string, ReturnType<typeof scoreAssessment>>;
+};
+const ASSESSMENT_RESULTS: Map<string, ReturnType<typeof scoreAssessment>> =
+  globalForAssessment.__dxpAssessment ?? new Map();
+globalForAssessment.__dxpAssessment = ASSESSMENT_RESULTS;
 
 export function scoreAssessment(userId: string, answers: Record<number, number>) {
   const scores: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
@@ -1046,9 +1334,16 @@ export function scoreAssessment(userId: string, answers: Record<number, number>)
     topDimensions,
     recommendedIndustries: recommended,
     occupations: occupations.map((o) => {
-      // Weight occupations toward the user's top dimension.
-      const w = o.hollandCode[0] as keyof typeof normalized;
-      const fitPercent = Math.round((normalized[w] + 50) / 2);
+      // Fit = weighted overlap of the occupation's full 3-letter Holland code
+      // with the user's normalized scores (primary dim weighted most). This
+      // differentiates occupations that share a top letter but differ below.
+      const codeWeights = [0.5, 0.3, 0.2];
+      const fitPercent = Math.round(
+        o.hollandCode
+          .slice(0, 3)
+          .split('')
+          .reduce((sum, c, i) => sum + (normalized[c as keyof typeof normalized] ?? 0) * (codeWeights[i] ?? 0), 0),
+      );
       const liveJobCount = JOBS.filter((j) => j.industry === o.industry).length;
       return {
         ...o,
