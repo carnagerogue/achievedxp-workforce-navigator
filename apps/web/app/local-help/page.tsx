@@ -11,12 +11,14 @@ import {
 import {
   getAjcCenters,
   getReentryPrograms,
+  getCommunityResources,
   type AjcCenter,
   type AjcCentersResponse,
+  type CommunityResponse,
+  type CommunityLiveResource,
 } from '../../lib/api';
 import { Skeleton } from '../../components/Skeleton';
 import { useDebounce } from '../../lib/use-debounce';
-import { COMMUNITY_RESOURCES, type CommunityResource } from '../../lib/community-resources';
 import {
   useChecklist, useOwnerName, isInChecklist, toggleChecklist, removeFromChecklist,
   setChecklistStatus, setChecklistNotes, setOwnerName, clearChecklist,
@@ -157,12 +159,11 @@ function ChecklistToggle({ item }: { item: Omit<ChecklistItem, 'status' | 'added
  * clearing, health, money, childcare, clothing, education) — the supports a
  * justice-impacted job seeker needs to keep a job.
  *
- * Pick a category tile and real, vetted resources render IN-APP (no leaving
- * the site) — national programs + official government locators from
- * lib/community-resources. Each can be added to the checklist. A single,
- * clearly-secondary findhelp.org link per category offers extra hyperlocal
- * depth (findhelp's own data is paid-API / scrape-blocked, so we can't render
- * it natively).
+ * Pick a category tile and resources render IN-APP (no leaving the site) via
+ * /api/v1/community. Where a free government API exists for the category we
+ * show REAL LOCAL results ("Near you" — today SAMHSA for health/recovery);
+ * every category also lists vetted national programs. Each can be added to the
+ * checklist. No third-party redirect.
  */
 const COMMUNITY_CATEGORIES: Array<{ key: string; label: string; term: string; desc: string; Icon: typeof Home }> = [
   { key: 'housing',   label: 'Housing',            term: 'housing',              desc: 'Emergency shelter, rent & utility help, transitional housing.', Icon: Home },
@@ -176,19 +177,24 @@ const COMMUNITY_CATEGORIES: Array<{ key: string; label: string; term: string; de
   { key: 'education', label: 'Education & skills', term: 'education',             desc: 'GED, adult education, skills training, tutoring.',             Icon: GraduationCap },
 ];
 
-function extractZip(input: string): string | null {
-  const m = /\b(\d{5})\b/.exec(input);
-  return m ? m[1] : null;
-}
-
-const findhelpSearchUrl = (zip: string, term: string) =>
-  `https://www.findhelp.org/search_results/${zip}?term=${encodeURIComponent(term)}`;
-
 function CommunityResources({ location }: { location: string }) {
   const [active, setActive] = useState('housing');
-  const zip = extractZip(location);
+  const [data, setData] = useState<CommunityResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const cat = COMMUNITY_CATEGORIES.find((c) => c.key === active) ?? COMMUNITY_CATEGORIES[0];
-  const resources = COMMUNITY_RESOURCES[active] ?? [];
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getCommunityResources(active, location)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [active, location]);
+
+  const local = data?.local ?? [];
+  const national = data?.national ?? [];
 
   return (
     <div>
@@ -223,37 +229,55 @@ function CommunityResources({ location }: { location: string }) {
           <p className="text-xs text-slate-500">{cat.desc}</p>
         </div>
 
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {resources.map((r) => (
-            <CommunityResourceCard key={r.id} resource={r} category={cat.label} />
-          ))}
-        </ul>
+        {loading ? (
+          <ListSkeleton />
+        ) : (
+          <>
+            {local.length > 0 && (
+              <section className="mb-5">
+                <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-teal-700">
+                  <MapPin className="h-3.5 w-3.5" /> Near you{data?.source ? ` · ${data.source}` : ''}
+                </p>
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {local.map((r) => <CommunityResourceCard key={r.id} resource={r} category={cat.label} />)}
+                </ul>
+              </section>
+            )}
 
-        {zip && (
-          <p className="mt-4 text-center text-xs text-slate-500">
-            Need more hyperlocal options?{' '}
-            <a
-              href={findhelpSearchUrl(zip, cat.term)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-teal-700 hover:underline"
-            >
-              Search {cat.label.toLowerCase()} near {zip} on findhelp.org
-            </a>
-            <ExternalLink className="ml-0.5 inline h-3 w-3 text-teal-700" />
-          </p>
+            <section>
+              {local.length > 0 && (
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Trusted national programs
+                </p>
+              )}
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {national.map((r) => <CommunityResourceCard key={r.id} resource={r} category={cat.label} />)}
+              </ul>
+            </section>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function CommunityResourceCard({ resource, category }: { resource: CommunityResource; category: string }) {
+function CommunityResourceCard({ resource, category }: { resource: CommunityLiveResource; category: string }) {
   const cleanPhone = (resource.phone ?? '').replace(/[^\d]/g, '');
   return (
     <li className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:shadow-card-hover">
-      <h4 className="text-base font-semibold text-navy-900">{resource.name}</h4>
-      <p className="mt-1 text-sm leading-relaxed text-slate-600">{resource.desc}</p>
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="text-base font-semibold text-navy-900">{resource.name}</h4>
+        {resource.distance && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{resource.distance} mi</span>
+        )}
+      </div>
+      {resource.desc && <p className="mt-1 text-sm leading-relaxed text-slate-600">{resource.desc}</p>}
+      {(resource.address || resource.cityState) && (
+        <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-700">
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span>{[resource.address, resource.cityState].filter(Boolean).join(', ')}</span>
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {cleanPhone && (
           <a
@@ -263,22 +287,27 @@ function CommunityResourceCard({ resource, category }: { resource: CommunityReso
             <Phone className="h-3 w-3" /> {resource.phone}
           </a>
         )}
-        <a
-          href={resource.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700"
-        >
-          <Globe className="h-3 w-3" /> Website <ExternalLink className="h-3 w-3" />
-        </a>
+        {resource.url && (
+          <a
+            href={resource.url.startsWith('http') ? resource.url : `https://${resource.url}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700"
+          >
+            <Globe className="h-3 w-3" /> Website <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
         <ChecklistToggle
           item={{
             id: resource.id,
             name: resource.name,
             type: 'Support service',
             category,
+            address: resource.address,
+            cityState: resource.cityState,
             phone: resource.phone,
             url: resource.url,
+            distance: resource.distance,
           }}
         />
       </div>

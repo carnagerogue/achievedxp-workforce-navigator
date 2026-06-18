@@ -177,6 +177,26 @@ export const getAjcCenters = (location: string, radius = 50) =>
 export const getReentryPrograms = (location: string, radius = 100) =>
   request<unknown>(`/careeronestop/reentry?location=${encodeURIComponent(location)}&radius=${radius}`);
 
+// --- Community resources (real local where a free gov API exists, else curated) ---
+export interface CommunityLiveResource {
+  id: string;
+  name: string;
+  desc?: string;
+  address?: string;
+  cityState?: string;
+  phone?: string;
+  url?: string;
+  distance?: string;
+}
+export interface CommunityResponse {
+  category: string;
+  source: string | null;
+  local: CommunityLiveResource[];
+  national: CommunityLiveResource[];
+}
+export const getCommunityResources = (category: string, location: string) =>
+  request<CommunityResponse>(`/community?category=${encodeURIComponent(category)}&location=${encodeURIComponent(location)}`);
+
 export const getCosWages = (onetCodeOrKeyword: string, location?: string) => {
   const q = `onet=${encodeURIComponent(onetCodeOrKeyword)}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
   return request<unknown>(`/careeronestop/wages?${q}`);

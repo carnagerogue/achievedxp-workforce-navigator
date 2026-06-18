@@ -172,7 +172,7 @@ export const NATIONAL_REENTRY_RESOURCES: Array<Record<string, unknown>> = [
   },
 ];
 
-function haversineMiles(aLat: number, aLng: number, bLat: number, bLng: number): number {
+export function haversineMiles(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const R = 3958.8; // miles
   const dLat = toRad(bLat - aLat);
@@ -181,6 +181,34 @@ function haversineMiles(aLat: number, aLng: number, bLat: number, bLng: number):
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+export interface GeoPoint { lat: number | null; lng: number | null; state: string | null }
+
+/**
+ * Resolve a ZIP / "City, ST" to coordinates + state using the AJC finder as a
+ * free geocoder (it reliably geolocates the search and returns the nearest
+ * center's lat/long). Falls back to parsing a state code out of the input.
+ * Used by the reentry and SAMHSA lookups, both of which need coordinates.
+ */
+export async function geocodeLocation(location: string): Promise<GeoPoint> {
+  let lat: number | null = null;
+  let lng: number | null = null;
+  let state: string | null = null;
+  if (isCareerOneStopConfigured() && location.trim()) {
+    const ajc = await americanJobCenters(location, 50, 1);
+    const top = ajc?.OneStopCenterList?.[0];
+    if (top) {
+      state = top.StateAbbr ?? null;
+      lat = typeof top.Latitude === 'number' ? top.Latitude : null;
+      lng = typeof top.Longitude === 'number' ? top.Longitude : null;
+    }
+  }
+  if (!state) {
+    const m = /,\s*([A-Za-z]{2})\b/.exec(location);
+    if (m) state = m[1].toUpperCase();
+  }
+  return { lat, lng, state };
 }
 
 /**
@@ -198,16 +226,7 @@ export async function reentryProgramsNear(location: string, radius = 100, limit 
   const all = normalizeReentryList(await allReentryPrograms());
   if (all.length === 0) return [];
 
-  // Geocode via the AJC finder's nearest center (state + coords anchor).
-  const ajc = await americanJobCenters(location, 50, 1);
-  const top = ajc?.OneStopCenterList?.[0];
-  let state = top?.StateAbbr ?? null;
-  const aLat = typeof top?.Latitude === 'number' ? top.Latitude : null;
-  const aLng = typeof top?.Longitude === 'number' ? top.Longitude : null;
-  if (!state) {
-    const m = /,\s*([A-Za-z]{2})\b/.exec(location);
-    if (m) state = m[1].toUpperCase();
-  }
+  const { lat: aLat, lng: aLng, state } = await geocodeLocation(location);
   if (!state) return [];
 
   const inState = all.filter((p) => String(p.StateAbbr ?? '').toUpperCase() === state);
