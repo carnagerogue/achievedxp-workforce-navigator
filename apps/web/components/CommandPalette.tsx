@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, BarChart3, GitCompare, HardHat, Brain, HeartHandshake,
+  Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
 } from 'lucide-react';
 import { listJobs } from '../lib/api';
 import type { JobDto } from '@dxp/shared';
@@ -29,7 +29,6 @@ const NAV_ITEMS: CommandItem[] = [
   { kind: 'nav', label: 'Apprenticeships',   sub: 'Earn-while-you-learn pathways',         href: '/apprenticeships', Icon: HardHat         },
   { kind: 'nav', label: 'Local help',        sub: 'Job centers + reentry programs near you', href: '/local-help',    Icon: HeartHandshake  },
   { kind: 'nav', label: 'Career Assessment', sub: 'RIASEC interest profiler (5 min)',      href: '/assessment',      Icon: Brain           },
-  { kind: 'nav', label: 'Market Insights',   sub: 'Charts of the live job catalog',        href: '/insights',        Icon: BarChart3       },
   { kind: 'nav', label: 'Compare jobs',      sub: 'Side-by-side view of your picks',       href: '/jobs/compare',    Icon: GitCompare      },
   { kind: 'nav', label: 'Profile',           sub: 'Edit skills, certifications, history',  href: '/onboarding',      Icon: UserCircle2     },
 ];
