@@ -103,7 +103,7 @@ const DOMAINS: Array<{ domain: string; re: RegExp }> = [
   { domain: 'services',       re: /\b(customer\s+service|call\s+center|receptionist|administrative|office\s+(clerk|assistant)|clerk)\b/i },
 ];
 
-function inferDomain(title: string): string | null {
+export function inferDomain(title: string): string | null {
   for (const d of DOMAINS) if (d.re.test(title)) return d.domain;
   return null;
 }

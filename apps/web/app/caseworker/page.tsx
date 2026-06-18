@@ -2,84 +2,104 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ClipboardList, ArrowRight, Printer, AlertTriangle, CheckCircle2, Wrench, Users, Calendar, FileText } from 'lucide-react';
 import {
-  scoreJobCompatibility,
+  ClipboardList, ArrowRight, Printer, AlertTriangle, CheckCircle2, Wrench,
+  Users, Calendar, LifeBuoy, Plus, Trash2, Save, Phone, Globe, ShieldAlert,
+} from 'lucide-react';
+import {
   buildTrainingBridge,
   USER_CONTEXT_OPTIONS,
   CONVICTION_LABELS,
   CONVICTION_TYPE_ORDER,
   type ConvictionType,
-  type CompatibilityRating,
-  type JobInput,
   type UserContextMode,
+  type EducationLevel,
   type TrainingBridgeStep,
 } from '@dxp/shared';
 import type { JobDto } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
+import {
+  useCaseload, saveParticipant, removeParticipant, newParticipantId,
+  BARRIER_LABELS, type Participant, type Barrier, type SupervisionKind,
+} from '../../lib/caseworker-store';
+import {
+  scoreJobsForParticipant, barriersToResources, contextGuidance,
+  participantDesiredIndustries, type ScoredCaseJob,
+} from '../../lib/caseworker';
 
-/**
- * Caseworker Mode — a single-page assemble-everything view designed for
- * staff helping a participant choose realistic employment + training
- * pathways.
- *
- * Inputs are plain form fields (no profile required) so a caseworker
- * can plug in a candidate's situation in 30 seconds and get:
- *   - Top 10 recommended jobs (re-scored against their conviction)
- *   - Roles that may waste time
- *   - Training gaps + recommended steps
- *   - 30/60/90-day plan (also exportable via /caseworker/plan)
- *   - A free-form notes field
- */
+const EDUCATION_OPTIONS: [EducationLevel, string][] = [
+  ['unknown', 'Not specified'],
+  ['less_than_high_school', 'Less than high school'],
+  ['high_school_or_ged', 'High school / GED'],
+  ['some_college', 'Some college'],
+  ['associate', 'Associate degree'],
+  ['bachelor', "Bachelor's degree"],
+  ['graduate', 'Graduate degree'],
+];
+const SUPERVISION_OPTIONS: [SupervisionKind, string][] = [
+  ['none', 'None'], ['parole', 'Parole'], ['probation', 'Probation'], ['parole_and_probation', 'Parole + probation'],
+];
+const ALL_BARRIERS = Object.keys(BARRIER_LABELS) as Barrier[];
+
+function emptyDraft(): Participant {
+  return {
+    id: newParticipantId(), name: '', conviction: 'other', contextMode: 'recently_released',
+    supervision: 'none', yearsSinceRelease: null, education: 'unknown', skills: [],
+    certifications: [], location: '', careerGoal: '', barriers: [], notes: '',
+    createdAt: 0, updatedAt: 0,
+  };
+}
+
 export default function CaseworkerPage() {
-  // Form inputs
-  const [name, setName] = useState('');
-  const [conviction, setConviction] = useState<ConvictionType>('other');
-  const [contextMode, setContextMode] = useState<UserContextMode>('in_the_community');
-  const [location, setLocation] = useState('');
-  const [careerGoal, setCareerGoal] = useState('');
-  const [notes, setNotes] = useState('');
-
-  // Pulled jobs
+  const caseload = useCaseload();
+  const [draft, setDraft] = useState<Participant>(emptyDraft);
   const [jobs, setJobs] = useState<JobDto[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const set = <K extends keyof Participant>(k: K, v: Participant[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  const isSaved = caseload.some((p) => p.id === draft.id);
+
   useEffect(() => {
     setLoading(true);
-    listJobs({ postalCode: location && /^\d{5}$/.test(location.trim()) ? location.trim() : undefined, limit: 100 })
+    const zip = /^\d{5}$/.test(draft.location.trim()) ? draft.location.trim() : undefined;
+    listJobs({ postalCode: zip, limit: 150 })
       .then((d) => setJobs(d.results))
       .catch(() => setJobs([]))
       .finally(() => setLoading(false));
-  }, [location]);
+  }, [draft.location]);
 
-  // Score every visible job against the selected conviction.
-  const scored = useMemo(() => {
-    return jobs.map((j) => {
-      const job: JobInput = mapJob(j);
-      const rating = scoreJobCompatibility({ convictionType: conviction }, job);
-      return { job, source: j, rating };
-    }).sort((a, b) => b.rating.score - a.rating.score);
-  }, [jobs, conviction]);
+  const scored = useMemo(() => scoreJobsForParticipant(draft, jobs), [draft, jobs]);
+  const top = useMemo(() => scored.filter((s) => s.chance !== 'low').slice(0, 10), [scored]);
+  const barriersJobs = useMemo(() => scored.filter((s) => s.chance === 'low' && s.flags.length > 0).slice(0, 5), [scored]);
 
-  const top = scored.filter((x) => x.rating.chance !== 'low').slice(0, 10);
-  const wasteTime = scored.filter((x) => x.rating.chance === 'low').slice(0, 6);
-
-  // Aggregated training gaps across the top 10
   const aggregatedSteps = useMemo(() => {
     const map = new Map<string, TrainingBridgeStep>();
     for (const { job } of top) {
-      const bridge = buildTrainingBridge({ convictionType: conviction }, job);
+      const bridge = buildTrainingBridge(
+        { convictionType: draft.conviction, certifications: draft.certifications, desiredIndustries: participantDesiredIndustries(draft) },
+        { id: job.id, title: job.title, company: job.company, description: job.description, industry: job.industry, riskTier: job.riskTier, requiredSkills: job.requiredSkills, requiredCertifications: job.requiredCertifications },
+      );
       for (const s of bridge.steps) if (!map.has(s.id)) map.set(s.id, s);
     }
     return Array.from(map.values());
-  }, [top, conviction]);
+  }, [top, draft]);
 
-  // Day-30/60/90 plan (simplified version of the data assembled in @dxp/shared/career-action-plan)
-  const phases = useMemo(() => buildSimplePhases(contextMode, aggregatedSteps, top.length), [contextMode, aggregatedSteps, top.length]);
+  const resources = useMemo(() => barriersToResources(draft), [draft]);
+  const guidance = contextGuidance(draft);
+  const phases = useMemo(() => buildPlan(draft, top.length, aggregatedSteps, resources.length), [draft, top.length, aggregatedSteps, resources.length]);
 
-  // Save inputs to localStorage so the print page can read them.
+  const save = () => saveParticipant(draft);
+  const load = (p: Participant) => setDraft(p);
+  const startNew = () => setDraft(emptyDraft());
+
   const saveAndPrint = () => {
-    const payload = { name, conviction, contextMode, location, careerGoal, notes, generatedAt: new Date().toISOString(), top, aggregatedSteps, phases };
+    save();
+    const payload = {
+      participant: draft, generatedAt: new Date().toISOString(), guidance,
+      top: top.map((t) => ({ title: t.job.title, company: t.job.company, city: t.job.locationCity, region: t.job.locationRegion, score: t.score, label: t.label, why: t.why, flags: t.flags })),
+      aggregatedSteps, phases,
+      resources: resources.map((r) => ({ label: r.label, resources: r.resources.map((x) => ({ name: x.name, phone: x.phone, url: x.url })) })),
+    };
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('dxp:caseworker:plan', JSON.stringify(payload));
       window.open('/caseworker/plan', '_blank');
@@ -88,7 +108,7 @@ export default function CaseworkerPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero — premium gradient surface with stronger typography */}
+      {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-8 text-white shadow-card sm:p-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_350px_at_85%_20%,rgba(245,91,29,0.18),transparent),radial-gradient(700px_350px_at_-10%_120%,rgba(30,166,156,0.25),transparent)]" />
         <div className="relative flex items-start gap-4">
@@ -99,286 +119,308 @@ export default function CaseworkerPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200">Staff view · Reentry navigator</p>
             <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Caseworker Mode</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-teal-50/90">
-              Plug in a participant&rsquo;s situation and instantly get top recommended jobs, identified
-              training gaps, and a printable 30/60/90-day career action plan — all from real public
-              job-board data, scored deterministically.
+              Build a participant&rsquo;s profile and get realistic, fair-chance-aware job matches, the barriers
+              standing in their way mapped to local help, training gaps, and a printable, context-aware action
+              plan — saved to your caseload so you can track progress.
             </p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {['Re-scored against conviction', 'Deterministic · auditable', 'Printable plan'].map((s) => (
-                <span key={s} className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-teal-50 backdrop-blur">
-                  {s}
-                </span>
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Form */}
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+      {/* Caseload */}
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <Users className="h-3.5 w-3.5" /> Caseload ({caseload.length})
+          </span>
+          {caseload.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => load(p)}
+              className={
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ' +
+                (p.id === draft.id ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:bg-teal-50')
+              }
+            >
+              {p.name || 'Unnamed'} · {CONVICTION_LABELS[p.conviction].split(' ')[0]}
+            </button>
+          ))}
+          <button onClick={startNew} className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700">
+            <Plus className="h-3 w-3" /> New participant
+          </button>
+        </div>
+      </section>
+
+      {/* Intake form */}
+      <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Participant name (optional)">
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="First or initials"
-              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+          <Field label="Participant name"><TextInput value={draft.name} onChange={(v) => set('name', v)} placeholder="First or initials" /></Field>
+          <Field label="Primary conviction">
+            <Select value={draft.conviction} onChange={(v) => set('conviction', v as ConvictionType)}>
+              {CONVICTION_TYPE_ORDER.map((c) => <option key={c} value={c}>{CONVICTION_LABELS[c]}</option>)}
+            </Select>
           </Field>
-          <Field label="Conviction class">
-            <select
-              value={conviction}
-              onChange={(e) => setConviction(e.target.value as ConvictionType)}
-              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            >
-              {CONVICTION_TYPE_ORDER.map((c) => (
-                <option key={c} value={c}>{CONVICTION_LABELS[c]}</option>
-              ))}
-            </select>
+          <Field label="Where they are now">
+            <Select value={draft.contextMode} onChange={(v) => set('contextMode', v as UserContextMode)}>
+              {USER_CONTEXT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
           </Field>
-          <Field label="Context">
-            <select
-              value={contextMode}
-              onChange={(e) => setContextMode(e.target.value as UserContextMode)}
-              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            >
-              {USER_CONTEXT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+          <Field label="Supervision">
+            <Select value={draft.supervision} onChange={(v) => set('supervision', v as SupervisionKind)}>
+              {SUPERVISION_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Select>
           </Field>
-          <Field label="ZIP (optional)">
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. 43215"
-              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+
+          <Field label="Years since release">
+            <TextInput type="number" value={draft.yearsSinceRelease == null ? '' : String(draft.yearsSinceRelease)} onChange={(v) => set('yearsSinceRelease', v === '' ? null : Math.max(0, Number(v)))} placeholder="e.g. 2" />
           </Field>
-          <Field label="Career goal (optional)">
-            <input
-              type="text"
-              value={careerGoal}
-              onChange={(e) => setCareerGoal(e.target.value)}
-              placeholder="e.g. CDL-A driver, journey carpenter"
-              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+          <Field label="Education">
+            <Select value={draft.education} onChange={(v) => set('education', v as EducationLevel)}>
+              {EDUCATION_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Select>
           </Field>
-          <div className="sm:col-span-2 lg:col-span-3">
-            <Field label="Caseworker notes">
-              <textarea
-                rows={2}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Stable transportation, finished GED in 2024, …"
-                className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
-            </Field>
+          <Field label="ZIP"><TextInput value={draft.location} onChange={(v) => set('location', v)} placeholder="e.g. 43215" /></Field>
+          <Field label="Career goal"><TextInput value={draft.careerGoal} onChange={(v) => set('careerGoal', v)} placeholder="e.g. CDL-A driver, welder" /></Field>
+
+          <Field label="Skills (comma-separated)" className="lg:col-span-2"><TextInput value={draft.skills.join(', ')} onChange={(v) => set('skills', splitTags(v))} placeholder="forklift, warehouse, customer service" /></Field>
+          <Field label="Certifications held (comma-separated)" className="lg:col-span-2"><TextInput value={draft.certifications.join(', ')} onChange={(v) => set('certifications', splitTags(v))} placeholder="OSHA 10, ServSafe, forklift" /></Field>
+        </div>
+
+        <div className="mt-4">
+          <p className="mb-1.5 text-xs font-medium text-slate-700">Barriers to address</p>
+          <div className="flex flex-wrap gap-1.5">
+            {ALL_BARRIERS.map((b) => {
+              const on = draft.barriers.includes(b);
+              return (
+                <button
+                  key={b}
+                  onClick={() => setDraft((d) => ({ ...d, barriers: d.barriers.includes(b) ? d.barriers.filter((x) => x !== b) : [...d.barriers, b] }))}
+                  className={'rounded-full border px-3 py-1 text-xs font-semibold transition ' + (on ? 'border-sunset-500 bg-sunset-50 text-sunset-700' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400')}
+                >
+                  {BARRIER_LABELS[b]}
+                </button>
+              );
+            })}
           </div>
+        </div>
+
+        <div className="mt-4">
+          <Field label="Caseworker notes">
+            <textarea rows={2} value={draft.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Stable transportation, finished GED in 2024, …"
+              className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+          </Field>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={saveAndPrint}
-            className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800"
-          >
-            <Printer className="h-3.5 w-3.5" /> Generate printable plan
+          <button onClick={save} className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-teal-700">
+            <Save className="h-3.5 w-3.5" /> {isSaved ? 'Update in caseload' : 'Save to caseload'}
           </button>
-          <Link
-            href="/jobs"
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700"
-          >
+          <button onClick={saveAndPrint} className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">
+            <Printer className="h-3.5 w-3.5" /> Save &amp; print action plan
+          </button>
+          {isSaved && (
+            <button onClick={() => { if (confirm('Remove this participant from your caseload?')) { removeParticipant(draft.id); startNew(); } }}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700">
+              <Trash2 className="h-3.5 w-3.5" /> Remove
+            </button>
+          )}
+          <Link href="/jobs" className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700">
             Browse all jobs <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
+        <p className="mt-3 inline-flex items-start gap-1.5 rounded-lg bg-teal-50/70 px-3 py-2 text-xs text-teal-800">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {guidance}
+        </p>
       </section>
 
-      {/* Two-column results */}
+      {/* Results */}
       <div className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
-        {/* Left: top + waste */}
-        <div className="space-y-4">
-          <Panel title="Top recommended jobs" icon={<CheckCircle2 className="h-4 w-4 text-emerald-700" />} count={top.length}>
-            {loading && <p className="text-xs text-slate-500">Loading jobs…</p>}
-            {!loading && top.length === 0 && <p className="text-xs text-slate-500">No qualifying matches yet — try a broader location.</p>}
-            <ul className="space-y-2">
-              {top.map(({ source, rating }) => (
-                <RecommendedJobLi key={source.id} job={source} rating={rating} />
-              ))}
-            </ul>
-          </Panel>
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
+              <CheckCircle2 className="h-4 w-4 text-teal-600" /> Realistic matches <span className="text-sm font-normal text-slate-400">({top.length})</span>
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">Re-scored against {CONVICTION_LABELS[draft.conviction].toLowerCase()}, the career goal, and realistic attainability.</p>
+            {loading && <p className="mt-4 text-sm text-slate-500">Scoring jobs…</p>}
+            {!loading && top.length === 0 && <p className="mt-4 text-sm text-slate-500">No realistic matches in this pool yet — try a broader ZIP or adjust the goal.</p>}
+            <ul className="mt-4 space-y-3">{top.map((m) => <MatchCard key={m.job.id} m={m} />)}</ul>
+          </section>
 
-          <Panel title="May require additional review before applying" icon={<AlertTriangle className="h-4 w-4 text-rose-700" />} count={wasteTime.length}>
-            <p className="mb-2 text-xs text-slate-600">These roles likely conflict with the selected conviction class. Surface only after caseworker review.</p>
-            <ul className="space-y-2">
-              {wasteTime.map(({ source, rating }) => (
-                <WasteJobLi key={source.id} job={source} rating={rating} />
-              ))}
-            </ul>
-          </Panel>
-        </div>
-
-        {/* Right: training gaps + 30/60/90 */}
-        <div className="space-y-4">
-          <Panel title="Training gaps" icon={<Wrench className="h-4 w-4 text-teal-700" />} count={aggregatedSteps.length}>
-            {aggregatedSteps.length === 0 ? (
-              <p className="text-xs text-slate-500">No common gaps detected across the top matches.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm">
-                {aggregatedSteps.slice(0, 6).map((s) => (
-                  <li key={s.id} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-                    <p className="font-medium text-slate-800">{s.title}</p>
-                    <p className="text-[11px] text-slate-600">{s.reason}</p>
+          {barriersJobs.length > 0 && (
+            <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-card">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900">
+                <ShieldAlert className="h-4 w-4 text-amber-600" /> Likely barriers — don&rsquo;t waste the visit
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">High-ranking on paper, but flagged for a legal/employer barrier. Coach the participant before they apply.</p>
+              <ul className="mt-4 space-y-2">
+                {barriersJobs.map((m) => (
+                  <li key={m.job.id} className="rounded-xl border border-amber-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-navy-900">{m.job.title}</p>
+                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">{m.label}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">{m.job.company}</p>
+                    <p className="mt-1 inline-flex items-start gap-1 text-xs text-amber-800"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {m.flags[0]}</p>
                   </li>
                 ))}
               </ul>
-            )}
-          </Panel>
+            </section>
+          )}
+        </div>
 
-          <Panel title="30 / 60 / 90-day plan" icon={<Calendar className="h-4 w-4 text-navy-700" />}>
-            {phases.map((phase) => (
-              <div key={phase.label} className="mb-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{phase.label}</p>
-                <ul className="mt-1 space-y-1">
-                  {phase.actions.map((a, i) => (
-                    <li key={i} className="text-xs text-slate-700">• {a}</li>
-                  ))}
-                </ul>
+        {/* Right rail */}
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900"><Wrench className="h-4 w-4 text-teal-600" /> Training gaps <span className="text-sm font-normal text-slate-400">({aggregatedSteps.length})</span></h2>
+            {aggregatedSteps.length === 0
+              ? <p className="mt-2 text-sm text-slate-500">No common credential gaps across the top matches.</p>
+              : <ul className="mt-3 space-y-2">{aggregatedSteps.slice(0, 6).map((s) => (
+                  <li key={s.id} className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5">
+                    <p className="text-sm font-semibold text-navy-900">{s.title}{s.estDuration ? <span className="ml-1.5 text-[11px] font-normal text-slate-400">· {s.estDuration}</span> : null}</p>
+                    {s.reason && <p className="mt-0.5 text-xs text-slate-600">{s.reason}</p>}
+                  </li>))}</ul>}
+          </section>
+
+          {resources.length > 0 && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900"><LifeBuoy className="h-4 w-4 text-teal-600" /> Connect to local help</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Based on the barriers you flagged.</p>
+              <div className="mt-3 space-y-3">
+                {resources.map((r) => (
+                  <div key={r.key}>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{r.label}</p>
+                    <ul className="mt-1 space-y-1.5">
+                      {r.resources.slice(0, 2).map((res) => (
+                        <li key={res.id} className="rounded-lg border border-slate-200 p-2">
+                          <p className="text-sm font-semibold text-navy-900">{res.name}</p>
+                          <div className="mt-0.5 flex flex-wrap gap-2 text-[11px]">
+                            {res.phone && <a href={`tel:${res.phone.replace(/[^\d]/g, '')}`} className="inline-flex items-center gap-1 font-semibold text-teal-700 hover:underline"><Phone className="h-3 w-3" /> {res.phone}</a>}
+                            <a href={res.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-teal-700 hover:underline"><Globe className="h-3 w-3" /> Website</a>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
-            ))}
-          </Panel>
+              <Link href="/local-help" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+                Full local-help directory <ArrowRight className="h-3 w-3" />
+              </Link>
+            </section>
+          )}
 
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-            <p className="flex items-center gap-1.5 font-semibold"><FileText className="h-3.5 w-3.5" /> Tip</p>
-            <p className="mt-1">After reviewing the participant&rsquo;s situation, click <strong>Generate printable plan</strong> to open a one-page printable Career Action Plan.</p>
-          </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-navy-900"><Calendar className="h-4 w-4 text-teal-600" /> {planTitle(draft.contextMode)}</h2>
+            <div className="mt-3 space-y-3">
+              {phases.map((ph) => (
+                <div key={ph.title}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-teal-700">{ph.title}</p>
+                  <ul className="mt-1 space-y-1">
+                    {ph.items.map((it, i) => <li key={i} className="flex items-start gap-1.5 text-sm text-slate-700"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-400" /> {it}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
-
-      {/* Participant summary footer */}
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-600 shadow-card">
-        <p className="flex items-center gap-1.5 font-semibold text-slate-800"><Users className="h-3.5 w-3.5" /> Participant summary</p>
-        <p className="mt-1">
-          Name: <strong>{name || '—'}</strong> · Conviction: <strong>{CONVICTION_LABELS[conviction]}</strong> ·
-          Context: <strong>{USER_CONTEXT_OPTIONS.find((o) => o.value === contextMode)?.label}</strong> ·
-          Location: <strong>{location || 'any'}</strong> · Goal: <strong>{careerGoal || '—'}</strong>
-        </p>
-      </section>
     </div>
   );
 }
 
-// ─── helpers ───
+// ───────── plan builder (context-aware) ─────────
 
-function mapJob(j: JobDto): JobInput {
-  return {
-    id: j.id,
-    title: j.title,
-    company: j.company,
-    description: j.description,
-    industry: j.industry,
-    riskTier: j.riskTier,
-    excludesFelons: j.excludesFelons,
-    backgroundCheckLikely: j.backgroundCheckLikely,
-    isApprenticeship: j.isApprenticeship,
-    remote: j.remote,
-    locationRegion: j.locationRegion,
-    locationCity: j.locationCity,
-    requiredSkills: j.requiredSkills,
-    requiredCertifications: j.requiredCertifications,
-  };
+interface Phase { title: string; items: string[] }
+
+function planTitle(mode: UserContextMode): string {
+  return mode === 'currently_incarcerated' || mode === 'preparing_for_release'
+    ? 'Pre-release action plan' : '30 / 60 / 90-day plan';
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function buildPlan(p: Participant, topCount: number, steps: TrainingBridgeStep[], resourceCount: number): Phase[] {
+  const cred = steps[0]?.title;
+  const goal = p.careerGoal ? `toward "${p.careerGoal}"` : '';
+  const resourceLine = resourceCount > 0 ? 'Connect with the flagged local resources (housing, transport, recovery, legal).' : null;
+
+  if (p.contextMode === 'currently_incarcerated' || p.contextMode === 'preparing_for_release') {
+    return [
+      { title: 'Now (pre-release)', items: [
+        cred ? `Start ${cred} or an available in-facility credential ${goal}`.trim() : `Identify in-facility training ${goal}`.trim(),
+        'Gather/replace ID documents (state ID, Social Security card, birth certificate).',
+        'Build a basic résumé from work assignments and any certifications.',
+      ] },
+      { title: 'Release area', items: [
+        topCount > 0 ? `Target the ${topCount} realistic roles identified here in the release area.` : 'Set a target ZIP and re-run matches for the release area.',
+        'Line up a first appointment at the local American Job Center for week one.',
+        resourceLine ?? 'Identify reentry housing/transport before release.',
+      ] },
+      { title: 'First 30 days out', items: [
+        'Apply to the strongest matches; bring ID + résumé to walk-ins.',
+        'Check in with caseworker weekly; record progress on the printable plan.',
+      ] },
+    ];
+  }
+
+  // recently_released / in_the_community / on_supervision
+  const compliance = p.contextMode === 'on_supervision'
+    ? 'Confirm hours, travel, and industry restrictions with the supervising officer.'
+    : null;
+  return [
+    { title: '30 days', items: [
+      topCount > 0 ? `Apply to the ${Math.min(5, topCount)} strongest matches ${goal}`.trim() : 'Broaden the search ZIP and re-run matches.',
+      cred ? `Enroll in / schedule ${cred}.` : 'Refresh résumé with current skills and certifications.',
+      compliance,
+      resourceLine,
+    ].filter(Boolean) as string[] },
+    { title: '60 days', items: [
+      'Apply to additional "worth a look" roles; attend one hiring event or job-center orientation.',
+      cred ? `Complete ${cred} and add it to the résumé.` : 'Add one stackable credential aligned to the goal.',
+    ] },
+    { title: '90 days', items: [
+      'Target apprenticeships or higher-wage roles unlocked by new credentials.',
+      'Review progress with caseworker and reset the next 90-day goal.',
+    ] },
+  ];
+}
+
+// ───────── small components ─────────
+
+function MatchCard({ m }: { m: ScoredCaseJob }) {
+  const tone = m.chance === 'high' ? 'bg-teal-50 text-teal-700 ring-teal-200' : 'bg-sky-50 text-sky-700 ring-sky-200';
+  const loc = [m.job.locationCity, m.job.locationRegion].filter(Boolean).join(', ');
   return (
-    <label className="block">
+    <li className="rounded-xl border border-slate-200 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-navy-900">{m.job.title}</p>
+          <p className="text-xs text-slate-500">{m.job.company}{loc ? ` · ${loc}` : ''}</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${tone}`}>{m.label} · {m.score}%</span>
+      </div>
+      <p className="mt-2 text-xs text-slate-600"><span className="font-semibold text-slate-700">Why:</span> {m.why}</p>
+      {m.flags.length > 0 && (
+        <p className="mt-1 inline-flex items-start gap-1 text-xs text-amber-700"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {m.flags[0]}</p>
+      )}
+    </li>
+  );
+}
+
+function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <label className={'block text-sm ' + (className ?? '')}>
       <span className="mb-1 block text-xs font-medium text-slate-700">{label}</span>
       {children}
     </label>
   );
 }
-
-function Panel({ title, icon, count, children }: { title: string; icon: React.ReactNode; count?: number; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-      <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-navy-900">
-        {icon} {title}
-        {count !== undefined && <span className="text-[11px] font-normal text-slate-500">({count})</span>}
-      </h2>
-      {children}
-    </section>
-  );
+function TextInput({ value, onChange, placeholder, type = 'text' }: { value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+    className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />;
 }
-
-function RecommendedJobLi({ job, rating }: { job: JobDto; rating: CompatibilityRating }) {
-  const styles = rating.chance === 'high' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800';
-  return (
-    <li className="rounded-md border border-slate-200 bg-white p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <Link href={`/jobs/${job.id}`} className="min-w-0 text-sm font-medium text-navy-900 hover:text-teal-700 truncate">
-          {job.title}
-        </Link>
-        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${styles}`}>
-          {rating.label} · {rating.score}%
-        </span>
-      </div>
-      <p className="text-[11px] text-slate-600 truncate">{job.company} · {[job.locationCity, job.locationRegion].filter(Boolean).join(', ') || 'Location TBD'}</p>
-      <p className="mt-1 line-clamp-2 text-[11px] text-slate-700"><strong>Why:</strong> {rating.summary}</p>
-      {rating.possibleBarriers[0] && (
-        <p className="mt-0.5 text-[11px] text-rose-700"><strong>Watch:</strong> {rating.possibleBarriers[0]}</p>
-      )}
-      <p className="mt-0.5 text-[11px] text-slate-700"><strong>Next:</strong> {rating.recommendedNextStep}</p>
-    </li>
-  );
+function Select({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+  return <select value={value} onChange={(e) => onChange(e.target.value)}
+    className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500">{children}</select>;
 }
-
-function WasteJobLi({ job, rating }: { job: JobDto; rating: CompatibilityRating }) {
-  return (
-    <li className="rounded-md border border-rose-100 bg-rose-50/50 p-2.5">
-      <Link href={`/jobs/${job.id}`} className="text-sm font-medium text-navy-900 hover:text-teal-700">{job.title}</Link>
-      <p className="text-[11px] text-slate-600">{job.company} · {rating.score}%</p>
-      {rating.possibleBarriers[0] && <p className="mt-0.5 text-[11px] text-rose-700">{rating.possibleBarriers[0]}</p>}
-    </li>
-  );
-}
-
-function buildSimplePhases(
-  contextMode: UserContextMode,
-  steps: TrainingBridgeStep[],
-  topCount: number,
-): Array<{ label: string; actions: string[] }> {
-  const certs = steps.filter((s) => s.kind === 'certification' || s.kind === 'license');
-  const day30: string[] = [];
-  const day60: string[] = [];
-  const day90: string[] = [];
-
-  if (contextMode === 'currently_incarcerated') {
-    day30.push('Update resume with in-facility career staff', 'Identify release area + closest American Job Center');
-    if (certs[0]) day30.push(`Begin in-facility training: ${certs[0].title}`);
-  } else if (contextMode === 'preparing_for_release') {
-    day30.push(`Apply to ${Math.min(5, topCount)} Strong Match jobs in release area`, 'Gather identity documents');
-    if (certs[0]) day30.push(`Start ${certs[0].title}`);
-  } else if (contextMode === 'recently_released') {
-    day30.push(`Apply to ${Math.min(5, topCount)} Strong Match jobs this week`, 'Visit local American Job Center');
-    if (certs[0]) day30.push(`Start ${certs[0].title}`);
-  } else if (contextMode === 'on_supervision') {
-    day30.push('Confirm permitted industries / hours with supervising officer', `Apply to ${Math.min(5, topCount)} Strong Match jobs that fit conditions`);
-  } else {
-    day30.push(`Apply to ${Math.min(5, topCount)} Strong Match jobs`, 'Refresh resume with any new credentials');
-    if (certs[0]) day30.push(`Start ${certs[0].title}`);
-  }
-
-  if (certs[0]) day60.push(`Complete ${certs[0].title}`);
-  if (certs[1]) day60.push(`Begin ${certs[1].title}`);
-  day60.push('Apply to additional Possible Match roles', 'Attend one local hiring event or workforce-board orientation');
-
-  if (certs[1]) day90.push(`Complete ${certs[1].title}`);
-  day90.push('Target apprenticeships or higher-wage roles unlocked by new credentials', 'Review progress with caseworker');
-
-  return [
-    { label: '30 days', actions: day30 },
-    { label: '60 days', actions: day60 },
-    { label: '90 days', actions: day90 },
-  ];
+function splitTags(v: string): string[] {
+  return v.split(',').map((s) => s.trim()).filter(Boolean);
 }

@@ -1,37 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS, type ConvictionType, type UserContextMode } from '@dxp/shared';
+import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS } from '@dxp/shared';
+import type { Participant } from '../../../lib/caseworker-store';
+import { BARRIER_LABELS } from '../../../lib/caseworker-store';
 
 /**
- * Printable Career Action Plan — pulls the prepared plan from
- * localStorage (set by /caseworker), renders a one-page printable
- * layout, and triggers `window.print()`.
- *
- * Designed for:
- *   - Correctional education staff
- *   - Reentry coordinators
- *   - Probation / parole staff
- *   - Workforce development partners
- *   - Case managers
+ * Printable participant action plan — pulls the prepared plan from
+ * localStorage (set by /caseworker), renders a one-page case document, and
+ * triggers window.print(). Built for reentry coordinators, probation/parole
+ * staff, workforce partners, and case managers.
  */
 interface StoredPlan {
-  name?: string;
-  conviction?: ConvictionType;
-  contextMode?: UserContextMode;
-  location?: string;
-  careerGoal?: string;
-  notes?: string;
+  participant: Participant;
   generatedAt?: string;
-  top?: Array<{
-    source: { id: string; title: string; company: string; locationCity: string | null; locationRegion: string | null };
-    rating: {
-      score: number; label: string; summary: string;
-      possibleBarriers: string[]; recommendedNextStep: string; chanceImprovers: string[];
-    };
-  }>;
+  guidance?: string;
+  top?: Array<{ title: string; company: string; city: string | null; region: string | null; score: number; label: string; why: string; flags: string[] }>;
   aggregatedSteps?: Array<{ id: string; title: string; reason: string; estDuration?: string }>;
-  phases?: Array<{ label: string; actions: string[] }>;
+  phases?: Array<{ title: string; items: string[] }>;
+  resources?: Array<{ label: string; resources: Array<{ name: string; phone?: string; url?: string }> }>;
 }
 
 export default function PlanPrintPage() {
@@ -40,10 +27,7 @@ export default function PlanPrintPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const raw = window.localStorage.getItem('dxp:caseworker:plan');
-    if (raw) {
-      try { setPlan(JSON.parse(raw)); } catch { setPlan(null); }
-    }
-    // Auto-trigger print after content paints (small delay so fonts load).
+    if (raw) { try { setPlan(JSON.parse(raw)); } catch { setPlan(null); } }
     const t = setTimeout(() => window.print(), 600);
     return () => clearTimeout(t);
   }, []);
@@ -56,120 +40,113 @@ export default function PlanPrintPage() {
     );
   }
 
+  const p = plan.participant;
   const generatedAt = plan.generatedAt ? new Date(plan.generatedAt).toLocaleString() : '—';
+  const contextLabel = USER_CONTEXT_OPTIONS.find((o) => o.value === p.contextMode)?.label ?? p.contextMode;
 
   return (
-    <article className="mx-auto max-w-3xl bg-white p-8 text-[12px] leading-relaxed text-slate-900 print:p-6 print:text-[11px]">
-      {/* Print-only print button hides itself when printing */}
-      <div className="mb-4 flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold text-navy-900">Career Action Plan</h1>
-        <button
-          onClick={() => window.print()}
-          className="rounded-md bg-navy-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-navy-800"
-        >
-          Print
-        </button>
-      </div>
+    <div className="mx-auto max-w-3xl bg-white p-8 text-[13px] leading-relaxed text-slate-900 print:p-0">
+      <style>{`@media print { @page { margin: 16mm; } .no-print { display:none } a { color: inherit; text-decoration: none } }`}</style>
 
-      {/* Header block */}
-      <header className="border-b border-slate-300 pb-3">
-        <div className="hidden print:block">
-          <h1 className="text-xl font-bold text-navy-900">Career Action Plan</h1>
+      <header className="border-b-2 border-slate-800 pb-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">Achieve DXP · Workforce Navigator</p>
+        <h1 className="mt-1 text-2xl font-bold">Participant Career Action Plan</h1>
+        <div className="mt-2 grid grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-600">
+          <p><span className="font-semibold text-slate-900">Participant:</span> {p.name || '—'}</p>
+          <p><span className="font-semibold text-slate-900">Prepared:</span> {generatedAt}</p>
+          <p><span className="font-semibold text-slate-900">Conviction:</span> {CONVICTION_LABELS[p.conviction]}</p>
+          <p><span className="font-semibold text-slate-900">Status:</span> {contextLabel}{p.supervision !== 'none' ? ` · ${p.supervision.replace(/_/g, ' ')}` : ''}</p>
+          {p.careerGoal && <p><span className="font-semibold text-slate-900">Career goal:</span> {p.careerGoal}</p>}
+          {p.location && <p><span className="font-semibold text-slate-900">Area:</span> {p.location}</p>}
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-          <Detail label="Participant">{plan.name || '—'}</Detail>
-          <Detail label="Date generated">{generatedAt}</Detail>
-          <Detail label="Location">{plan.location || '—'}</Detail>
-          <Detail label="Career goal">{plan.careerGoal || '—'}</Detail>
-          <Detail label="Conviction class">{plan.conviction ? CONVICTION_LABELS[plan.conviction] : '—'}</Detail>
-          <Detail label="Context">{plan.contextMode ? (USER_CONTEXT_OPTIONS.find((o) => o.value === plan.contextMode)?.label ?? '—') : '—'}</Detail>
-        </dl>
+        {plan.guidance && <p className="mt-2 rounded bg-teal-50 px-2.5 py-1.5 text-xs text-teal-900">{plan.guidance}</p>}
       </header>
 
-      {/* Top jobs */}
-      <section className="mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Top 3 job matches</h2>
-        <ol className="mt-2 space-y-2">
-          {(plan.top ?? []).slice(0, 3).map(({ source, rating }, i) => (
-            <li key={source.id} className="rounded border border-slate-200 p-2.5">
-              <div className="flex items-baseline justify-between">
-                <p className="font-semibold">{i + 1}. {source.title}</p>
-                <span className="text-[11px] font-semibold text-slate-700">{rating.label} · {rating.score}%</span>
-              </div>
-              <p className="text-[11px] text-slate-600">{source.company} · {[source.locationCity, source.locationRegion].filter(Boolean).join(', ') || 'Location TBD'}</p>
-              <p className="mt-1"><strong>Why this may be realistic:</strong> {rating.summary}</p>
-              {rating.possibleBarriers[0] && <p className="mt-0.5"><strong>Main potential barrier:</strong> {rating.possibleBarriers[0]}</p>}
-              <p className="mt-0.5"><strong>Recommended next step:</strong> {rating.recommendedNextStep}</p>
-            </li>
-          ))}
-          {(!plan.top || plan.top.length === 0) && <li className="text-slate-500">No matches captured.</li>}
-        </ol>
-      </section>
+      {/* Realistic matches */}
+      <Section title="Realistic job matches">
+        {(plan.top ?? []).length === 0 ? <p className="text-slate-500">No matches captured.</p> : (
+          <ol className="space-y-2">
+            {(plan.top ?? []).slice(0, 6).map((t, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="font-semibold text-slate-400">{i + 1}.</span>
+                <div>
+                  <p className="font-semibold">{t.title} <span className="font-normal text-slate-500">— {t.company}{[t.city, t.region].filter(Boolean).length ? `, ${[t.city, t.region].filter(Boolean).join(', ')}` : ''}</span></p>
+                  <p className="text-xs text-slate-600">{t.label} · {t.score}% — {t.why}</p>
+                  {t.flags.length > 0 && <p className="text-xs text-amber-700">⚠ {t.flags[0]}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Section>
 
-      {/* Training */}
-      <section className="mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Recommended training / certifications</h2>
-        {(plan.aggregatedSteps ?? []).length === 0 ? (
-          <p className="mt-1 text-slate-500">No common training gaps identified across the top matches.</p>
-        ) : (
-          <ul className="mt-1 list-disc pl-5">
-            {plan.aggregatedSteps!.slice(0, 6).map((s) => (
-              <li key={s.id}><strong>{s.title}</strong>{s.estDuration ? ` (${s.estDuration})` : ''} — {s.reason}</li>
+      {/* 30/60/90 or pre-release plan */}
+      {(plan.phases ?? []).length > 0 && (
+        <Section title="Action plan">
+          <div className="grid grid-cols-3 gap-4">
+            {(plan.phases ?? []).map((ph) => (
+              <div key={ph.title}>
+                <p className="text-xs font-bold uppercase tracking-wider text-teal-700">{ph.title}</p>
+                <ul className="mt-1 space-y-1">
+                  {ph.items.map((it, i) => <li key={i} className="flex gap-1.5 text-xs"><span>☐</span> {it}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Training gaps */}
+      {(plan.aggregatedSteps ?? []).length > 0 && (
+        <Section title="Credentials & training to pursue">
+          <ul className="space-y-1">
+            {(plan.aggregatedSteps ?? []).slice(0, 6).map((s) => (
+              <li key={s.id} className="flex gap-1.5 text-xs"><span>☐</span><span><span className="font-semibold">{s.title}</span>{s.estDuration ? ` (${s.estDuration})` : ''} — {s.reason}</span></li>
             ))}
           </ul>
-        )}
-      </section>
+        </Section>
+      )}
 
-      {/* Local resources */}
-      <section className="mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Local workforce resources</h2>
-        <p className="mt-1">
-          Visit the <em>Local Help</em> page for nearby American Job Centers, reentry programs,
-          and apprenticeship offices in {plan.location || 'the participant\u2019s region'}. Caseworkers
-          should confirm specific contacts before the participant arrives.
-        </p>
-      </section>
+      {/* Barriers / local resources */}
+      {(plan.resources ?? []).length > 0 && (
+        <Section title="Support resources for identified barriers">
+          {p.barriers.length > 0 && <p className="mb-1 text-xs text-slate-500">Barriers flagged: {p.barriers.map((b) => BARRIER_LABELS[b]).join(', ')}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            {(plan.resources ?? []).map((r) => (
+              <div key={r.label}>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">{r.label}</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {r.resources.slice(0, 2).map((res, i) => (
+                    <li key={i} className="text-xs"><span className="font-semibold">{res.name}</span>{res.phone ? ` · ${res.phone}` : ''}{res.url ? ` · ${res.url.replace(/^https?:\/\//, '')}` : ''}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
-      {/* Phases */}
-      <section className="mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">30 / 60 / 90-day plan</h2>
-        <div className="mt-2 grid grid-cols-3 gap-3">
-          {(plan.phases ?? []).map((phase) => (
-            <div key={phase.label} className="rounded border border-slate-200 p-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-navy-700">{phase.label}</p>
-              <ul className="mt-1 space-y-1">
-                {phase.actions.map((a, i) => (
-                  <li key={i} className="flex items-start gap-1.5">
-                    <span className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-sm border border-slate-400" />
-                    <span>{a}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
+      {p.notes && <Section title="Caseworker notes"><p className="whitespace-pre-wrap text-xs">{p.notes}</p></Section>}
 
-      {/* Notes */}
-      <section className="mt-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Caseworker notes</h2>
-        <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-2.5 min-h-[3em]">
-          {plan.notes || '\u2014'}
-        </p>
-      </section>
+      <div className="mt-8 flex gap-12">
+        <div className="flex-1 border-t border-slate-400 pt-1 text-xs text-slate-500">Participant signature / date</div>
+        <div className="flex-1 border-t border-slate-400 pt-1 text-xs text-slate-500">Caseworker / officer signature / date</div>
+      </div>
+      <p className="mt-4 border-t border-slate-200 pt-2 text-[10px] text-slate-400">
+        Scores are deterministic and re-computed against the participant&rsquo;s conviction, goal, and realistic attainability.
+        Job data from the U.S. Department of Labor (CareerOneStop) and public job boards; support resources are vetted national programs and official government locators.
+      </p>
 
-      <footer className="mt-6 border-t border-slate-300 pt-2 text-[10px] text-slate-500">
-        Generated by AchieveDXP Workforce Navigator. This plan is informational and does not predict any specific employer&rsquo;s hiring decision. Confirm background-check policies and licensing rules with employers and licensing boards before applying.
-      </footer>
-    </article>
+      <button onClick={() => window.print()} className="no-print mt-6 rounded-lg bg-navy-900 px-4 py-2 text-xs font-semibold text-white">Print again</button>
+    </div>
   );
 }
 
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</dt>
-      <dd className="text-sm text-slate-900">{children}</dd>
-    </div>
+    <section className="mt-5">
+      <h2 className="mb-1.5 text-sm font-bold uppercase tracking-wide text-slate-800">{title}</h2>
+      {children}
+    </section>
   );
 }
