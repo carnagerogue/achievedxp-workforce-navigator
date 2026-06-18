@@ -28,6 +28,7 @@ import {
   convictionTypesFor,
   type StoredProfile,
 } from './profile-store';
+import { realisticFit, type RealisticFit } from './realistic-fit';
 
 const NOW = Date.now();
 const DAY = 24 * 60 * 60 * 1000;
@@ -913,68 +914,6 @@ function worstCompatibility(job: JobDto, candidates: CandidateProfile[]): Compat
   return worst;
 }
 
-interface PersonalizationResult {
-  total: number;
-  breakdown: ScoredJobDto['breakdown'];
-}
-
-/**
- * 0–100 personalization fit from the stored profile (skills, certs,
- * industry preference, experience, location, risk tier). Mirrors the
- * NestJS RuleScorer component weights so the two backends agree.
- */
-function personalizationScore(profile: StoredProfile | null, j: JobDto): PersonalizationResult {
-  const lower = (xs: string[] | undefined) => new Set((xs ?? []).map((s) => s.toLowerCase()));
-  const skills = lower(profile?.skills);
-  const certs = lower(profile?.certifications);
-  const desired = lower(profile?.desiredIndustries);
-
-  // industry (0..25)
-  let industry: number;
-  if (!j.industry) industry = 12;
-  else if (desired.size === 0) industry = 13;
-  else industry = desired.has(j.industry.toLowerCase()) ? 25 : 6;
-
-  // skills (0..25) — no requirement = neutral half credit
-  let skillsPts: number;
-  if (j.requiredSkills.length === 0) skillsPts = 13;
-  else {
-    const matched = j.requiredSkills.filter((s) => skills.has(s.toLowerCase())).length;
-    skillsPts = Math.round(25 * (matched / j.requiredSkills.length));
-  }
-
-  // certifications (0..15) — no requirement = full credit (no barrier)
-  let certPts: number;
-  if (j.requiredCertifications.length === 0) certPts = 15;
-  else {
-    const matched = j.requiredCertifications.filter((c) => certs.has(c.toLowerCase())).length;
-    certPts = Math.round(15 * (matched / j.requiredCertifications.length));
-  }
-
-  // experience (0..15)
-  const required = j.minYearsExperience ?? 0;
-  const yrs = profile?.yearsExperience ?? 0;
-  const expPts = required === 0 ? 15 : Math.min(15, Math.round(15 * (yrs / required)));
-
-  // location (0..10)
-  let locPts: number;
-  if (j.remote) locPts = 10;
-  else if (profile?.locationPostalCode && j.locationPostalCode && profile.locationPostalCode === j.locationPostalCode) locPts = 10;
-  else if (!profile?.locationRegion || !j.locationRegion) locPts = 5;
-  else if (profile.locationRegion === j.locationRegion) locPts = 8;
-  else if (profile.willingToRelocate) locPts = 5;
-  else locPts = 0;
-
-  // risk tier (0..10)
-  const riskPts = j.riskTier === 'LOW' ? 10 : j.riskTier === 'MEDIUM' ? 7 : 4;
-
-  const total = Math.max(0, Math.min(100, industry + skillsPts + certPts + expPts + locPts + riskPts));
-  return {
-    total,
-    breakdown: { industry, skills: skillsPts, certifications: certPts, experience: expPts, location: locPts, risk: riskPts },
-  };
-}
-
 interface ScoredInternal {
   jobId: string;
   score: number;
@@ -1010,16 +949,34 @@ function convictionContext(
 }
 
 /**
- * Blend conviction compatibility with personalization. When the person has
- * a record, the conviction engine leads; otherwise personalization
- * (skills/location/industry) does most of the differentiating. A categorical
- * legal bar caps the score so the role lands in "Jobs to approach carefully".
+ * Blend conviction compatibility with realistic fit, then apply the reality
+ * checks. The conviction engine gates legal/duty barriers; realistic fit
+ * (seniority gap, skill/domain overlap, location) drives the differentiation
+ * the user actually sees. The attainability cap keeps over-leveled or
+ * off-target roles out of "top matches", and a categorical legal bar caps
+ * the score so the role lands in "approach carefully".
  */
-function blendScore(ratingScore: number, persTotal: number, hasConvictions: boolean, hardBlocked: boolean): number {
-  const s = hasConvictions
-    ? Math.round(0.65 * ratingScore + 0.35 * persTotal)
-    : Math.round(0.4 * ratingScore + 0.6 * persTotal);
-  return hardBlocked ? Math.min(s, 25) : s;
+function blendScore(ratingScore: number, fit: RealisticFit, hasConvictions: boolean, hardBlocked: boolean): number {
+  const base = hasConvictions
+    ? 0.4 * ratingScore + 0.6 * fit.total
+    : 0.25 * ratingScore + 0.75 * fit.total;
+  let s = Math.min(base, fit.attainabilityCap);
+  if (hardBlocked) s = Math.min(s, 25);
+  return Math.max(0, Math.round(s));
+}
+
+/**
+ * One-sentence "why this matches" that reflects THIS person and THIS role —
+ * lead with the strongest realistic signal, then a caution if the score was
+ * held back, plus a conviction note when relevant.
+ */
+function buildMatchExplanation(rating: CompatibilityRating, fit: RealisticFit): string {
+  const parts: string[] = [];
+  if (fit.factors.positive[0]) parts.push(fit.factors.positive[0][0].toUpperCase() + fit.factors.positive[0].slice(1));
+  if (fit.factors.caution[0]) parts.push(fit.factors.caution[0]);
+  if (parts.length === 0) parts.push(rating.summary);
+  else if (rating.chance === 'high') parts.push('no legal barriers flagged');
+  return parts.join('; ') + '.';
 }
 
 function scoreJobForProfile(
@@ -1030,15 +987,15 @@ function scoreJobForProfile(
   hasConvictions: boolean,
 ): ScoredInternal {
   const ctx = convictionContext(j, candidates, convictionTypes);
-  const pers = personalizationScore(profile, j);
-  const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
+  const fit = realisticFit(profile, j);
+  const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
 
   return {
     jobId: j.id,
     score,
     chance: ctx.rating.chance,
-    breakdown: pers.breakdown,
-    explanation: ctx.rating.summary,
+    breakdown: fit.breakdown,
+    explanation: buildMatchExplanation(ctx.rating, fit),
     rating: ctx.rating,
     hardBlockReason: ctx.hardBlockReason,
     job: j,
@@ -1139,8 +1096,8 @@ export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsRe
   for (const j of source) {
     const ctx = convictionContext(j, candidates, convictionTypes);
     ctxByJob.set(j.id, ctx);
-    const pers = personalizationScore(profile, j);
-    const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
+    const fit = realisticFit(profile, j);
+    const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
     const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
     baseTier.set(j.id, blockedOrLow ? 0 : tierOf(score));
   }
@@ -1170,8 +1127,8 @@ export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsRe
     for (const j of source) {
       const ctx = ctxByJob.get(j.id)!;
       const before = baseTier.get(j.id) ?? 0;
-      const pers = personalizationScore(augmented, j);
-      const score = blendScore(ctx.rating.score, pers.total, hasConvictions, ctx.hardBlockReason !== null);
+      const fit = realisticFit(augmented, j);
+      const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
       const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
       const after = blockedOrLow ? 0 : tierOf(score);
       if (before === 0 && after >= 1) unlocks++;
@@ -1263,14 +1220,16 @@ export const ASSESSMENT_SCALE = [
 ];
 
 // Singleton across route handlers (see profile-store.ts for rationale).
+// Typed off the pure builder (which never touches this map) to avoid a
+// circular type reference.
 const globalForAssessment = globalThis as unknown as {
-  __dxpAssessment?: Map<string, ReturnType<typeof scoreAssessment>>;
+  __dxpAssessment?: Map<string, ReturnType<typeof buildAssessmentResult>>;
 };
-const ASSESSMENT_RESULTS: Map<string, ReturnType<typeof scoreAssessment>> =
-  globalForAssessment.__dxpAssessment ?? new Map();
+const ASSESSMENT_RESULTS =
+  globalForAssessment.__dxpAssessment ?? new Map<string, ReturnType<typeof buildAssessmentResult>>();
 globalForAssessment.__dxpAssessment = ASSESSMENT_RESULTS;
 
-export function scoreAssessment(userId: string, answers: Record<number, number>) {
+function buildAssessmentResult(userId: string, answers: Record<number, number>) {
   const scores: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
   const counts: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
   for (const q of ASSESSMENT_QUESTIONS) {
@@ -1361,6 +1320,12 @@ export function scoreAssessment(userId: string, answers: Record<number, number>)
     completedAt: new Date().toISOString(),
   };
 
+  return result;
+}
+
+/** Score an assessment and persist the result to the in-process store. */
+export function scoreAssessment(userId: string, answers: Record<number, number>) {
+  const result = buildAssessmentResult(userId, answers);
   ASSESSMENT_RESULTS.set(userId, result);
   return result;
 }
