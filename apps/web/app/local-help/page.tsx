@@ -117,23 +117,26 @@ export default function LocalHelpPage() {
 /**
  * Wraparound community services (housing, food, transport, legal/record
  * clearing, health, money, childcare, clothing, education) — the supports a
- * justice-impacted job seeker needs to actually keep a job. Powered by
- * findhelp.org, the nation's largest social-care directory, embedded live for
- * the user's ZIP. findhelp explicitly permits embedding (CSP frame-ancestors *),
- * and the lookup runs in the visitor's own browser — we never proxy or store
- * their data. This pairs findhelp's breadth with our DOL job-center + reentry
- * data, going beyond a job board alone.
+ * justice-impacted job seeker needs to actually keep a job.
+ *
+ * Rendered as native, on-brand category cards that deep-link into
+ * findhelp.org's ZIP-scoped search (the nation's largest social-care
+ * directory). findhelp's own program data is only available via their paid
+ * partner API or by scraping (which they block), so — like other free
+ * integrators — we hand off to their maintained directory on click rather
+ * than copy their data. Pairs findhelp's breadth with our DOL job-center +
+ * reentry data, going beyond a job board alone.
  */
-const FINDHELP_CATEGORIES: Array<{ key: string; label: string; term: string; Icon: typeof Home }> = [
-  { key: 'housing',   label: 'Housing',          term: 'housing',          Icon: Home },
-  { key: 'food',      label: 'Food',             term: 'food',             Icon: Utensils },
-  { key: 'transit',   label: 'Transportation',   term: 'transportation',   Icon: Bus },
-  { key: 'legal',     label: 'Legal & records',  term: 'expungement',      Icon: Scale },
-  { key: 'health',    label: 'Health & recovery',term: 'addiction',        Icon: HeartPulse },
-  { key: 'money',     label: 'Money help',       term: 'financial assistance', Icon: Wallet },
-  { key: 'family',    label: 'Childcare',        term: 'childcare',        Icon: Baby },
-  { key: 'clothing',  label: 'Interview clothing', term: 'clothing',       Icon: Shirt },
-  { key: 'education', label: 'Education',        term: 'education',         Icon: GraduationCap },
+const FINDHELP_CATEGORIES: Array<{ key: string; label: string; term: string; desc: string; Icon: typeof Home }> = [
+  { key: 'housing',   label: 'Housing',            term: 'housing',              desc: 'Emergency shelter, rent & utility help, transitional housing.', Icon: Home },
+  { key: 'food',      label: 'Food',               term: 'food',                 desc: 'Food pantries, free meals, SNAP & benefits help.',             Icon: Utensils },
+  { key: 'transit',   label: 'Transportation',     term: 'transportation',       desc: 'Bus passes, gas help, rides to work or appointments.',         Icon: Bus },
+  { key: 'legal',     label: 'Legal & records',    term: 'expungement',          desc: 'Record-clearing & expungement clinics, legal aid, ID help.',   Icon: Scale },
+  { key: 'health',    label: 'Health & recovery',  term: 'addiction',            desc: 'Clinics, mental health, addiction & recovery support.',        Icon: HeartPulse },
+  { key: 'money',     label: 'Money help',         term: 'financial assistance', desc: 'Emergency cash, benefits navigation, financial coaching.',     Icon: Wallet },
+  { key: 'family',    label: 'Childcare & family', term: 'childcare',            desc: 'Childcare assistance, parenting & family support.',            Icon: Baby },
+  { key: 'clothing',  label: 'Interview clothing', term: 'clothing',             desc: 'Free interview-ready clothing & professional attire.',         Icon: Shirt },
+  { key: 'education', label: 'Education & skills', term: 'education',             desc: 'GED, adult education, skills training, tutoring.',             Icon: GraduationCap },
 ];
 
 function extractZip(input: string): string | null {
@@ -141,71 +144,73 @@ function extractZip(input: string): string | null {
   return m ? m[1] : null;
 }
 
+const findhelpSearchUrl = (zip: string, term: string) =>
+  `https://www.findhelp.org/search_results/${zip}?term=${encodeURIComponent(term)}`;
+
 function FindhelpResources({ location }: { location: string }) {
-  const [active, setActive] = useState('housing');
   const zip = extractZip(location);
-  const cat = FINDHELP_CATEGORIES.find((c) => c.key === active) ?? FINDHELP_CATEGORIES[0];
-  const findhelpUrl = zip
-    ? `https://www.findhelp.org/search_results/${zip}?term=${encodeURIComponent(cat.term)}`
-    : null;
+
+  if (!zip) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+          <LifeBuoy className="h-6 w-6" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-navy-900">Enter a ZIP code</h3>
+        <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+          Community resources are matched by ZIP. Add a 5-digit ZIP code above to see
+          housing, food, transportation, legal, and other support near you.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {FINDHELP_CATEGORIES.map(({ key, label, Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActive(key)}
-            className={
-              'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ' +
-              (active === key
-                ? 'bg-teal-600 text-white shadow-sm'
-                : 'border border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:bg-teal-50')
-            }
-          >
-            <Icon className="h-3.5 w-3.5" /> {label}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4">
+        <p className="text-sm text-slate-700">
+          <span className="font-semibold text-navy-900">Free &amp; reduced-cost support</span> near{' '}
+          <span className="font-semibold text-navy-900">{zip}</span> — pick a category to see local programs.
+        </p>
+        <a
+          href={findhelpSearchUrl(zip, '')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
+        >
+          Browse all on findhelp.org <ExternalLink className="h-3 w-3" />
+        </a>
       </div>
 
-      {!zip ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
-            <LifeBuoy className="h-6 w-6" />
-          </div>
-          <h3 className="mt-4 text-base font-semibold text-navy-900">Enter a ZIP code</h3>
-          <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-            Community resources are matched by ZIP. Add a 5-digit ZIP code above to see
-            housing, food, transportation, legal, and other support near you.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
-            <p className="text-xs text-slate-600">
-              Live <span className="font-semibold text-navy-900">{cat.label.toLowerCase()}</span> resources near{' '}
-              <span className="font-semibold text-navy-900">{zip}</span> · powered by findhelp.org
-            </p>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {FINDHELP_CATEGORIES.map(({ key, label, term, desc, Icon }) => (
+          <li key={key}>
             <a
-              href={findhelpUrl!}
+              href={findhelpSearchUrl(zip, term)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:border-teal-400 hover:bg-teal-50"
+              className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-card-hover"
             >
-              Open full results <ExternalLink className="h-3 w-3" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700 transition group-hover:bg-teal-100">
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-3 text-base font-semibold text-navy-900">{label}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">{desc}</p>
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-teal-700">
+                Find near {zip} <ExternalLink className="h-3 w-3 transition group-hover:translate-x-0.5" />
+              </span>
             </a>
-          </div>
-          <iframe
-            key={findhelpUrl}
-            src={findhelpUrl!}
-            title={`${cat.label} resources near ${zip} — findhelp.org`}
-            loading="lazy"
-            className="h-[640px] w-full border-0"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
-      )}
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-center text-xs text-slate-500">
+        Resources from{' '}
+        <a href="https://www.findhelp.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
+          findhelp.org
+        </a>{' '}
+        — a free national directory of 600,000+ social-care programs.
+      </p>
     </div>
   );
 }
