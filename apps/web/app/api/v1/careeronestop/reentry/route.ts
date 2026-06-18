@@ -1,10 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { mockReentryPrograms } from '../../../../../lib/mock-data';
+import {
+  reentryPrograms,
+  isCareerOneStopConfigured,
+  normalizeReentryList,
+  NATIONAL_REENTRY_RESOURCES,
+} from '../../../../../lib/careeronestop';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export function GET(req: NextRequest) {
-  const location = req.nextUrl.searchParams.get('location') ?? '';
-  return NextResponse.json(mockReentryPrograms(location));
+export async function GET(req: NextRequest) {
+  const location = (req.nextUrl.searchParams.get('location') ?? '').trim();
+  const radius = Number(req.nextUrl.searchParams.get('radius') ?? '100') || 100;
+
+  // Live local reentry programs (DOL) when configured, then the curated
+  // national directory so the tab is useful everywhere — local first.
+  let local: Array<Record<string, unknown>> = [];
+  if (isCareerOneStopConfigured() && location) {
+    local = normalizeReentryList(await reentryPrograms(location, radius));
+  }
+
+  return NextResponse.json([...local, ...NATIONAL_REENTRY_RESOURCES]);
 }

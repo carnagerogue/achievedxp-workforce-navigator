@@ -142,15 +142,43 @@ function AjcResults({ location, radius }: { location: string; radius: number }) 
 
   if (loading) return <ListSkeleton />;
   if (error)   return <ErrorPanel message={error} />;
-  if (data?.error) return <EmptyState message="No centers in that area — try widening the radius or a nearby city." />;
 
   const centers = data?.OneStopCenterList ?? [];
-  if (centers.length === 0) return <EmptyState message="No American Job Centers in that area — try widening the radius or a nearby city." />;
+  if (centers.length === 0) {
+    return (
+      <OfficialFinderPanel
+        message={data?.meta?.message ?? 'No American Job Centers in that area — try widening the radius or a nearby city.'}
+        finderUrl={data?.meta?.finderUrl}
+      />
+    );
+  }
 
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {centers.map((c) => <AjcCard key={c.ID} center={c} />)}
     </ul>
+  );
+}
+
+function OfficialFinderPanel({ message, finderUrl }: { message: string; finderUrl?: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+        <Building2 className="h-6 w-6" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold text-navy-900">Find a center near you</h3>
+      <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">{message}</p>
+      {finderUrl && (
+        <a
+          href={finderUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+        >
+          <Globe className="h-4 w-4" /> Official DOL center finder <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
+    </div>
   );
 }
 

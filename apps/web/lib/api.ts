@@ -167,6 +167,7 @@ export interface AjcCentersResponse {
   AreaValidationErr?: string;
   error?: string;
   partial?: boolean;
+  meta?: { configured: boolean; finderUrl: string; message: string };
 }
 export interface CosErrorRow { Error: string; Description?: string }
 
