@@ -172,6 +172,62 @@ export const NATIONAL_REENTRY_RESOURCES: Array<Record<string, unknown>> = [
   },
 ];
 
+function haversineMiles(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 3958.8; // miles
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+/**
+ * Real local reentry programs near a location.
+ *
+ * The DOL location-filtered reentry endpoint returns "no matches" everywhere
+ * (a known quirk), but the full dataset (~2,500 programs, each with state +
+ * lat/long) is available. So we pull the full set, geocode the user's
+ * location via the AJC finder (which reliably resolves a ZIP / "City, ST" to
+ * a state + coordinates), filter to that state, and sort by real distance.
+ */
+export async function reentryProgramsNear(location: string, radius = 100, limit = 25): Promise<Array<Record<string, unknown>>> {
+  if (!isCareerOneStopConfigured() || !location.trim()) return [];
+
+  const all = normalizeReentryList(await allReentryPrograms());
+  if (all.length === 0) return [];
+
+  // Geocode via the AJC finder's nearest center (state + coords anchor).
+  const ajc = await americanJobCenters(location, 50, 1);
+  const top = ajc?.OneStopCenterList?.[0];
+  let state = top?.StateAbbr ?? null;
+  const aLat = typeof top?.Latitude === 'number' ? top.Latitude : null;
+  const aLng = typeof top?.Longitude === 'number' ? top.Longitude : null;
+  if (!state) {
+    const m = /,\s*([A-Za-z]{2})\b/.exec(location);
+    if (m) state = m[1].toUpperCase();
+  }
+  if (!state) return [];
+
+  const inState = all.filter((p) => String(p.StateAbbr ?? '').toUpperCase() === state);
+
+  if (aLat != null && aLng != null) {
+    return inState
+      .map((p) => {
+        const lat = Number(p.Latitude);
+        const lng = Number(p.Longitude);
+        const d = Number.isFinite(lat) && Number.isFinite(lng) ? haversineMiles(aLat, aLng, lat, lng) : Number.POSITIVE_INFINITY;
+        return { p, d };
+      })
+      .sort((a, b) => a.d - b.d)
+      .slice(0, limit)
+      .map(({ p, d }) => ({ ...p, Distance: Number.isFinite(d) ? String(Math.round(d * 10) / 10) : '' }));
+  }
+
+  return inState.slice(0, limit);
+}
+
 /** Normalize the varied CareerOneStop reentry response into a flat record array. */
 export function normalizeReentryList(data: unknown): Array<Record<string, unknown>> {
   let arr: unknown[] = [];

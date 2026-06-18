@@ -311,11 +311,18 @@ function ReentryCard({ program }: { program: Record<string, unknown> }) {
   const services = (program.Services as string[] | undefined) ?? [];
 
   const cleanPhone = phone.replace(/[^\d]/g, '');
+  const distance = String(program.Distance ?? '');
+  const isNational = program.Scope === 'National';
 
   return (
     <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
-      <div className="inline-flex items-center gap-1.5 rounded-full bg-sunset-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sunset-700">
-        <HeartHandshake className="h-3 w-3" /> Reentry program
+      <div className="flex items-start justify-between gap-3">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-sunset-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sunset-700">
+          <HeartHandshake className="h-3 w-3" /> {isNational ? 'National resource' : 'Reentry program'}
+        </div>
+        {!isNational && distance && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{distance} mi</span>
+        )}
       </div>
       <h3 className="mt-2 text-base font-semibold text-navy-900">{name}</h3>
       {desc && <p className="mt-1.5 text-sm leading-relaxed text-slate-700">{desc}</p>}
