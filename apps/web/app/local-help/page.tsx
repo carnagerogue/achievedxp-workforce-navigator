@@ -5,7 +5,8 @@ import Link from 'next/link';
 import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
   AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
-  HeartPulse, Wallet, Baby, Shirt, GraduationCap,
+  HeartPulse, Wallet, Baby, Shirt, GraduationCap, ListChecks, Plus, Check,
+  Printer, Trash2,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -15,6 +16,12 @@ import {
 } from '../../lib/api';
 import { Skeleton } from '../../components/Skeleton';
 import { useDebounce } from '../../lib/use-debounce';
+import { COMMUNITY_RESOURCES, type CommunityResource } from '../../lib/community-resources';
+import {
+  useChecklist, useOwnerName, isInChecklist, toggleChecklist, removeFromChecklist,
+  setChecklistStatus, setChecklistNotes, setOwnerName, clearChecklist,
+  type ChecklistItem, type ChecklistStatus,
+} from '../../lib/checklist-store';
 
 /**
  * In-person resources page. Two tabs of CareerOneStop / DOL data:
@@ -28,10 +35,11 @@ import { useDebounce } from '../../lib/use-debounce';
  * CareerOneStop token never reaches the browser.
  */
 export default function LocalHelpPage() {
-  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community'>('ajc');
+  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'checklist'>('ajc');
   const [location, setLocation] = useState('44113');
   const [radius, setRadius] = useState(50);
   const dLoc = useDebounce(location, 400);
+  const checklist = useChecklist();
 
   return (
     <div className="animate-fade-in">
@@ -90,13 +98,25 @@ export default function LocalHelpPage() {
           <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
             <LifeBuoy className="h-4 w-4" /> Community Resources
           </TabButton>
+          <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
+            <ListChecks className="h-4 w-4" /> My Checklist
+            {checklist.length > 0 && (
+              <span className={
+                'ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ' +
+                (tab === 'checklist' ? 'bg-white/25 text-white' : 'bg-teal-600 text-white')
+              }>
+                {checklist.length}
+              </span>
+            )}
+          </TabButton>
         </div>
       </header>
 
       <div className="mt-6">
         {tab === 'ajc' && <AjcResults location={dLoc} radius={radius} />}
         {tab === 'reentry' && <ReentryResults location={dLoc} radius={radius} />}
-        {tab === 'community' && <FindhelpResources location={dLoc} />}
+        {tab === 'community' && <CommunityResources location={dLoc} />}
+        {tab === 'checklist' && <ChecklistView />}
       </div>
 
       <footer className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-xs text-slate-600">
@@ -104,30 +124,47 @@ export default function LocalHelpPage() {
         <a href="https://www.careeronestop.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
           CareerOneStop
         </a>{' '}
-        (U.S. Department of Labor). Community resources powered by{' '}
-        <a href="https://www.findhelp.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
-          findhelp.org
-        </a>
-        . Free to use; no account required.
+        (U.S. Department of Labor). Community resources are vetted national programs and official
+        government locators. Free to use; no account required.
       </footer>
     </div>
+  );
+}
+
+/** Small "Add to checklist" toggle used on every resource card. */
+function ChecklistToggle({ item }: { item: Omit<ChecklistItem, 'status' | 'addedAt'> }) {
+  useChecklist(); // re-render on changes
+  const inList = isInChecklist(item.id);
+  return (
+    <button
+      type="button"
+      onClick={() => toggleChecklist(item)}
+      aria-pressed={inList}
+      className={
+        'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ' +
+        (inList
+          ? 'border border-teal-600 bg-teal-50 text-teal-700'
+          : 'border border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700')
+      }
+    >
+      {inList ? <><Check className="h-3.5 w-3.5" /> On checklist</> : <><Plus className="h-3.5 w-3.5" /> Add to checklist</>}
+    </button>
   );
 }
 
 /**
  * Wraparound community services (housing, food, transport, legal/record
  * clearing, health, money, childcare, clothing, education) — the supports a
- * justice-impacted job seeker needs to actually keep a job.
+ * justice-impacted job seeker needs to keep a job.
  *
- * Rendered as native, on-brand category cards that deep-link into
- * findhelp.org's ZIP-scoped search (the nation's largest social-care
- * directory). findhelp's own program data is only available via their paid
- * partner API or by scraping (which they block), so — like other free
- * integrators — we hand off to their maintained directory on click rather
- * than copy their data. Pairs findhelp's breadth with our DOL job-center +
- * reentry data, going beyond a job board alone.
+ * Pick a category tile and real, vetted resources render IN-APP (no leaving
+ * the site) — national programs + official government locators from
+ * lib/community-resources. Each can be added to the checklist. A single,
+ * clearly-secondary findhelp.org link per category offers extra hyperlocal
+ * depth (findhelp's own data is paid-API / scrape-blocked, so we can't render
+ * it natively).
  */
-const FINDHELP_CATEGORIES: Array<{ key: string; label: string; term: string; desc: string; Icon: typeof Home }> = [
+const COMMUNITY_CATEGORIES: Array<{ key: string; label: string; term: string; desc: string; Icon: typeof Home }> = [
   { key: 'housing',   label: 'Housing',            term: 'housing',              desc: 'Emergency shelter, rent & utility help, transitional housing.', Icon: Home },
   { key: 'food',      label: 'Food',               term: 'food',                 desc: 'Food pantries, free meals, SNAP & benefits help.',             Icon: Utensils },
   { key: 'transit',   label: 'Transportation',     term: 'transportation',       desc: 'Bus passes, gas help, rides to work or appointments.',         Icon: Bus },
@@ -147,71 +184,293 @@ function extractZip(input: string): string | null {
 const findhelpSearchUrl = (zip: string, term: string) =>
   `https://www.findhelp.org/search_results/${zip}?term=${encodeURIComponent(term)}`;
 
-function FindhelpResources({ location }: { location: string }) {
+function CommunityResources({ location }: { location: string }) {
+  const [active, setActive] = useState('housing');
   const zip = extractZip(location);
+  const cat = COMMUNITY_CATEGORIES.find((c) => c.key === active) ?? COMMUNITY_CATEGORIES[0];
+  const resources = COMMUNITY_RESOURCES[active] ?? [];
 
-  if (!zip) {
+  return (
+    <div>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {COMMUNITY_CATEGORIES.map(({ key, label, Icon }) => {
+          const on = active === key;
+          return (
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() => setActive(key)}
+                className={
+                  'flex w-full flex-col items-start gap-2 rounded-2xl border p-3.5 text-left transition ' +
+                  (on
+                    ? 'border-teal-600 bg-teal-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-card-hover')
+                }
+              >
+                <span className={'flex h-9 w-9 items-center justify-center rounded-xl ' + (on ? 'bg-teal-600 text-white' : 'bg-teal-50 text-teal-700')}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className={'text-sm font-semibold ' + (on ? 'text-teal-800' : 'text-navy-900')}>{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-5">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-base font-semibold text-navy-900">{cat.label}</h3>
+          <p className="text-xs text-slate-500">{cat.desc}</p>
+        </div>
+
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {resources.map((r) => (
+            <CommunityResourceCard key={r.id} resource={r} category={cat.label} />
+          ))}
+        </ul>
+
+        {zip && (
+          <p className="mt-4 text-center text-xs text-slate-500">
+            Need more hyperlocal options?{' '}
+            <a
+              href={findhelpSearchUrl(zip, cat.term)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-teal-700 hover:underline"
+            >
+              Search {cat.label.toLowerCase()} near {zip} on findhelp.org
+            </a>
+            <ExternalLink className="ml-0.5 inline h-3 w-3 text-teal-700" />
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommunityResourceCard({ resource, category }: { resource: CommunityResource; category: string }) {
+  const cleanPhone = (resource.phone ?? '').replace(/[^\d]/g, '');
+  return (
+    <li className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:shadow-card-hover">
+      <h4 className="text-base font-semibold text-navy-900">{resource.name}</h4>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600">{resource.desc}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {cleanPhone && (
+          <a
+            href={`tel:${cleanPhone}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700"
+          >
+            <Phone className="h-3 w-3" /> {resource.phone}
+          </a>
+        )}
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700"
+        >
+          <Globe className="h-3 w-3" /> Website <ExternalLink className="h-3 w-3" />
+        </a>
+        <ChecklistToggle
+          item={{
+            id: resource.id,
+            name: resource.name,
+            type: 'Support service',
+            category,
+            phone: resource.phone,
+            url: resource.url,
+          }}
+        />
+      </div>
+    </li>
+  );
+}
+
+// ──────────────────────────────── Checklist ────────────────────────────────
+
+const STATUS_META: Record<ChecklistStatus, { label: string; cls: string }> = {
+  todo:      { label: 'To contact', cls: 'bg-slate-100 text-slate-700' },
+  contacted: { label: 'Contacted',  cls: 'bg-amber-100 text-amber-800' },
+  visited:   { label: 'Visited',    cls: 'bg-teal-100 text-teal-800' },
+};
+
+function printChecklist(owner: string, items: ChecklistItem[]) {
+  const win = window.open('', '_blank', 'width=820,height=1000');
+  if (!win) return;
+  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
+  const mark = (s: ChecklistStatus) => (s === 'visited' ? '☑' : s === 'contacted' ? '◐' : '☐');
+  const rows = items.map((it) => `
+    <tr>
+      <td class="chk">${mark(it.status)}</td>
+      <td>
+        <div class="name">${esc(it.name)}</div>
+        <div class="meta">${esc(it.type)}${it.category ? ' · ' + esc(it.category) : ''}</div>
+        ${it.address || it.cityState ? `<div class="meta">${esc([it.address, it.cityState].filter(Boolean).join(', '))}</div>` : ''}
+        ${it.phone ? `<div class="meta">${esc(it.phone)}</div>` : ''}
+      </td>
+      <td class="status">${STATUS_META[it.status].label}</td>
+      <td class="notes">${esc(it.notes || '')}</td>
+    </tr>`).join('');
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Resource Engagement Checklist</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;margin:32px;font-size:13px}
+      h1{font-size:20px;margin:0 0 4px} .sub{color:#475569;margin:0 0 2px}
+      table{width:100%;border-collapse:collapse;margin-top:18px}
+      th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid #e2e8f0}
+      th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+      .chk{font-size:18px;width:24px} .name{font-weight:600} .meta{color:#475569;font-size:12px}
+      .status{white-space:nowrap} .notes{color:#334155}
+      .foot{margin-top:24px;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0;padding-top:10px}
+      .sign{margin-top:28px;display:flex;gap:48px} .sign div{flex:1;border-top:1px solid #94a3b8;padding-top:4px;color:#475569;font-size:11px}
+      @media print{body{margin:16px}}
+    </style></head><body>
+    <h1>Resource Engagement Checklist</h1>
+    <p class="sub"><strong>Prepared for:</strong> ${esc(owner || '—')}</p>
+    <p class="sub"><strong>Date:</strong> ${today}</p>
+    <p class="sub"><strong>Resources:</strong> ${items.length} &nbsp;·&nbsp; Visited: ${items.filter((i) => i.status === 'visited').length} &nbsp;·&nbsp; Contacted: ${items.filter((i) => i.status === 'contacted').length}</p>
+    <table>
+      <thead><tr><th></th><th>Resource</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="sign"><div>Participant signature / date</div><div>Officer / case manager signature / date</div></div>
+    <p class="foot">Generated with Achieve DXP Workforce Navigator. Job centers and reentry programs sourced from the U.S. Department of Labor (CareerOneStop).</p>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
+
+function ChecklistView() {
+  const items = useChecklist();
+  const owner = useOwnerName();
+
+  if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
-          <LifeBuoy className="h-6 w-6" />
+          <ListChecks className="h-6 w-6" />
         </div>
-        <h3 className="mt-4 text-base font-semibold text-navy-900">Enter a ZIP code</h3>
+        <h3 className="mt-4 text-base font-semibold text-navy-900">Your checklist is empty</h3>
         <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-          Community resources are matched by ZIP. Add a 5-digit ZIP code above to see
-          housing, food, transportation, legal, and other support near you.
+          Browse <strong>American Job Centers</strong>, <strong>Reentry Programs</strong>, and{' '}
+          <strong>Community Resources</strong>, then tap <em>Add to checklist</em>. Track who you&apos;ve
+          contacted and print a clean sheet to share with a parole or probation officer.
         </p>
       </div>
     );
   }
 
+  const counts = {
+    visited: items.filter((i) => i.status === 'visited').length,
+    contacted: items.filter((i) => i.status === 'contacted').length,
+  };
+
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4">
-        <p className="text-sm text-slate-700">
-          <span className="font-semibold text-navy-900">Free &amp; reduced-cost support</span> near{' '}
-          <span className="font-semibold text-navy-900">{zip}</span> — pick a category to see local programs.
-        </p>
-        <a
-          href={findhelpSearchUrl(zip, '')}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
-        >
-          Browse all on findhelp.org <ExternalLink className="h-3 w-3" />
-        </a>
+      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4 sm:flex-row sm:items-end sm:justify-between">
+        <label className="text-sm sm:max-w-xs sm:flex-1">
+          <span className="mb-1 block text-xs font-medium text-slate-700">Your name (shown on the printout)</span>
+          <input
+            type="text"
+            value={owner}
+            onChange={(e) => setOwnerName(e.target.value)}
+            placeholder="e.g. Jordan Smith"
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
+        <div className="flex items-center gap-2">
+          <p className="mr-1 text-xs text-slate-600">
+            {items.length} saved · {counts.contacted} contacted · {counts.visited} visited
+          </p>
+          <button
+            type="button"
+            onClick={() => printChecklist(owner, items)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
+          >
+            <Printer className="h-4 w-4" /> Print / Save PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (confirm('Clear your whole checklist?')) clearChecklist(); }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+          >
+            <Trash2 className="h-4 w-4" /> Clear
+          </button>
+        </div>
       </div>
 
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {FINDHELP_CATEGORIES.map(({ key, label, term, desc, Icon }) => (
-          <li key={key}>
-            <a
-              href={findhelpSearchUrl(zip, term)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-card-hover"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700 transition group-hover:bg-teal-100">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-navy-900">{label}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">{desc}</p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-teal-700">
-                Find near {zip} <ExternalLink className="h-3 w-3 transition group-hover:translate-x-0.5" />
-              </span>
-            </a>
-          </li>
-        ))}
+      <ul className="grid gap-3">
+        {items.map((it) => <ChecklistRow key={it.id} item={it} />)}
       </ul>
-
-      <p className="mt-4 text-center text-xs text-slate-500">
-        Resources from{' '}
-        <a href="https://www.findhelp.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
-          findhelp.org
-        </a>{' '}
-        — a free national directory of 600,000+ social-care programs.
-      </p>
     </div>
+  );
+}
+
+function ChecklistRow({ item }: { item: ChecklistItem }) {
+  const cleanPhone = (item.phone ?? '').replace(/[^\d]/g, '');
+  return (
+    <li className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-navy-900">{item.name}</h3>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+              {item.type}{item.category ? ` · ${item.category}` : ''}
+            </span>
+          </div>
+          {(item.address || item.cityState) && (
+            <p className="mt-1 text-sm text-slate-600">
+              {[item.address, item.cityState].filter(Boolean).join(', ')}{item.distance ? ` · ${item.distance} mi` : ''}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {cleanPhone && (
+              <a href={`tel:${cleanPhone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+                <Phone className="h-3 w-3" /> {item.phone}
+              </a>
+            )}
+            {item.url && (
+              <a href={item.url.startsWith('http') ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
+                <Globe className="h-3 w-3" /> Website
+              </a>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => removeFromChecklist(item.id)}
+          aria-label="Remove from checklist"
+          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {(Object.keys(STATUS_META) as ChecklistStatus[]).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setChecklistStatus(item.id, s)}
+            className={
+              'rounded-full px-2.5 py-1 text-xs font-semibold transition ' +
+              (item.status === s ? STATUS_META[s].cls : 'bg-white text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50')
+            }
+          >
+            {STATUS_META[s].label}
+          </button>
+        ))}
+      </div>
+
+      <input
+        type="text"
+        value={item.notes ?? ''}
+        onChange={(e) => setChecklistNotes(item.id, e.target.value)}
+        placeholder="Add a note (e.g. appointment Tue 10am, ask for Maria)…"
+        className="mt-2.5 block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+      />
+    </li>
   );
 }
 
@@ -402,6 +661,18 @@ function AjcCard({ center }: { center: AjcCenter }) {
             <Map className="h-3 w-3" /> Directions
           </a>
         )}
+        <ChecklistToggle
+          item={{
+            id: `ajc-${center.ID}`,
+            name: center.Name,
+            type: 'Job center',
+            address: [center.Address1, center.Address2].filter(Boolean).join(', '),
+            cityState: [center.City, center.StateAbbr, center.Zip].filter(Boolean).join(', '),
+            phone: center.Phone,
+            url: center.WebSiteUrl,
+            distance: center.Distance,
+          }}
+        />
       </div>
     </li>
   );
@@ -475,6 +746,18 @@ function ReentryCard({ program }: { program: Record<string, unknown> }) {
             <Globe className="h-3 w-3" /> Visit website <ExternalLink className="h-3 w-3" />
           </a>
         )}
+        <ChecklistToggle
+          item={{
+            id: `reentry-${String(program.ID ?? program.Id ?? name)}`,
+            name,
+            type: isNational ? 'Support service' : 'Reentry program',
+            address: addr1 || undefined,
+            cityState: [city, state, zip].filter(Boolean).join(', ') || undefined,
+            phone: phone || undefined,
+            url: url || undefined,
+            distance: distance || undefined,
+          }}
+        />
       </div>
     </li>
   );
