@@ -659,6 +659,7 @@ export interface JobsQuery {
   hideFelonExclusions?: boolean;
   minSalary?: number;
   postedWithinDays?: number;
+  remote?: boolean;
   apprenticeshipsOnly?: boolean;
   limit?: number;
   offset?: number;
@@ -708,6 +709,10 @@ export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): Paginated
   if (query.postedWithinDays && query.postedWithinDays > 0) {
     const cutoff = NOW - query.postedWithinDays * DAY;
     pool = pool.filter((j) => j.postedAt && new Date(j.postedAt).getTime() >= cutoff);
+  }
+
+  if (query.remote) {
+    pool = pool.filter((j) => j.remote);
   }
 
   if (query.apprenticeshipsOnly) {

@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     hideFelonExclusions: bool('hideFelonExclusions'),
     minSalary: num('minSalary'),
     postedWithinDays: num('postedWithinDays'),
+    remote: bool('remote'),
     apprenticeshipsOnly: bool('apprenticeshipsOnly'),
     limit: num('limit'),
     offset: num('offset'),

@@ -3,7 +3,12 @@
  * SVG) so tooltips, hover states, and accessibility are easy. Width is
  * computed from the ratio of count / max count, so the longest bar always
  * fills 100%.
+ *
+ * Pass `hrefFor` to turn each row into a link (e.g. into the filtered job
+ * catalog) so a stat becomes a doorway, not just a number.
  */
+import Link from 'next/link';
+
 type Datum = { key: string; label: string; count: number };
 
 export function HorizontalBarChart({
@@ -11,11 +16,13 @@ export function HorizontalBarChart({
   tone = 'teal',
   maxRows = 8,
   formatCount = (n) => n.toLocaleString(),
+  hrefFor,
 }: {
   data: Datum[];
   tone?: 'teal' | 'sunset' | 'navy' | 'amber';
   maxRows?: number;
   formatCount?: (n: number) => string;
+  hrefFor?: (d: Datum) => string;
 }) {
   if (data.length === 0) {
     return <p className="text-sm text-slate-500">No data yet.</p>;
@@ -34,9 +41,9 @@ export function HorizontalBarChart({
     <ul className="space-y-2" role="list">
       {bars.map((b) => {
         const pct = Math.max(2, (b.count / max) * 100); // min 2% so zero-ish bars still render
-        return (
-          <li key={b.key} className="flex items-center gap-3 text-sm">
-            <span className="w-28 shrink-0 truncate text-slate-700" title={b.label}>
+        const inner = (
+          <>
+            <span className="w-28 shrink-0 truncate text-slate-700 group-hover:text-teal-700" title={b.label}>
               <span className="capitalize">{b.label}</span>
             </span>
             <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-slate-100">
@@ -49,6 +56,18 @@ export function HorizontalBarChart({
             <span className="w-12 shrink-0 text-right text-xs font-semibold tabular-nums text-navy-900">
               {formatCount(b.count)}
             </span>
+          </>
+        );
+        const href = hrefFor?.(b);
+        return (
+          <li key={b.key}>
+            {href ? (
+              <Link href={href} className="group -mx-1.5 flex items-center gap-3 rounded-lg px-1.5 py-0.5 text-sm transition hover:bg-teal-50/60">
+                {inner}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3 text-sm">{inner}</div>
+            )}
           </li>
         );
       })}

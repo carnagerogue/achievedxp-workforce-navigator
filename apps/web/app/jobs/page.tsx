@@ -114,6 +114,11 @@ function JobsPage() {
   const initialQ            = sp?.get('q') ?? '';
   const initialOffenseType  = (sp?.get('offenseType') as OffenseType | null) ?? '';
   const initialApprOnly     = sp?.get('apprenticeshipsOnly') === 'true';
+  // Deep-link filters (e.g. from the Insights page "doorways").
+  const initialFairChance   = sp?.get('hideFelonExclusions') === 'true';
+  const initialRemote       = sp?.get('remote') === 'true';
+  const initialMinSalary    = Number(sp?.get('minSalary') ?? '') || 0;
+  const initialPostedDays   = Number(sp?.get('postedWithinDays') ?? '') || 0;
 
   const [results, setResults] = useState<JobDto[]>([]);
   const [total, setTotal] = useState(0);
@@ -130,9 +135,10 @@ function JobsPage() {
   const [locationInput, setLocationInput] = useState(initialRegion);
   const [radiusMiles, setRadiusMiles] = useState(25);
   const [offenseType, setOffenseType] = useState<OffenseType | ''>(initialOffenseType);
-  const [hideClosedRecord, setHideClosedRecord] = useState(false);
-  const [minSalary, setMinSalary] = useState(0);
-  const [postedWithinDays, setPostedWithinDays] = useState(0);
+  const [hideClosedRecord, setHideClosedRecord] = useState(initialFairChance);
+  const [minSalary, setMinSalary] = useState(initialMinSalary);
+  const [postedWithinDays, setPostedWithinDays] = useState(initialPostedDays);
+  const [remote, setRemote] = useState(initialRemote);
   const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(initialApprOnly);
   const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
@@ -147,7 +153,7 @@ function JobsPage() {
   useEffect(() => {
     setOffset(0);
     setResults([]);
-  }, [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, apprenticeshipsOnly]);
+  }, [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]);
 
   useEffect(() => {
     const isFirstPage = offset === 0;
@@ -165,6 +171,7 @@ function JobsPage() {
       hideFelonExclusions: hideClosedRecord || undefined,
       minSalary: minSalary || undefined,
       postedWithinDays: postedWithinDays || undefined,
+      remote: remote || undefined,
       apprenticeshipsOnly: apprenticeshipsOnly || undefined,
       limit: PAGE_SIZE,
       offset,
@@ -178,7 +185,7 @@ function JobsPage() {
         setLoading(false);
         setLoadingMore(false);
       });
-  }, [offset, dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, apprenticeshipsOnly]);
+  }, [offset, dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]);
 
   const loadMore = () => setOffset(results.length);
   const hasMore = results.length < total;
@@ -248,12 +255,13 @@ function JobsPage() {
   if (hideClosedRecord) activeChips.push({ key: 'hide', label: 'Hide clean-record requirements', onClear: () => setHideClosedRecord(false) });
   if (minSalary)        activeChips.push({ key: 'salary', label: `Min salary $${(minSalary / 1000)}k`, onClear: () => setMinSalary(0) });
   if (postedWithinDays) activeChips.push({ key: 'posted', label: postedWithinDays === 1 ? 'Posted last 24h' : `Posted last ${postedWithinDays} days`, onClear: () => setPostedWithinDays(0) });
+  if (remote)         activeChips.push({ key: 'remote', label: 'Remote only', onClear: () => setRemote(false) });
   if (apprenticeshipsOnly) activeChips.push({ key: 'appr', label: 'Apprenticeships only', onClear: () => setApprenticeshipsOnly(false) });
 
   const clearAll = () => {
     setQ(''); setIndustry(''); setLocationInput(''); setOffenseType('');
     setHideClosedRecord(false); setMinSalary(0); setPostedWithinDays(0);
-    setApprenticeshipsOnly(false);
+    setRemote(false); setApprenticeshipsOnly(false);
   };
 
   return (
