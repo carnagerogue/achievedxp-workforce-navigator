@@ -141,7 +141,7 @@ export const NATIONAL_REENTRY_RESOURCES: Array<Record<string, unknown>> = [
     ID: 'nat-goodwill',
     Name: 'Goodwill Career Centers',
     Description: 'Free job training, résumé help, digital-skills classes, and placement services at local Goodwill career centers nationwide. Many run dedicated reentry programs.',
-    Url: 'https://www.goodwill.org/jobs-training/',
+    Url: 'https://www.goodwill.org/jobs/',
     Services: ['Job training', 'Résumé help', 'Placement'],
     Scope: 'National',
   },

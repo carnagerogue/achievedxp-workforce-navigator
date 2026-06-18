@@ -34,8 +34,8 @@ export const COMMUNITY_RESOURCES: Record<string, CommunityResource[]> = {
   ],
   transit: [
     { id: 'svc-transit-211', name: '211 — Transportation Help', desc: 'Dial 211 for bus passes, gas help, and rides to work or appointments.', phone: '211', url: 'https://www.211.org' },
-    { id: 'svc-transit-modestneeds', name: 'Modest Needs', desc: 'Emergency grants for car repairs, gas, and other work-related costs.', url: 'https://www.modestneeds.org' },
     { id: 'svc-transit-catholic', name: 'Catholic Charities', desc: 'Local offices often help with bus fare, gas cards, and rides to appointments.', url: 'https://www.catholiccharitiesusa.org/find-help/' },
+    { id: 'svc-transit-salvation', name: 'The Salvation Army', desc: 'Many local Salvation Army centers help with transportation to work or appointments.', url: 'https://www.salvationarmyusa.org/usn/ways-we-help/' },
   ],
   legal: [
     { id: 'svc-legal-lawhelp', name: 'LawHelp.org', desc: 'Free legal-aid programs in your state for record clearing, ID, housing, and benefits.', url: 'https://www.lawhelp.org' },
@@ -51,7 +51,7 @@ export const COMMUNITY_RESOURCES: Record<string, CommunityResource[]> = {
     { id: 'svc-money-benefits', name: 'Benefits.gov', desc: 'Find federal and state benefits you may qualify for.', url: 'https://www.benefits.gov' },
     { id: 'svc-money-211', name: '211 — Financial Assistance', desc: 'Dial 211 for emergency cash, utility help, and benefits navigation.', phone: '211', url: 'https://www.211.org' },
     { id: 'svc-money-liheap', name: 'LIHEAP — Utility Assistance', desc: 'Federal help paying heating, cooling, and energy bills.', url: 'https://www.acf.hhs.gov/ocs/programs/liheap' },
-    { id: 'svc-money-modestneeds', name: 'Modest Needs', desc: 'Small emergency grants to cover an unexpected bill before it becomes a crisis.', url: 'https://www.modestneeds.org' },
+    { id: 'svc-money-cfpb', name: 'CFPB — Money & Credit Help', desc: 'Free tools and find a financial counselor to rebuild credit and manage debt.', url: 'https://www.consumerfinance.gov/consumer-tools/' },
   ],
   family: [
     { id: 'svc-family-childcaregov', name: 'Childcare.gov', desc: 'Find child care and financial-assistance programs in your state.', url: 'https://www.childcare.gov' },
@@ -64,8 +64,8 @@ export const COMMUNITY_RESOURCES: Record<string, CommunityResource[]> = {
     { id: 'svc-clothing-goodwill', name: 'Goodwill', desc: 'Affordable clothing and free job-readiness services nationwide.', url: 'https://www.goodwill.org' },
   ],
   education: [
-    { id: 'svc-education-cos', name: 'CareerOneStop — Find Training', desc: 'Local training, GED, and adult-education programs (U.S. Dept. of Labor).', url: 'https://www.careeronestop.org/Toolkit/Training/find-training.aspx' },
-    { id: 'svc-education-goodwill', name: 'Goodwill — Job Training', desc: 'Free skills training, digital literacy, and credential programs.', url: 'https://www.goodwill.org/jobs-training/' },
+    { id: 'svc-education-cos', name: 'CareerOneStop — Find Training', desc: 'Local training, GED, and adult-education programs (U.S. Dept. of Labor).', url: 'https://www.careeronestop.org/Toolkit/Training/find-local-training.aspx' },
+    { id: 'svc-education-gcf', name: 'GCFGlobal — Free Skills Classes', desc: 'Free online classes in reading, math, computers, and job skills (formerly GCF LearnFree, by the Goodwill Community Foundation).', url: 'https://edu.gcfglobal.org/en/' },
     { id: 'svc-education-ged', name: 'GED — Official Test Prep', desc: 'Study for and earn your high-school equivalency credential.', url: 'https://ged.com' },
   ],
 };
