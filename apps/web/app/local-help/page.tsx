@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
-  AlertCircle, ExternalLink, Map,
+  AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
+  HeartPulse, Wallet, Baby, Shirt, GraduationCap,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -27,7 +28,7 @@ import { useDebounce } from '../../lib/use-debounce';
  * CareerOneStop token never reaches the browser.
  */
 export default function LocalHelpPage() {
-  const [tab, setTab] = useState<'ajc' | 'reentry'>('ajc');
+  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community'>('ajc');
   const [location, setLocation] = useState('44113');
   const [radius, setRadius] = useState(50);
   const dLoc = useDebounce(location, 400);
@@ -79,29 +80,132 @@ export default function LocalHelpPage() {
           </label>
         </div>
 
-        <div className="mt-5 flex gap-1.5">
+        <div className="mt-5 flex flex-wrap gap-1.5">
           <TabButton active={tab === 'ajc'} onClick={() => setTab('ajc')}>
             <Building2 className="h-4 w-4" /> American Job Centers
           </TabButton>
           <TabButton active={tab === 'reentry'} onClick={() => setTab('reentry')}>
             <HeartHandshake className="h-4 w-4" /> Reentry Programs
           </TabButton>
+          <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
+            <LifeBuoy className="h-4 w-4" /> Community Resources
+          </TabButton>
         </div>
       </header>
 
       <div className="mt-6">
-        {tab === 'ajc'
-          ? <AjcResults location={dLoc} radius={radius} />
-          : <ReentryResults location={dLoc} radius={radius} />}
+        {tab === 'ajc' && <AjcResults location={dLoc} radius={radius} />}
+        {tab === 'reentry' && <ReentryResults location={dLoc} radius={radius} />}
+        {tab === 'community' && <FindhelpResources location={dLoc} />}
       </div>
 
       <footer className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-xs text-slate-600">
-        Data from{' '}
+        Job centers &amp; reentry programs from{' '}
         <a href="https://www.careeronestop.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
           CareerOneStop
+        </a>{' '}
+        (U.S. Department of Labor). Community resources powered by{' '}
+        <a href="https://www.findhelp.org" target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
+          findhelp.org
         </a>
-        , a service of the U.S. Department of Labor. Free to use; no account required.
+        . Free to use; no account required.
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Wraparound community services (housing, food, transport, legal/record
+ * clearing, health, money, childcare, clothing, education) — the supports a
+ * justice-impacted job seeker needs to actually keep a job. Powered by
+ * findhelp.org, the nation's largest social-care directory, embedded live for
+ * the user's ZIP. findhelp explicitly permits embedding (CSP frame-ancestors *),
+ * and the lookup runs in the visitor's own browser — we never proxy or store
+ * their data. This pairs findhelp's breadth with our DOL job-center + reentry
+ * data, going beyond a job board alone.
+ */
+const FINDHELP_CATEGORIES: Array<{ key: string; label: string; term: string; Icon: typeof Home }> = [
+  { key: 'housing',   label: 'Housing',          term: 'housing',          Icon: Home },
+  { key: 'food',      label: 'Food',             term: 'food',             Icon: Utensils },
+  { key: 'transit',   label: 'Transportation',   term: 'transportation',   Icon: Bus },
+  { key: 'legal',     label: 'Legal & records',  term: 'expungement',      Icon: Scale },
+  { key: 'health',    label: 'Health & recovery',term: 'addiction',        Icon: HeartPulse },
+  { key: 'money',     label: 'Money help',       term: 'financial assistance', Icon: Wallet },
+  { key: 'family',    label: 'Childcare',        term: 'childcare',        Icon: Baby },
+  { key: 'clothing',  label: 'Interview clothing', term: 'clothing',       Icon: Shirt },
+  { key: 'education', label: 'Education',        term: 'education',         Icon: GraduationCap },
+];
+
+function extractZip(input: string): string | null {
+  const m = /\b(\d{5})\b/.exec(input);
+  return m ? m[1] : null;
+}
+
+function FindhelpResources({ location }: { location: string }) {
+  const [active, setActive] = useState('housing');
+  const zip = extractZip(location);
+  const cat = FINDHELP_CATEGORIES.find((c) => c.key === active) ?? FINDHELP_CATEGORIES[0];
+  const findhelpUrl = zip
+    ? `https://www.findhelp.org/search_results/${zip}?term=${encodeURIComponent(cat.term)}`
+    : null;
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FINDHELP_CATEGORIES.map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActive(key)}
+            className={
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ' +
+              (active === key
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'border border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:bg-teal-50')
+            }
+          >
+            <Icon className="h-3.5 w-3.5" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {!zip ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+            <LifeBuoy className="h-6 w-6" />
+          </div>
+          <h3 className="mt-4 text-base font-semibold text-navy-900">Enter a ZIP code</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+            Community resources are matched by ZIP. Add a 5-digit ZIP code above to see
+            housing, food, transportation, legal, and other support near you.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+            <p className="text-xs text-slate-600">
+              Live <span className="font-semibold text-navy-900">{cat.label.toLowerCase()}</span> resources near{' '}
+              <span className="font-semibold text-navy-900">{zip}</span> · powered by findhelp.org
+            </p>
+            <a
+              href={findhelpUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 transition hover:border-teal-400 hover:bg-teal-50"
+            >
+              Open full results <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+          <iframe
+            key={findhelpUrl}
+            src={findhelpUrl!}
+            title={`${cat.label} resources near ${zip} — findhelp.org`}
+            loading="lazy"
+            className="h-[640px] w-full border-0"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </div>
+      )}
     </div>
   );
 }
