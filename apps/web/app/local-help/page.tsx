@@ -20,9 +20,9 @@ import {
 import { Skeleton } from '../../components/Skeleton';
 import { useDebounce } from '../../lib/use-debounce';
 import {
-  useChecklist, useOwnerName, isInChecklist, toggleChecklist, removeFromChecklist,
-  setChecklistStatus, setChecklistNotes, setOwnerName, clearChecklist,
-  type ChecklistItem, type ChecklistStatus,
+  useChecklist, useOwnerName, usePlanGoals, isInChecklist, toggleChecklist, removeFromChecklist,
+  setChecklistStatus, setChecklistNotes, setChecklistTargetDate, setOwnerName, setPlanGoals,
+  clearChecklist, type ChecklistItem, type ChecklistStatus,
 } from '../../lib/checklist-store';
 
 /**
@@ -101,7 +101,7 @@ export default function LocalHelpPage() {
             <LifeBuoy className="h-4 w-4" /> Community Resources
           </TabButton>
           <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
-            <ListChecks className="h-4 w-4" /> My Checklist
+            <ListChecks className="h-4 w-4" /> My Plan
             {checklist.length > 0 && (
               <span className={
                 'ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ' +
@@ -133,7 +133,7 @@ export default function LocalHelpPage() {
   );
 }
 
-/** Small "Add to checklist" toggle used on every resource card. */
+/** "Add to my plan" toggle used on every resource card. */
 function ChecklistToggle({ item }: { item: Omit<ChecklistItem, 'status' | 'addedAt'> }) {
   useChecklist(); // re-render on changes
   const inList = isInChecklist(item.id);
@@ -142,6 +142,7 @@ function ChecklistToggle({ item }: { item: Omit<ChecklistItem, 'status' | 'added
       type="button"
       onClick={() => toggleChecklist(item)}
       aria-pressed={inList}
+      title="Track this resource on your reentry plan to share progress with your officer or caseworker"
       className={
         'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ' +
         (inList
@@ -149,7 +150,7 @@ function ChecklistToggle({ item }: { item: Omit<ChecklistItem, 'status' | 'added
           : 'border border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:bg-teal-50 hover:text-teal-700')
       }
     >
-      {inList ? <><Check className="h-3.5 w-3.5" /> On checklist</> : <><Plus className="h-3.5 w-3.5" /> Add to checklist</>}
+      {inList ? <><Check className="h-3.5 w-3.5" /> On my plan</> : <><Plus className="h-3.5 w-3.5" /> Add to my plan</>}
     </button>
   );
 }
@@ -315,55 +316,68 @@ function CommunityResourceCard({ resource, category }: { resource: CommunityLive
   );
 }
 
-// ──────────────────────────────── Checklist ────────────────────────────────
+// ─────────────────────────── Reentry action plan ───────────────────────────
 
-const STATUS_META: Record<ChecklistStatus, { label: string; cls: string }> = {
-  todo:      { label: 'To contact', cls: 'bg-slate-100 text-slate-700' },
-  contacted: { label: 'Contacted',  cls: 'bg-amber-100 text-amber-800' },
-  visited:   { label: 'Visited',    cls: 'bg-teal-100 text-teal-800' },
+const STATUS_META: Record<ChecklistStatus, { label: string; cls: string; mark: string }> = {
+  planned:   { label: 'Planned',   cls: 'bg-slate-100 text-slate-700', mark: '☐' },
+  contacted: { label: 'Contacted', cls: 'bg-amber-100 text-amber-800', mark: '◔' },
+  scheduled: { label: 'Scheduled', cls: 'bg-sky-100 text-sky-800',     mark: '◑' },
+  completed: { label: 'Completed', cls: 'bg-teal-100 text-teal-800',   mark: '☑' },
 };
+const STATUS_ORDER: ChecklistStatus[] = ['planned', 'contacted', 'scheduled', 'completed'];
 
-function printChecklist(owner: string, items: ChecklistItem[]) {
+function fmtPlanDate(iso?: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function printPlan(owner: string, goals: string, items: ChecklistItem[]) {
   const win = window.open('', '_blank', 'width=820,height=1000');
   if (!win) return;
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
-  const mark = (s: ChecklistStatus) => (s === 'visited' ? '☑' : s === 'contacted' ? '◐' : '☐');
+  const count = (s: ChecklistStatus) => items.filter((i) => i.status === s).length;
   const rows = items.map((it) => `
     <tr>
-      <td class="chk">${mark(it.status)}</td>
+      <td class="st"><span class="mark">${STATUS_META[it.status].mark}</span> ${STATUS_META[it.status].label}</td>
       <td>
         <div class="name">${esc(it.name)}</div>
         <div class="meta">${esc(it.type)}${it.category ? ' · ' + esc(it.category) : ''}</div>
-        ${it.address || it.cityState ? `<div class="meta">${esc([it.address, it.cityState].filter(Boolean).join(', '))}</div>` : ''}
+        ${it.cityState ? `<div class="meta">${esc([it.address, it.cityState].filter(Boolean).join(', '))}</div>` : ''}
         ${it.phone ? `<div class="meta">${esc(it.phone)}</div>` : ''}
       </td>
-      <td class="status">${STATUS_META[it.status].label}</td>
-      <td class="notes">${esc(it.notes || '')}</td>
+      <td class="date">${esc(fmtPlanDate(it.targetDate)) || '—'}</td>
+      <td class="notes">${esc(it.notes || '') || '—'}</td>
     </tr>`).join('');
-  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Resource Engagement Checklist</title>
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Reentry Action Plan &amp; Progress Report</title>
     <style>
       *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;margin:32px;font-size:13px}
-      h1{font-size:20px;margin:0 0 4px} .sub{color:#475569;margin:0 0 2px}
-      table{width:100%;border-collapse:collapse;margin-top:18px}
+      h1{font-size:20px;margin:0 0 2px} .tag{color:#0f766e;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+      .sub{color:#475569;margin:2px 0} .goals{margin:12px 0 0;padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px}
+      .goals .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e}
+      .summary{margin-top:12px;color:#334155} .summary b{color:#0f172a}
+      table{width:100%;border-collapse:collapse;margin-top:16px}
       th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid #e2e8f0}
       th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
-      .chk{font-size:18px;width:24px} .name{font-weight:600} .meta{color:#475569;font-size:12px}
-      .status{white-space:nowrap} .notes{color:#334155}
-      .foot{margin-top:24px;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0;padding-top:10px}
-      .sign{margin-top:28px;display:flex;gap:48px} .sign div{flex:1;border-top:1px solid #94a3b8;padding-top:4px;color:#475569;font-size:11px}
+      .st{white-space:nowrap;font-weight:600} .mark{font-size:15px} .name{font-weight:600} .meta{color:#475569;font-size:12px}
+      .date{white-space:nowrap} .notes{color:#334155}
+      .sign{margin-top:30px;display:flex;gap:48px} .sign div{flex:1;border-top:1px solid #94a3b8;padding-top:4px;color:#475569;font-size:11px}
+      .foot{margin-top:18px;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0;padding-top:10px}
       @media print{body{margin:16px}}
     </style></head><body>
-    <h1>Resource Engagement Checklist</h1>
-    <p class="sub"><strong>Prepared for:</strong> ${esc(owner || '—')}</p>
-    <p class="sub"><strong>Date:</strong> ${today}</p>
-    <p class="sub"><strong>Resources:</strong> ${items.length} &nbsp;·&nbsp; Visited: ${items.filter((i) => i.status === 'visited').length} &nbsp;·&nbsp; Contacted: ${items.filter((i) => i.status === 'contacted').length}</p>
+    <div class="tag">Achieve DXP · Workforce Navigator</div>
+    <h1>Reentry Action Plan &amp; Progress Report</h1>
+    <p class="sub"><strong>Prepared by:</strong> ${esc(owner || '—')} &nbsp;·&nbsp; <strong>Date:</strong> ${today}</p>
+    ${goals.trim() ? `<div class="goals"><div class="lbl">My goals</div>${esc(goals)}</div>` : ''}
+    <p class="summary"><b>${items.length}</b> resources on plan &nbsp;·&nbsp; <b>${count('completed')}</b> completed &nbsp;·&nbsp; <b>${count('scheduled')}</b> scheduled &nbsp;·&nbsp; <b>${count('contacted')}</b> contacted &nbsp;·&nbsp; <b>${count('planned')}</b> planned</p>
     <table>
-      <thead><tr><th></th><th>Resource</th><th>Status</th><th>Notes</th></tr></thead>
+      <thead><tr><th>Status</th><th>Resource &amp; need</th><th>Target&nbsp;date</th><th>Plan / next step / outcome</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="sign"><div>Participant signature / date</div><div>Officer / case manager signature / date</div></div>
-    <p class="foot">Generated with Achieve DXP Workforce Navigator. Job centers and reentry programs sourced from the U.S. Department of Labor (CareerOneStop).</p>
+    <p class="foot">Self-reported progress toward reentry goals. Job centers and reentry programs sourced from the U.S. Department of Labor (CareerOneStop); community resources are vetted national programs and official government locators.</p>
     </body></html>`);
   win.document.close();
   win.focus();
@@ -373,6 +387,7 @@ function printChecklist(owner: string, items: ChecklistItem[]) {
 function ChecklistView() {
   const items = useChecklist();
   const owner = useOwnerName();
+  const goals = usePlanGoals();
 
   if (items.length === 0) {
     return (
@@ -380,52 +395,64 @@ function ChecklistView() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
           <ListChecks className="h-6 w-6" />
         </div>
-        <h3 className="mt-4 text-base font-semibold text-navy-900">Your checklist is empty</h3>
+        <h3 className="mt-4 text-base font-semibold text-navy-900">Build your reentry plan</h3>
         <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-          Browse <strong>American Job Centers</strong>, <strong>Reentry Programs</strong>, and{' '}
-          <strong>Community Resources</strong>, then tap <em>Add to checklist</em>. Track who you&apos;ve
-          contacted and print a clean sheet to share with a parole or probation officer.
+          Browse <strong>Job Centers</strong>, <strong>Reentry Programs</strong>, and{' '}
+          <strong>Community Resources</strong>, then tap <em>Add to my plan</em>. For each one, track where
+          you are — planned, contacted, scheduled, completed — add appointment dates and next steps, and print a
+          progress report to show your parole or probation officer.
         </p>
       </div>
     );
   }
 
-  const counts = {
-    visited: items.filter((i) => i.status === 'visited').length,
-    contacted: items.filter((i) => i.status === 'contacted').length,
-  };
+  const count = (s: ChecklistStatus) => items.filter((i) => i.status === s).length;
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4 sm:flex-row sm:items-end sm:justify-between">
-        <label className="text-sm sm:max-w-xs sm:flex-1">
-          <span className="mb-1 block text-xs font-medium text-slate-700">Your name (shown on the printout)</span>
-          <input
-            type="text"
-            value={owner}
-            onChange={(e) => setOwnerName(e.target.value)}
-            placeholder="e.g. Jordan Smith"
-            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-          />
-        </label>
-        <div className="flex items-center gap-2">
-          <p className="mr-1 text-xs text-slate-600">
-            {items.length} saved · {counts.contacted} contacted · {counts.visited} visited
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-medium text-slate-700">Your name (on the report)</span>
+            <input
+              type="text"
+              value={owner}
+              onChange={(e) => setOwnerName(e.target.value)}
+              placeholder="e.g. Jordan Smith"
+              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-xs font-medium text-slate-700">My goals (what I'm working toward)</span>
+            <input
+              type="text"
+              value={goals}
+              onChange={(e) => setPlanGoals(e.target.value)}
+              placeholder="e.g. Find stable work + housing within 90 days"
+              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+          </label>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate-600">
+            <strong className="text-navy-900">{items.length}</strong> on plan · {count('completed')} completed · {count('scheduled')} scheduled · {count('contacted')} contacted
           </p>
-          <button
-            type="button"
-            onClick={() => printChecklist(owner, items)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
-          >
-            <Printer className="h-4 w-4" /> Print / Save PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => { if (confirm('Clear your whole checklist?')) clearChecklist(); }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
-          >
-            <Trash2 className="h-4 w-4" /> Clear
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => printPlan(owner, goals, items)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
+            >
+              <Printer className="h-4 w-4" /> Print progress report
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (confirm('Clear your whole plan?')) clearChecklist(); }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+            >
+              <Trash2 className="h-4 w-4" /> Clear
+            </button>
+          </div>
         </div>
       </div>
 
@@ -469,36 +496,55 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
         <button
           type="button"
           onClick={() => removeFromChecklist(item.id)}
-          aria-label="Remove from checklist"
+          aria-label="Remove from plan"
           className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {(Object.keys(STATUS_META) as ChecklistStatus[]).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setChecklistStatus(item.id, s)}
-            className={
-              'rounded-full px-2.5 py-1 text-xs font-semibold transition ' +
-              (item.status === s ? STATUS_META[s].cls : 'bg-white text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50')
-            }
-          >
-            {STATUS_META[s].label}
-          </button>
-        ))}
+      {/* Where are you in the process? */}
+      <div className="mt-3">
+        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">Where are you with this?</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {STATUS_ORDER.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setChecklistStatus(item.id, s)}
+              className={
+                'rounded-full px-2.5 py-1 text-xs font-semibold transition ' +
+                (item.status === s ? STATUS_META[s].cls : 'bg-white text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50')
+              }
+            >
+              {STATUS_META[s].label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <input
-        type="text"
-        value={item.notes ?? ''}
-        onChange={(e) => setChecklistNotes(item.id, e.target.value)}
-        placeholder="Add a note (e.g. appointment Tue 10am, ask for Maria)…"
-        className="mt-2.5 block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-      />
+      {/* Plan details an officer would want */}
+      <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr]">
+        <label className="text-sm">
+          <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Target / appointment date</span>
+          <input
+            type="date"
+            value={item.targetDate ?? ''}
+            onChange={(e) => setChecklistTargetDate(item.id, e.target.value)}
+            className="block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Plan / next step / outcome</span>
+          <input
+            type="text"
+            value={item.notes ?? ''}
+            onChange={(e) => setChecklistNotes(item.id, e.target.value)}
+            placeholder="e.g. Called 3/10, intake booked 3/14 2pm — bring ID & résumé"
+            className="block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
+      </div>
     </li>
   );
 }

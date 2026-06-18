@@ -3,15 +3,18 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Resource checklist — localStorage-backed, same subscribe/notify pattern as
- * personal-store.ts. Unlike saved-jobs (which stores bare IDs), this keeps the
- * full resource record so a justice-impacted user can build a list of local
- * job centers, reentry programs, and support services, track their progress
- * (to contact → contacted → visited), add notes, and print a clean sheet to
- * show a parole/probation officer.
+ * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
+ * personal-store.ts.
+ *
+ * This is built to answer the questions a parole/probation officer actually
+ * asks: what is the person's plan, where are they in the process for each
+ * resource, and what came of it. So each item carries a real status
+ * progression (planned → contacted → scheduled → completed), a target /
+ * appointment date, and a plan-and-outcome note. The whole plan also carries
+ * the person's name and overall goals, and prints to a clean progress report.
  */
 
-export type ChecklistStatus = 'todo' | 'contacted' | 'visited';
+export type ChecklistStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
 
 export interface ChecklistItem {
   /** Stable unique id — prefixed by source so AJC/reentry/service ids never collide. */
@@ -19,6 +22,7 @@ export interface ChecklistItem {
   name: string;
   /** 'Job center' | 'Reentry program' | 'Support service' */
   type: string;
+  /** The need this addresses (Housing, Health & recovery, …). */
   category?: string;
   address?: string;
   cityState?: string;
@@ -26,12 +30,16 @@ export interface ChecklistItem {
   url?: string;
   distance?: string;
   status: ChecklistStatus;
+  /** ISO yyyy-mm-dd — planned contact / appointment date. */
+  targetDate?: string;
+  /** Plan, next step, and outcome (e.g. "Intake 3/14 2pm — ask for Maria"). */
   notes?: string;
   addedAt: number;
 }
 
 const KEY = 'dxp.checklist';
 const NAME_KEY = 'dxp.checklist.name';
+const GOALS_KEY = 'dxp.checklist.goals';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -49,14 +57,26 @@ function write<T>(key: string, value: T) {
   try { window.localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
 }
 
+// Map legacy statuses (todo/visited) onto the richer progression.
+const STATUS_MIGRATE: Record<string, ChecklistStatus> = {
+  todo: 'planned', planned: 'planned',
+  contacted: 'contacted', scheduled: 'scheduled',
+  visited: 'completed', completed: 'completed',
+};
+function normalize(items: ChecklistItem[]): ChecklistItem[] {
+  return items.map((i) => ({ ...i, status: STATUS_MIGRATE[i.status as string] ?? 'planned' }));
+}
+
 // In-memory mirrors so getSnapshot returns stable references.
-let items: ChecklistItem[] = read<ChecklistItem[]>(KEY, []);
+let items: ChecklistItem[] = normalize(read<ChecklistItem[]>(KEY, []));
 let ownerName: string = read<string>(NAME_KEY, '');
+let planGoals: string = read<string>(GOALS_KEY, '');
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
-    if (e.key === KEY) { items = read<ChecklistItem[]>(KEY, []); emit(); }
+    if (e.key === KEY) { items = normalize(read<ChecklistItem[]>(KEY, [])); emit(); }
     else if (e.key === NAME_KEY) { ownerName = read<string>(NAME_KEY, ''); emit(); }
+    else if (e.key === GOALS_KEY) { planGoals = read<string>(GOALS_KEY, ''); emit(); }
   });
 }
 
@@ -71,7 +91,7 @@ export function toggleChecklist(item: Omit<ChecklistItem, 'status' | 'addedAt'>)
     write(KEY, items); emit();
     return false;
   }
-  items = [...items, { ...item, status: 'todo', addedAt: Date.now() }];
+  items = [...items, { ...item, status: 'planned', addedAt: Date.now() }];
   write(KEY, items); emit();
   return true;
 }
@@ -81,15 +101,13 @@ export function removeFromChecklist(id: string) {
   write(KEY, items); emit();
 }
 
-export function setChecklistStatus(id: string, status: ChecklistStatus) {
-  items = items.map((i) => (i.id === id ? { ...i, status } : i));
+function patch(id: string, p: Partial<ChecklistItem>) {
+  items = items.map((i) => (i.id === id ? { ...i, ...p } : i));
   write(KEY, items); emit();
 }
-
-export function setChecklistNotes(id: string, notes: string) {
-  items = items.map((i) => (i.id === id ? { ...i, notes } : i));
-  write(KEY, items); emit();
-}
+export function setChecklistStatus(id: string, status: ChecklistStatus) { patch(id, { status }); }
+export function setChecklistNotes(id: string, notes: string) { patch(id, { notes }); }
+export function setChecklistTargetDate(id: string, targetDate: string) { patch(id, { targetDate }); }
 
 export function clearChecklist() {
   items = [];
@@ -97,10 +115,10 @@ export function clearChecklist() {
 }
 
 export function getOwnerName(): string { return ownerName; }
-export function setOwnerName(name: string) {
-  ownerName = name;
-  write(NAME_KEY, name); emit();
-}
+export function setOwnerName(name: string) { ownerName = name; write(NAME_KEY, name); emit(); }
+
+export function getPlanGoals(): string { return planGoals; }
+export function setPlanGoals(goals: string) { planGoals = goals; write(GOALS_KEY, goals); emit(); }
 
 const EMPTY_SERVER: ChecklistItem[] = [];
 export function useChecklist(): ChecklistItem[] {
@@ -108,4 +126,7 @@ export function useChecklist(): ChecklistItem[] {
 }
 export function useOwnerName(): string {
   return useSyncExternalStore(subscribe, getOwnerName, () => '');
+}
+export function usePlanGoals(): string {
+  return useSyncExternalStore(subscribe, getPlanGoals, () => '');
 }
