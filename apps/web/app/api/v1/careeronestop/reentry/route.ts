@@ -17,7 +17,11 @@ export async function GET(req: NextRequest) {
   // national directory so the tab is useful everywhere — local first.
   let local: Array<Record<string, unknown>> = [];
   if (isCareerOneStopConfigured() && location) {
-    local = normalizeReentryList(await reentryPrograms(location, radius));
+    const raw = await reentryPrograms(location, radius);
+    if (req.nextUrl.searchParams.get('debug') === '1') {
+      return NextResponse.json({ __debug: true, configured: true, rawType: Array.isArray(raw) ? 'array' : typeof raw, raw });
+    }
+    local = normalizeReentryList(raw);
   }
 
   return NextResponse.json([...local, ...NATIONAL_REENTRY_RESOURCES]);
