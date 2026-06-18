@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   reentryPrograms,
+  allReentryPrograms,
   isCareerOneStopConfigured,
   normalizeReentryList,
   NATIONAL_REENTRY_RESOURCES,
@@ -19,7 +20,17 @@ export async function GET(req: NextRequest) {
   if (isCareerOneStopConfigured() && location) {
     const raw = await reentryPrograms(location, radius);
     if (req.nextUrl.searchParams.get('debug') === '1') {
-      return NextResponse.json({ __debug: true, configured: true, rawType: Array.isArray(raw) ? 'array' : typeof raw, raw });
+      const all = await allReentryPrograms();
+      const allArr = normalizeReentryList(all);
+      return NextResponse.json({
+        __debug: true,
+        finderType: Array.isArray(raw) ? 'array' : typeof raw,
+        finderSample: raw,
+        allType: Array.isArray(all) ? 'array' : typeof all,
+        allCount: allArr.length,
+        allSample: allArr.slice(0, 2),
+        allKeys: allArr[0] ? Object.keys(allArr[0]) : [],
+      });
     }
     local = normalizeReentryList(raw);
   }

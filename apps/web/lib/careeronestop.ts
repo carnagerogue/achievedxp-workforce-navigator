@@ -102,6 +102,12 @@ export async function reentryPrograms(location: string, radius = 50, limit = 25)
   return fetchJson<unknown>(path, 6 * 60 * 60_000);
 }
 
+/** The full DOL reentry-program dataset (no location filter). Cached hard. */
+export async function allReentryPrograms(): Promise<unknown> {
+  const { userId } = creds();
+  return fetchJson<unknown>(`/reentryprogramfinder/${seg(userId)}?enableMetaData=false`, 12 * 60 * 60_000);
+}
+
 /** Deep-link into the official DOL American Job Center finder for a location. */
 export function officialAjcFinderUrl(location: string, radius = 50): string {
   const loc = encodeURIComponent((location || '').trim());
