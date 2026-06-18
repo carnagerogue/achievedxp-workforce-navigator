@@ -80,25 +80,31 @@ function inferSeniority(title: string, haystack: string): { years: number; level
 }
 
 // ── Domain inference (text-first; tag is too noisy to trust) ───────────
+// Matched against the TITLE ONLY. Job *descriptions* are far too noisy for
+// domain inference — an ML-engineer posting that mentions a "data warehouse",
+// "inventory service", or "production environment" must not read as a
+// warehousing/manufacturing role. Titles are clean. `it_general` and
+// `management` are listed before the blue-collar buckets so a "Machine
+// Learning Engineer" resolves to it_general, not manufacturing.
 const DOMAINS: Array<{ domain: string; re: RegExp }> = [
-  { domain: 'warehousing',    re: /\b(warehouse|forklift|materials?\s+handler|materials?\s+examiner|picker|packer|distribution|inventory|stock(er|room)?|loader)\b/i },
-  { domain: 'transportation', re: /\b(driver|cdl|truck|delivery|chauffeur|transit|courier|fleet|dispatch)\b/i },
-  { domain: 'construction',   re: /\b(construction|carpenter|welder|electrician|plumber|hvac|mason|roofer|laborer|pipefitter|ironworker|trades?)\b/i },
-  { domain: 'manufacturing',  re: /\b(machine\s+operator|assembl(y|er)|production|fabricat|manufactur|cnc|millwright|machinist)\b/i },
+  { domain: 'it_general',     re: /\b(software|developer|engineer(ing)?|machine\s+learning|data\s+(scientist|analyst|engineer)|programmer|cyber|cloud|devops|\bit\b|information technology|qa\b)\b/i },
+  { domain: 'management',     re: /\b(product\s+manager|program\s+manager|project\s+manager|operations\s+manager|account\s+manager|business\s+(analyst|development)|strateg(y|ist)|marketing|consultant|recruiter|designer)\b/i },
+  { domain: 'finance',        re: /\b(account(ant|ing)|finance|financial|controller|payroll|bookkeep|teller|auditor|treasur|underwrit|actuar)\b/i },
+  { domain: 'healthcare',     re: /\b(nurse|\bcna\b|caregiver|medical|patient|phlebotom|therap(y|ist)|clinical|dental|pharmac|physician)\b/i },
+  { domain: 'education',      re: /\b(teacher|tutor|instructor|professor|educat|paraeducator|faculty|lecturer)\b/i },
+  { domain: 'security',       re: /\b(security|guard|surveillance|patrol|corrections?)\b/i },
+  { domain: 'transportation', re: /\b(driver|\bcdl\b|truck|delivery|chauffeur|transit|courier|fleet|dispatch)\b/i },
+  { domain: 'construction',   re: /\b(construction|carpenter|welder|electrician|plumber|hvac|mason|roofer|laborer|pipefitter|ironworker|trades?|installer)\b/i },
+  { domain: 'manufacturing',  re: /\b(machine\s+operator|assembl(y|er)|production\s+(worker|operator|associate)|fabricat|manufactur|cnc|millwright|machinist)\b/i },
+  { domain: 'warehousing',    re: /\b(warehouse|forklift|materials?\s+(handler|examiner)|order\s+(puller|picker|selector)|picker|packer|distribution|stock(er|room)?|loader|shipping|receiving)\b/i },
   { domain: 'food_service',   re: /\b(cook|chef|kitchen|restaurant|barista|server|dishwasher|food\s+service|culinary|baker)\b/i },
   { domain: 'cleaning',       re: /\b(custodian|custodial|janitor|housekeep|cleaner|sanitation|groundskeep)\b/i },
-  { domain: 'healthcare',     re: /\b(nurse|cna|caregiver|medical|patient|phlebotom|therap(y|ist)|clinical|dental|pharmac)\b/i },
-  { domain: 'security',       re: /\b(security|guard|surveillance|patrol|corrections?)\b/i },
   { domain: 'retail',         re: /\b(retail|sales\s+associate|cashier|merchandis|store\s+(associate|clerk))\b/i },
-  { domain: 'finance',        re: /\b(account(ant|ing)|finance|financial|controller|payroll|bookkeep|teller|audit|treasur|\btax\b)\b/i },
-  { domain: 'it_general',     re: /\b(software|developer|engineer|data\s+(scientist|analyst|engineer)|programmer|cyber|cloud|devops|\bIT\b|information technology)\b/i },
-  { domain: 'education',      re: /\b(teacher|tutor|instructor|professor|educat|paraeducator|faculty)\b/i },
-  { domain: 'management',     re: /\b(product\s+manager|program\s+manager|project\s+manager|operations\s+manager|business\s+(analyst|development)|strategy|marketing|consultant)\b/i },
   { domain: 'services',       re: /\b(customer\s+service|call\s+center|receptionist|administrative|office\s+(clerk|assistant)|clerk)\b/i },
 ];
 
-function inferDomain(haystack: string): string | null {
-  for (const d of DOMAINS) if (d.re.test(haystack)) return d.domain;
+function inferDomain(title: string): string | null {
+  for (const d of DOMAINS) if (d.re.test(title)) return d.domain;
   return null;
 }
 
@@ -144,7 +150,7 @@ export function realisticFit(profile: StoredProfile | null, j: JobDto): Realisti
   const userTerms = Array.from(new Set([...tokenize(profile?.skills), ...tokenize(profile?.desiredIndustries)]));
 
   const { years: requiredYears, level } = inferSeniority(title, haystack);
-  const domain = inferDomain(haystack);
+  const domain = inferDomain(title);
   const gap = Math.max(0, requiredYears - userYears);
 
   const positive: string[] = [];
@@ -164,14 +170,17 @@ export function realisticFit(profile: StoredProfile | null, j: JobDto): Realisti
   else if (domain && desired.size > 0) { industry = 7; caution.push(`${domain.replace(/_/g, ' ')} is outside your target fields`); }
   else industry = 11;
 
-  // ── skills / domain text overlap (0..25) ──
+  // ── skills / domain overlap (0..25) ──
+  // Match the user's skill terms against the TITLE only. Matching the
+  // description invites homonym false-positives ("data warehouse" ≠ a
+  // warehousing job), which is exactly what inflated office roles before.
   let skills: number;
   if (userTerms.length === 0) skills = 12;
   else {
-    const matches = userTerms.filter((t) => wordIn(haystack, t)).length;
-    skills = Math.max(0, Math.min(25, 5 + matches * 6));
+    const matches = userTerms.filter((t) => wordIn(title, t)).length;
+    skills = Math.max(0, Math.min(25, 5 + matches * 7));
     if (domainDesired) skills = Math.max(skills, 16);
-    if (matches >= 2) positive.push('your skills appear in the posting');
+    if (matches >= 1) positive.push('your skills match this role');
   }
 
   // ── certifications (0..15) ──
