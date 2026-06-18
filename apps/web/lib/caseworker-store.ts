@@ -59,8 +59,27 @@ function read(): Participant[] {
     return raw ? (JSON.parse(raw) as Participant[]) : [];
   } catch { return []; }
 }
+
+// Session-only mode: when off, nothing is written to disk — the caseload lives
+// only in memory and is gone when the tab closes. Use it on shared / kiosk
+// machines so participant PII never persists locally.
+let persistEnabled = true;
+export function isPersistEnabled(): boolean { return persistEnabled; }
+export function setPersistEnabled(on: boolean) {
+  persistEnabled = on;
+  // Turning session-only ON removes the on-disk copy but keeps the in-memory
+  // caseload for this session (reversible — toggling back re-flushes to disk).
+  if (typeof window !== 'undefined') {
+    try {
+      if (on) window.localStorage.setItem(KEY, JSON.stringify(roster));
+      else window.localStorage.removeItem(KEY);
+    } catch { /* ignore */ }
+  }
+  emit();
+}
+
 function write(v: Participant[]) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !persistEnabled) return;
   try { window.localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* quota */ }
 }
 
@@ -107,6 +126,14 @@ export function removeParticipant(id: string) {
   commit(roster.filter((p) => p.id !== id));
 }
 
+/** Wipe the entire caseload from both memory and disk. */
+export function clearCaseload() {
+  roster = [];
+  snapshot = [];
+  if (typeof window !== 'undefined') { try { window.localStorage.removeItem(KEY); } catch { /* ignore */ } }
+  emit();
+}
+
 export function setProgress(id: string, actionId: string, done: boolean) {
   commit(roster.map((p) => (p.id === id ? { ...p, progress: { ...(p.progress ?? {}), [actionId]: done }, updatedAt: Date.now() } : p)));
 }
@@ -114,4 +141,7 @@ export function setProgress(id: string, actionId: string, done: boolean) {
 const EMPTY: Participant[] = [];
 export function useCaseload(): Participant[] {
   return useSyncExternalStore(subscribe, getCaseload, () => EMPTY);
+}
+export function usePersistEnabled(): boolean {
+  return useSyncExternalStore(subscribe, isPersistEnabled, () => true);
 }
