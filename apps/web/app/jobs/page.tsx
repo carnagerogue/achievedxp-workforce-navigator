@@ -17,6 +17,11 @@ import {
   Radio,
   Calendar,
   HardHat,
+  ChevronDown,
+  Sparkles,
+  Compass,
+  UserCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { decisionFor, type JobDto, type OffenseType, type PaginatedJobsDto, type CompatibilityRating, type ConvictionType } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
@@ -144,6 +149,7 @@ function JobsPage() {
   const [remote, setRemote] = useState(initialRemote);
   const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(initialApprOnly);
   const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
   const [localProfile, setLocalProfile] = useState<StoredProfile | null>(null);
 
@@ -291,9 +297,43 @@ function JobsPage() {
         </p>
       </div>
 
+      {/* ─────────── Guided entry points ─────────── */}
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Start here</p>
+        <div className="flex flex-wrap gap-2">
+          {localProfile ? (
+            <GuidedChip Icon={UserCircle2} label="Use my profile" active={false} onClick={() => {
+              setRemote(false);
+              if (localProfile.desiredIndustries?.[0]) setIndustry(localProfile.desiredIndustries[0]);
+              setLocationInput(localProfile.locationPostalCode || localProfile.locationRegion || '');
+            }} />
+          ) : (
+            <Link href="/onboarding" className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700"><UserCircle2 className="h-3.5 w-3.5" /> Set up my profile</Link>
+          )}
+          <GuidedChip Icon={MapPin} label="Search near me" active={!remote && !!locationFilter.postalCode} onClick={() => { setRemote(false); setShowFilters(true); }} />
+          <GuidedChip Icon={Radio} label="Work from anywhere" active={remote} onClick={() => setRemote((v) => !v)} />
+          <GuidedChip Icon={HardHat} label="Find apprenticeships" active={apprenticeshipsOnly} onClick={() => setApprenticeshipsOnly((v) => !v)} />
+          <GuidedChip Icon={ShieldCheck} label="Lower-barrier roles" active={hideClosedRecord} onClick={() => setHideClosedRecord((v) => !v)} />
+          <GuidedChip Icon={Compass} label="Explore all jobs" active={false} onClick={() => {
+            setQ(''); setIndustry(''); setLocationInput(''); setOffenseType(''); setHideClosedRecord(false);
+            setMinSalary(0); setPostedWithinDays(0); setRemote(false); setApprenticeshipsOnly(false); setShowFilters(false);
+          }} />
+        </div>
+      </div>
+
       {/* ─────────── Filter card ─────────── */}
       <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-navy-900"
+          aria-expanded={showFilters}
+        >
+          <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-teal-600" /> More filters{activeChips.length ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700">{activeChips.length} active</span> : null}</span>
+          <ChevronDown className={`h-4 w-4 text-slate-500 transition ${showFilters ? 'rotate-180' : ''}`} />
+        </button>
+        {showFilters && (
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <FilterField label="Search" Icon={SearchIcon}>
             <input
               type="text"
@@ -443,6 +483,7 @@ function JobsPage() {
             </label>
           </div>
         </div>
+        )}
       </div>
 
       {/* ─────────── Active filter chips ─────────── */}
@@ -552,6 +593,22 @@ function JobsPage() {
 // ───────── pieces ─────────
 
 type LucideIcon = typeof SearchIcon;
+function GuidedChip({ Icon, label, active, onClick }: { Icon: LucideIcon; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition ' +
+        (active ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-300 bg-white text-slate-700 hover:border-teal-400 hover:text-teal-700')
+      }
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}
+    </button>
+  );
+}
+
 function FilterField({
   label, Icon, children,
 }: { label: string; Icon: LucideIcon; children: React.ReactNode }) {
