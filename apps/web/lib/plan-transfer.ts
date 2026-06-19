@@ -9,8 +9,13 @@
 import type { ChecklistItem, ChecklistStatus } from './checklist-store';
 import {
   newParticipantId, newTaskId,
-  type Participant, type Task, type TaskCategory,
+  type Participant, type Task, type TaskCategory, type Barrier, type SupervisionKind,
 } from './caseworker-store';
+import type { ConvictionType, EducationLevel } from '@dxp/shared';
+import {
+  assessReadiness, participantToReadinessInput, selfToReadinessInput,
+  type ReadinessAnswers,
+} from './readiness';
 
 export interface PortableItem {
   name: string;
@@ -25,12 +30,26 @@ export interface PortableItem {
   url?: string;
 }
 
+export interface PortableProfile {
+  conviction?: ConvictionType;
+  supervision?: string;
+  education?: EducationLevel;
+  certifications?: string[];
+  barriers?: Barrier[];
+}
+
 export interface PortablePlan {
   v: 1;
   kind: 'reentry-plan';
   exportedAt: string;
   person: { name: string; goals: string };
   items: PortableItem[];
+  /** Profile snapshot so the receiving side can re-derive readiness accurately. */
+  profile?: PortableProfile;
+  /** Manual readiness answers (domain → status). */
+  readiness?: ReadinessAnswers;
+  /** Informational readiness score at export time (for share/import preview). */
+  readinessScore?: number;
 }
 
 // ── encode / decode (URL-safe base64 of JSON, unicode-safe) ───────────────
@@ -77,7 +96,10 @@ export function downloadPlan(p: PortablePlan, filename = 'reentry-plan.json') {
 }
 
 // ── checklist (individual) ↔ portable ─────────────────────────────────────
-export function checklistToPortable(items: ChecklistItem[], name: string, goals: string): PortablePlan {
+export function checklistToPortable(
+  items: ChecklistItem[], name: string, goals: string, readiness: ReadinessAnswers = {},
+): PortablePlan {
+  const readinessScore = assessReadiness(selfToReadinessInput({ careerGoal: goals }), readiness).score;
   return {
     v: 1, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
     person: { name, goals },
@@ -86,6 +108,8 @@ export function checklistToPortable(items: ChecklistItem[], name: string, goals:
       targetDate: i.targetDate, notes: i.notes,
       address: i.address, cityState: i.cityState, phone: i.phone, url: i.url,
     })),
+    readiness,
+    readinessScore,
   };
 }
 
@@ -109,6 +133,7 @@ const CATEGORY_FROM_TYPE = (s?: string): TaskCategory => {
 };
 
 export function participantToPortable(p: Participant): PortablePlan {
+  const readinessScore = assessReadiness(participantToReadinessInput(p), p.readiness ?? {}).score;
   return {
     v: 1, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
     person: { name: p.name, goals: p.careerGoal },
@@ -116,6 +141,12 @@ export function participantToPortable(p: Participant): PortablePlan {
       name: t.title, type: t.category, category: t.category, status: t.status,
       targetDate: t.dueDate, notes: t.notes, url: t.ref?.url,
     })),
+    profile: {
+      conviction: p.conviction, supervision: p.supervision, education: p.education,
+      certifications: p.certifications, barriers: p.barriers,
+    },
+    readiness: p.readiness,
+    readinessScore,
   };
 }
 
@@ -133,21 +164,23 @@ export function portableToParticipant(p: PortablePlan): Participant {
     createdAt: now,
     completedAt: it.status === 'completed' ? now : undefined,
   }));
+  const prof = p.profile ?? {};
   return {
     id: newParticipantId(),
     name: p.person.name || 'Imported participant',
-    conviction: 'other',
+    conviction: prof.conviction ?? 'other',
     contextMode: 'recently_released',
-    supervision: 'none',
+    supervision: (prof.supervision as SupervisionKind) ?? 'none',
     yearsSinceRelease: null,
-    education: 'unknown',
+    education: prof.education ?? 'unknown',
     skills: [],
-    certifications: [],
+    certifications: prof.certifications ?? [],
     location: '',
     careerGoal: p.person.goals || '',
-    barriers: [],
+    barriers: prof.barriers ?? [],
     notes: 'Imported from a participant-built plan.',
     tasks,
+    readiness: p.readiness,
     createdAt: now,
     updatedAt: now,
   };

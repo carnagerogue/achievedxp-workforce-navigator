@@ -35,7 +35,7 @@ export function PlanShareDialog({
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Share2 className="h-4 w-4" /></span>
           <div>
             <h2 className="text-base font-bold text-navy-900">Share this plan</h2>
-            <p className="text-xs text-slate-500">{plan.person.name || 'Unnamed'} · {plan.items.length} item{plan.items.length === 1 ? '' : 's'}</p>
+            <p className="text-xs text-slate-500">{plan.person.name || 'Unnamed'} · {plan.items.length} item{plan.items.length === 1 ? '' : 's'}{plan.readinessScore != null ? ` · ${plan.readinessScore}% ready` : ''}</p>
           </div>
         </div>
         <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>

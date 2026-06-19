@@ -76,7 +76,7 @@ export function PlanImportDialog({
       {plan && (
         <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50/50 p-3">
           <p className="text-sm font-semibold text-navy-900">{plan.person.name || 'Unnamed'}</p>
-          <p className="text-xs text-slate-600">{plan.items.length} item{plan.items.length === 1 ? '' : 's'}{plan.person.goals ? ` · goal: ${plan.person.goals}` : ''}</p>
+          <p className="text-xs text-slate-600">{plan.items.length} item{plan.items.length === 1 ? '' : 's'}{plan.readinessScore != null ? ` · ${plan.readinessScore}% ready` : ''}{plan.person.goals ? ` · goal: ${plan.person.goals}` : ''}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {allowMerge ? (
               <>

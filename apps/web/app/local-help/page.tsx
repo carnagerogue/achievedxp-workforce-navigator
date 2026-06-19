@@ -499,13 +499,18 @@ function ChecklistView() {
 
   const handleImport = (plan: PortablePlan, mode: 'replace' | 'merge') => {
     importChecklist(portableToChecklist(plan), mode);
+    if (plan.readiness) {
+      for (const [d, s] of Object.entries(plan.readiness)) {
+        if (s) setReadinessAnswer(d as ReadinessDomainKey, s as DomainStatus);
+      }
+    }
     setShowImport(false);
   };
 
   const dialogs = (
     <>
       {showShare && (
-        <PlanShareDialog plan={checklistToPortable(items, owner, goals)} audience="caseworker" onClose={() => setShowShare(false)} />
+        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog
