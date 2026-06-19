@@ -13,7 +13,8 @@ import {
   assessReadiness, participantToReadinessInput, BAND_LABEL,
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
 } from '../../../lib/readiness';
-import { ReadinessPanel } from '../../../components/readiness/ReadinessPanel';
+import { PlanWorkspace } from '../../../components/plan/PlanWorkspace';
+import { deriveStepDomain, type PlanModel, type PlanActions, type PlanStep, type PlanDomain } from '../../../lib/plan-model';
 import { getRepo } from '../../../lib/caseworker-repo';
 import {
   scoreJobsForParticipant, barriersToResources, contextGuidance,
@@ -33,7 +34,6 @@ import { MatchesPanel } from '../../../components/caseworker/workspace/MatchesPa
 import { BarriersPanel } from '../../../components/caseworker/workspace/BarriersPanel';
 import { TrainingPanel } from '../../../components/caseworker/workspace/TrainingPanel';
 import { DolIntelPanel } from '../../../components/caseworker/workspace/DolIntelPanel';
-import { ActionPlanPanel } from '../../../components/caseworker/workspace/ActionPlanPanel';
 import { NotesPanel } from '../../../components/caseworker/workspace/NotesPanel';
 
 function emptyDraft(id: string): Participant {
@@ -49,8 +49,7 @@ const contextLabel = (mode: string) => USER_CONTEXT_OPTIONS.find((o) => o.value 
 
 const NAV = [
   { id: 'intake', label: 'Profile', Icon: User },
-  { id: 'readiness', label: 'Readiness', Icon: Gauge },
-  { id: 'plan', label: 'Action plan', Icon: ListChecks },
+  { id: 'plan', label: 'Plan & readiness', Icon: Gauge },
   { id: 'matches', label: 'Matches', Icon: CheckCircle2 },
   { id: 'barriers', label: 'Local help', Icon: LifeBuoy },
   { id: 'training', label: 'Training', Icon: Wrench },
@@ -59,6 +58,14 @@ const NAV = [
 
 const GAP_TASK_CATEGORY = (cat: string): 'training' | 'appointment' | 'barrier' | 'document' =>
   cat === 'training' ? 'training' : cat === 'employment' ? 'appointment' : cat === 'legal' ? 'document' : 'barrier';
+
+const DOMAIN_TASK_CATEGORY = (d: PlanDomain): 'training' | 'appointment' | 'barrier' | 'document' | 'application' | 'other' =>
+  d === 'jobs' ? 'application'
+  : d === 'credentials_skills' || d === 'education' || d === 'digital_literacy' ? 'training'
+  : d === 'work_readiness' ? 'appointment'
+  : d === 'id_documents' ? 'document'
+  : d === 'general' ? 'other'
+  : 'barrier';
 
 export default function ParticipantWorkspace() {
   const params = useParams();
@@ -173,29 +180,34 @@ export default function ParticipantWorkspace() {
     ensurePersist();
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `match:${m.job.id}`, title: `Apply: ${m.job.title} — ${m.job.company}`,
-      category: 'application', source: 'match', ref: { jobId: m.job.id },
+      category: 'application', source: 'match', domain: 'jobs', ref: { jobId: m.job.id },
     }]);
   };
   const addTraining = (s: TrainingBridgeStep) => {
     ensurePersist();
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `train:${s.id}`, title: `Training: ${s.title}`,
-      category: trainingStepCategory(s), source: 'training',
+      category: trainingStepCategory(s), source: 'training', domain: 'credentials_skills',
       notes: s.reason, ref: { url: s.externalUrl, stepId: s.id },
     }]);
+  };
+  const BARRIER_DOMAIN: Record<string, PlanDomain> = {
+    transit: 'transportation', housing: 'housing', health: 'health_recovery',
+    legal: 'legal_compliance', food: 'finances', family: 'support_network',
   };
   const addBarrier = (res: { id: string; name: string; url: string }, key: string) => {
     ensurePersist();
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `barrier:${res.id}`, title: `Connect: ${res.name}`,
-      category: 'barrier', source: 'barrier', notes: key, ref: { url: res.url },
+      category: 'barrier', source: 'barrier', notes: key,
+      domain: BARRIER_DOMAIN[key] ?? 'general', ref: { url: res.url },
     }]);
   };
   const addCenter = (c: { id: string; name: string; url?: string }) => {
     ensurePersist();
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `dol-ajc:${c.id}`, title: `Visit Job Center: ${c.name}`,
-      category: 'appointment', source: 'dol', ref: { url: c.url },
+      category: 'appointment', source: 'dol', domain: 'work_readiness', ref: { url: c.url },
     }]);
   };
   const setDomainStatus = (domain: ReadinessDomainKey, status: DomainStatus) => {
@@ -208,8 +220,33 @@ export default function ParticipantWorkspace() {
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `readiness:${g.key}`, title: g.gap.taskTitle,
       category: GAP_TASK_CATEGORY(g.gap.category), source: 'plan',
-      notes: g.gap.category, ref: g.gap.url ? { url: g.gap.url } : undefined,
+      notes: g.gap.category, domain: g.key, ref: g.gap.url ? { url: g.gap.url } : undefined,
     }]);
+  };
+
+  // ── Unified plan model + actions (merged Readiness + action plan) ──
+  const planModel: PlanModel = useMemo(() => ({
+    ownerName: draft.name,
+    goals: draft.careerGoal,
+    readiness,
+    isCaseworker: true,
+    steps: (participant?.tasks ?? []).map((t): PlanStep => ({
+      id: t.id, title: t.title, status: t.status,
+      domain: t.domain ?? deriveStepDomain(t),
+      dueDate: t.dueDate, notes: t.notes, url: t.ref?.url, jobId: t.ref?.jobId, source: t.source,
+    })),
+  }), [draft.name, draft.careerGoal, readiness, participant]);
+
+  const planActions: PlanActions = {
+    setDomainStatus,
+    addGapStep: addReadinessGap,
+    addStep: (domain, title) => { ensurePersist(); getRepo().addTask(pid, { title, category: DOMAIN_TASK_CATEGORY(domain), source: 'manual', domain }); },
+    setStepStatus: (id, s) => getRepo().setTaskStatus(pid, id, s),
+    setStepDue: (id, d) => getRepo().updateTask(pid, id, { dueDate: d || undefined }),
+    setStepNotes: (id, n) => getRepo().updateTask(pid, id, { notes: n }),
+    removeStep: (id) => getRepo().removeTask(pid, id),
+    onPrint: () => saveAndPrint(),
+    onShare: () => { ensurePersist(); setShowExport(true); },
   };
 
   const jump = (anchor: string) => {
@@ -332,14 +369,9 @@ export default function ParticipantWorkspace() {
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {contextGuidance(draft)}
           </p>
 
-          <ReadinessPanel
-            result={readiness}
-            onSetStatus={setDomainStatus}
-            onAddGap={addReadinessGap}
-            addedGapKeys={taskIds}
-          />
-
-          {participant && <ActionPlanPanel participant={participant} />}
+          <div id="plan" className="scroll-mt-24">
+            <PlanWorkspace model={planModel} actions={planActions} />
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
             <MatchesPanel

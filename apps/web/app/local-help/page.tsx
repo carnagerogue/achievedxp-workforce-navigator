@@ -41,6 +41,8 @@ import {
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
 } from '../../lib/readiness';
 import { ReadinessPanel } from '../../components/readiness/ReadinessPanel';
+import { PlanWorkspace } from '../../components/plan/PlanWorkspace';
+import { deriveStepDomain, type PlanModel, type PlanActions, type PlanStep } from '../../lib/plan-model';
 
 /**
  * In-person resources page. Two tabs of CareerOneStop / DOL data:
@@ -54,7 +56,7 @@ import { ReadinessPanel } from '../../components/readiness/ReadinessPanel';
  * CareerOneStop token never reaches the browser.
  */
 export default function LocalHelpPage() {
-  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'readiness' | 'checklist'>('ajc');
+  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'checklist'>('ajc');
   const [location, setLocation] = useState('44113');
   const [radius, setRadius] = useState(50);
   const dLoc = useDebounce(location, 400);
@@ -117,9 +119,6 @@ export default function LocalHelpPage() {
           <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
             <LifeBuoy className="h-4 w-4" /> Community Resources
           </TabButton>
-          <TabButton active={tab === 'readiness'} onClick={() => setTab('readiness')}>
-            <Gauge className="h-4 w-4" /> Readiness
-          </TabButton>
           <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
             <ListChecks className="h-4 w-4" /> My Plan
             {checklist.length > 0 && (
@@ -138,7 +137,6 @@ export default function LocalHelpPage() {
         {tab === 'ajc' && <AjcResults location={dLoc} radius={radius} />}
         {tab === 'reentry' && <ReentryResults location={dLoc} radius={radius} />}
         {tab === 'community' && <CommunityResources location={dLoc} />}
-        {tab === 'readiness' && <ReadinessView />}
         {tab === 'checklist' && <ChecklistView />}
       </div>
 
@@ -487,15 +485,8 @@ function ChecklistView() {
 
   const rdCompleted = items.filter((i) => i.status === 'completed')
     .map((i) => readinessCatFromChecklist(i.category)).filter((c): c is string => Boolean(c));
-  const rd = assessReadiness(selfToReadinessInput({ careerGoal: goals, completedCategories: rdCompleted }), rdAnswers);
-  const rdSummary = { score: rd.score, band: BAND_LABEL[rd.band], gaps: rd.gaps.slice(0, 5).map((g) => g.gap?.label ?? g.label) };
-
-  const pct = progressPct(items);
-  const counts = countByStatus(items);
-  const next = nextStep(items);
-  const overdue = overdueItems(items);
-  const soon = dueSoonItems(items);
-  const mo = MOMENTUM_META[momentum(items)];
+  const readiness = assessReadiness(selfToReadinessInput({ careerGoal: goals, completedCategories: rdCompleted }), rdAnswers);
+  const rdSummary = { score: readiness.score, band: BAND_LABEL[readiness.band], gaps: readiness.gaps.slice(0, 5).map((g) => g.gap?.label ?? g.label) };
 
   const handleImport = (plan: PortablePlan, mode: 'replace' | 'merge') => {
     importChecklist(portableToChecklist(plan), mode);
@@ -507,152 +498,53 @@ function ChecklistView() {
     setShowImport(false);
   };
 
-  const dialogs = (
-    <>
+  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+  const model: PlanModel = {
+    ownerName: owner, goals, readiness, isCaseworker: false, checkins,
+    steps: items.map((i): PlanStep => ({
+      id: i.id, title: i.name, status: i.status,
+      domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
+      dueDate: i.targetDate, notes: i.notes, url: i.url, source: 'manual',
+    })),
+  };
+
+  const actions: PlanActions = {
+    setDomainStatus: (d, s) => setReadinessAnswer(d, s),
+    addGapStep: (g) => { if (!g.gap) return; toggleChecklist({ id: `readiness:${g.key}`, name: g.gap.taskTitle, type: 'Readiness step', category: g.label, url: g.gap.url, domain: g.key }); },
+    addStep: (domain, title) => { toggleChecklist({ id: `step_${Math.random().toString(36).slice(2, 9)}`, name: title, type: 'Step', category: domain, domain }); },
+    setStepStatus: (id, s) => setChecklistStatus(id, s),
+    setStepDue: (id, d) => setChecklistTargetDate(id, d),
+    setStepNotes: (id, n) => setChecklistNotes(id, n),
+    removeStep: (id) => removeFromChecklist(id),
+    setOwnerName: (v) => setOwnerName(v),
+    setGoals: (v) => setPlanGoals(v),
+    addCheckin: (rating, note) => addCheckin({ date: todayIso(), rating, note }),
+    removeCheckin: (id) => removeCheckin(id),
+    onShare: () => setShowShare(true),
+    onImport: () => setShowImport(true),
+    onPrint: () => printPlan(owner, goals, items, checkins, rdSummary),
+  };
+
+  return (
+    <div className="space-y-4">
       {showShare && (
         <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
-        <PlanImportDialog
-          title="Import a plan"
-          hint="Paste a code or upload a file your caseworker shared with you."
-          allowMerge
-          onImport={handleImport}
-          onClose={() => setShowImport(false)}
-        />
+        <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />
       )}
-    </>
-  );
-
-  const connectNote = (
-    <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
-      <HeartHandshake className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
-      <span>
-        Working with a caseworker or probation officer? Build your plan here, then{' '}
-        <button onClick={() => setShowShare(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">share</button>{' '}
-        it with them — or{' '}
-        <button onClick={() => setShowImport(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">import</button>{' '}
-        one they sent you. Everything stays private on your device.
-      </span>
-    </div>
-  );
-
-  if (items.length === 0) {
-    return (
-      <div className="space-y-4">
-        {dialogs}
-        {connectNote}
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
-          <ListChecks className="h-6 w-6" />
-        </div>
-        <h3 className="mt-4 text-base font-semibold text-navy-900">Build your reentry plan</h3>
-        <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-          Browse <strong>Job Centers</strong>, <strong>Reentry Programs</strong>, and{' '}
-          <strong>Community Resources</strong>, then tap <em>Add to my plan</em>. Track where you are,
-          set dates, and print a progress report for your parole or probation officer.
-        </p>
-        <button
-          type="button"
-          onClick={() => setShowImport(true)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700"
-        >
-          <FileDown className="h-4 w-4" /> Import a plan from my caseworker
-        </button>
-        </div>
+      <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
+        <HeartHandshake className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+        <span>
+          Working with a caseworker or probation officer? Build your plan here, then{' '}
+          <button onClick={() => setShowShare(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">share</button>{' '}
+          it — or{' '}
+          <button onClick={() => setShowImport(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">import</button>{' '}
+          one they sent you. Everything stays private on your device.
+        </span>
       </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {dialogs}
-      {connectNote}
-
-      {/* Dashboard header */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-        <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-5 py-5">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_90%_-20%,rgba(45,212,229,0.25),transparent)]" />
-          <div className="relative flex items-center gap-4">
-            <Avatar name={owner || 'You'} size={52} />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">{owner ? `${owner}’s plan` : 'Your reentry plan'}</h2>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <StatusChip label="Completed" n={counts.completed ?? 0} cls="bg-teal-400/20 text-teal-50 ring-teal-300/30" />
-                <StatusChip label="Scheduled" n={counts.scheduled ?? 0} cls="bg-sky-400/20 text-sky-50 ring-sky-300/30" />
-                <StatusChip label="Contacted" n={counts.contacted ?? 0} cls="bg-amber-400/20 text-amber-50 ring-amber-300/30" />
-                <StatusChip label="Planned" n={counts.planned ?? 0} cls="bg-white/10 text-white ring-white/20" />
-                <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ring-inset ${mo.cls}`}>{mo.label}</span>
-              </div>
-            </div>
-            <div className="hidden sm:block"><ProgressRing pct={pct} size={60} stroke={5} /></div>
-          </div>
-        </div>
-
-        {/* Your next step */}
-        <div className={'flex items-start gap-3 px-5 py-3.5 ' + (next.severity === 'urgent' ? 'bg-rose-50/70' : 'bg-teal-50/50')}>
-          <span className={'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ' + (next.severity === 'urgent' ? 'bg-rose-100 text-rose-600' : 'bg-teal-100 text-teal-700')}>
-            {next.severity === 'urgent' ? <AlertTriangle className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-          </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Your next step</p>
-            <p className="text-sm font-bold text-navy-900">{next.label}</p>
-            <p className="text-xs text-slate-600">{next.reason}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Name, goals & actions */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block text-xs font-medium text-slate-700">Your name (on the report)</span>
-            <input type="text" value={owner} onChange={(e) => setOwnerName(e.target.value)} placeholder="e.g. Jordan Smith"
-              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-xs font-medium text-slate-700">My goals (what I&rsquo;m working toward)</span>
-            <input type="text" value={goals} onChange={(e) => setPlanGoals(e.target.value)} placeholder="e.g. Find stable work + housing within 90 days"
-              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-          </label>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setShowShare(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">
-            <Share2 className="h-4 w-4" /> Share with my caseworker
-          </button>
-          <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700">
-            <FileDown className="h-4 w-4" /> Import a plan
-          </button>
-          <button type="button" onClick={() => printPlan(owner, goals, items, checkins, rdSummary)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700">
-            <Printer className="h-4 w-4" /> Print report
-          </button>
-          <button type="button" onClick={() => { if (confirm('Clear your whole plan?')) clearChecklist(); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700">
-            <Trash2 className="h-4 w-4" /> Clear
-          </button>
-        </div>
-      </section>
-
-      {/* Needs attention */}
-      {(overdue.length > 0 || soon.length > 0) && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-card">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900"><Flame className="h-4 w-4 text-amber-600" /> Needs your attention</h3>
-          <ul className="mt-2 space-y-1.5">
-            {overdue.map((i) => (
-              <li key={i.id} className="flex items-center gap-2 text-xs"><AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-600" /><span className="font-semibold text-navy-900">{i.name}</span><span className="text-rose-700">overdue · {fmtPlanDate(i.targetDate)}</span></li>
-            ))}
-            {soon.map((i) => (
-              <li key={i.id} className="flex items-center gap-2 text-xs"><CalendarClock className="h-3.5 w-3.5 shrink-0 text-amber-600" /><span className="font-semibold text-navy-900">{i.name}</span><span className="text-amber-700">due {fmtPlanDate(i.targetDate)}</span></li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Weekly check-in */}
-      <CheckinCard checkins={checkins} />
-
-      <ul className="grid gap-3">
-        {items.map((it) => <ChecklistRow key={it.id} item={it} overdue={overdue.some((o) => o.id === it.id)} />)}
-      </ul>
+      <PlanWorkspace model={model} actions={actions} />
     </div>
   );
 }

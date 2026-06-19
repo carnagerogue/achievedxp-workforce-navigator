@@ -38,6 +38,8 @@ export interface ChecklistItem {
   addedAt: number;
   /** Set when status becomes completed; powers momentum/streak + report wins. */
   completedAt?: number;
+  /** Readiness domain this step belongs to (drives the merged workspace). */
+  domain?: import('./plan-model').PlanDomain;
 }
 
 /** Lightweight weekly self-check-in — turns the plan into a habit loop. */

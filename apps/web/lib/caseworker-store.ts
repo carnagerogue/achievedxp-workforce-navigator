@@ -65,6 +65,8 @@ export interface Task {
   notes?: string;
   /** Deep-link back to the task's origin so the UI can jump to it. */
   ref?: { jobId?: string; url?: string; stepId?: string };
+  /** Readiness domain this step belongs to (drives the merged workspace). */
+  domain?: import('./plan-model').PlanDomain;
   createdAt: number;
   completedAt?: number;
 }
@@ -236,6 +238,7 @@ export function addTask(pid: string, t: NewTask): Task {
     dueDate: t.dueDate,
     notes: t.notes,
     ref: t.ref,
+    domain: t.domain,
     createdAt: Date.now(),
   };
   patchParticipant(pid, (p) => ({ ...p, tasks: [...(p.tasks ?? []), task] }));
@@ -287,6 +290,7 @@ export function reconcileGeneratedTasks(pid: string, generated: NewTask[]) {
         dueDate: g.dueDate,
         notes: g.notes,
         ref: g.ref,
+        domain: g.domain,
         createdAt: Date.now(),
       }));
     return fresh.length ? { ...p, tasks: [...(p.tasks ?? []), ...fresh] } : p;

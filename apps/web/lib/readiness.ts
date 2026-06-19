@@ -145,6 +145,10 @@ const DOMAINS: DomainDef[] = [
   },
 ];
 
+export interface ReadinessDomainDef { key: ReadinessDomainKey; label: string; whatReady: string }
+/** Ordered, public list of readiness domains for UI iteration/grouping. */
+export const READINESS_DOMAINS: ReadinessDomainDef[] = DOMAINS.map((d) => ({ key: d.key, label: d.label, whatReady: d.whatReady }));
+
 export function assessReadiness(input: ReadinessInput, answers: ReadinessAnswers = {}): ReadinessResult {
   const barriers = new Set(input.barriers ?? []);
   const completed = new Set(input.completedCategories ?? []);

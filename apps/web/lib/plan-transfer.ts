@@ -28,6 +28,7 @@ export interface PortableItem {
   cityState?: string;
   phone?: string;
   url?: string;
+  domain?: import('./plan-model').PlanDomain;
 }
 
 export interface PortableProfile {
@@ -106,7 +107,7 @@ export function checklistToPortable(
     items: items.map((i) => ({
       name: i.name, type: i.type, category: i.category, status: i.status,
       targetDate: i.targetDate, notes: i.notes,
-      address: i.address, cityState: i.cityState, phone: i.phone, url: i.url,
+      address: i.address, cityState: i.cityState, phone: i.phone, url: i.url, domain: i.domain,
     })),
     readiness,
     readinessScore,
@@ -117,7 +118,7 @@ export function portableToChecklist(p: PortablePlan): ChecklistItem[] {
   return p.items.map((it, idx) => ({
     id: `import:${idx}:${(it.name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
     name: it.name, type: it.type || 'Support service', category: it.category,
-    address: it.address, cityState: it.cityState, phone: it.phone, url: it.url,
+    address: it.address, cityState: it.cityState, phone: it.phone, url: it.url, domain: it.domain,
     status: it.status || 'planned', targetDate: it.targetDate, notes: it.notes,
     addedAt: Date.now() + idx,
     completedAt: it.status === 'completed' ? Date.now() : undefined,
@@ -139,7 +140,7 @@ export function participantToPortable(p: Participant): PortablePlan {
     person: { name: p.name, goals: p.careerGoal },
     items: (p.tasks ?? []).map((t) => ({
       name: t.title, type: t.category, category: t.category, status: t.status,
-      targetDate: t.dueDate, notes: t.notes, url: t.ref?.url,
+      targetDate: t.dueDate, notes: t.notes, url: t.ref?.url, domain: t.domain,
     })),
     profile: {
       conviction: p.conviction, supervision: p.supervision, education: p.education,
@@ -160,6 +161,7 @@ export function portableToParticipant(p: PortablePlan): Participant {
     source: 'plan',
     dueDate: it.targetDate,
     notes: it.notes,
+    domain: it.domain,
     ref: it.url ? { url: it.url } : undefined,
     createdAt: now,
     completedAt: it.status === 'completed' ? now : undefined,
