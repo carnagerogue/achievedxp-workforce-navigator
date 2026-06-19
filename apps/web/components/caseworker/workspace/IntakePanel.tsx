@@ -178,7 +178,11 @@ function ChipDisclosure({
         </div>
       )}
 
-      {open && <div className="border-t border-slate-200 p-3">{children}</div>}
+      {open && (
+        <div className="max-h-[22rem] overflow-y-auto overscroll-contain border-t border-slate-200 p-3">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
