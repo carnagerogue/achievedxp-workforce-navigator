@@ -115,12 +115,25 @@ export default function ParticipantWorkspace() {
   const [jobs, setJobs] = useState<JobDto[]>([]);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
+    let live = true;
     setLoading(true);
     const zip = /^\d{5}$/.test(debouncedLocation.trim()) ? debouncedLocation.trim() : undefined;
-    listJobs({ postalCode: zip, limit: 150 })
-      .then((d) => setJobs(d.results))
-      .catch(() => setJobs([]))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        let d = await listJobs({ postalCode: zip, limit: 150 });
+        // The ZIP filter buckets by the first 2 digits and drops postings with
+        // no ZIP — so an out-of-area ZIP (or aggregated jobs without a postal
+        // code) can zero out the pool. Fall back to a broad pull so a
+        // participant always gets scored matches.
+        if (zip && d.results.length === 0) d = await listJobs({ limit: 150 });
+        if (live) setJobs(d.results);
+      } catch {
+        if (live) setJobs([]);
+      } finally {
+        if (live) setLoading(false);
+      }
+    })();
+    return () => { live = false; };
   }, [debouncedLocation]);
 
   const scored = useMemo(() => scoreJobsForParticipant(draft, jobs), [draft, jobs]);
