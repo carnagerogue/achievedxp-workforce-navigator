@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, AlertTriangle, ShieldAlert, Plus, Check } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ShieldAlert, Plus, Check, MapPin, SearchX } from 'lucide-react';
 import { CONVICTION_LABELS, type ConvictionType } from '@dxp/shared';
 import type { ScoredCaseJob } from '../../../lib/caseworker';
 
@@ -25,10 +25,24 @@ export function MatchesPanel({
         <p className="mt-0.5 text-xs text-slate-500">
           Re-scored against {CONVICTION_LABELS[conviction].toLowerCase()}, the career goal, and realistic attainability.
         </p>
-        {!hasZip && <p className="mt-4 text-sm text-slate-500">Add a 5-digit ZIP in the profile to pull local roles.</p>}
-        {hasZip && loading && <p className="mt-4 text-sm text-slate-500">Scoring jobs…</p>}
+        {!hasZip && (
+          <EmptyState
+            Icon={MapPin}
+            title="Add a ZIP to see local roles"
+            body="Enter a 5-digit ZIP in the profile above and matches will appear here — re-scored for this person's record and goal."
+          />
+        )}
+        {hasZip && loading && (
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-100" />)}
+          </div>
+        )}
         {hasZip && !loading && top.length === 0 && (
-          <p className="mt-4 text-sm text-slate-500">No realistic matches in this pool yet — try a broader ZIP or adjust the goal.</p>
+          <EmptyState
+            Icon={SearchX}
+            title="No realistic matches in this area yet"
+            body="Try a broader ZIP, adjust the career goal, or check the “Likely barriers” list — strong-on-paper roles flagged for a legal/employer barrier."
+          />
         )}
         <ul className="mt-4 space-y-3">
           {top.map((m) => {
@@ -88,5 +102,17 @@ export function MatchesPanel({
         </div>
       )}
     </section>
+  );
+}
+
+function EmptyState({ Icon, title, body }: { Icon: typeof MapPin; title: string; body: string }) {
+  return (
+    <div className="mt-4 flex flex-col items-center rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-6 py-8 text-center">
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-teal-600 ring-1 ring-slate-200">
+        <Icon className="h-5 w-5" />
+      </span>
+      <p className="mt-3 text-sm font-semibold text-navy-900">{title}</p>
+      <p className="mt-1 max-w-sm text-xs text-slate-500">{body}</p>
+    </div>
   );
 }

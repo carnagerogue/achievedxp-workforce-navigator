@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   ListChecks, Plus, Trash2, ExternalLink, Briefcase, GraduationCap,
-  FileText, LifeBuoy, CalendarClock, Circle, AlertTriangle,
+  FileText, LifeBuoy, CalendarClock, Circle, AlertTriangle, Check,
 } from 'lucide-react';
 import {
   TASK_STATUS_ORDER, TASK_STATUS_LABELS, TASK_CATEGORY_LABELS,
@@ -21,11 +21,11 @@ const CATEGORY_ICON: Record<TaskCategory, typeof Briefcase> = {
   other: Circle,
 };
 
-const STATUS_DOT: Record<TaskStatus, string> = {
-  planned: 'bg-slate-300',
-  contacted: 'bg-sky-400',
-  scheduled: 'bg-violet-400',
-  completed: 'bg-teal-500',
+const STATUS_PILL: Record<TaskStatus, string> = {
+  planned: 'border-slate-300 bg-slate-50 text-slate-600',
+  contacted: 'border-sky-300 bg-sky-50 text-sky-700',
+  scheduled: 'border-violet-300 bg-violet-50 text-violet-700',
+  completed: 'border-teal-400 bg-teal-50 text-teal-700',
 };
 
 export function ActionPlanPanel({ participant }: { participant: Participant }) {
@@ -121,7 +121,19 @@ function TaskRow({ pid, task, overdue }: { pid: string; task: Task; overdue: boo
   return (
     <li className={'rounded-xl border p-3 ' + (overdue ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200')}>
       <div className="flex items-start gap-2">
-        <span className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[task.status]}`} />
+        <button
+          type="button"
+          onClick={() => repo.setTaskStatus(pid, task.id, task.status === 'completed' ? 'planned' : 'completed')}
+          className={
+            'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ' +
+            (task.status === 'completed'
+              ? 'border-teal-500 bg-teal-500 text-white'
+              : 'border-slate-300 bg-white text-transparent hover:border-teal-400 hover:text-teal-300')
+          }
+          aria-label={task.status === 'completed' ? 'Mark not done' : 'Mark done'}
+        >
+          <Check className="h-3 w-3" />
+        </button>
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -141,7 +153,7 @@ function TaskRow({ pid, task, overdue }: { pid: string; task: Task; overdue: boo
             <select
               value={task.status}
               onChange={(e) => repo.setTaskStatus(pid, task.id, e.target.value as TaskStatus)}
-              className="rounded-md border border-slate-300 px-1.5 py-1 text-[11px] font-semibold text-slate-700 focus:border-teal-500 focus:outline-none"
+              className={'cursor-pointer rounded-full border px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 ' + STATUS_PILL[task.status]}
             >
               {TASK_STATUS_ORDER.map((s) => <option key={s} value={s}>{TASK_STATUS_LABELS[s]}</option>)}
             </select>
