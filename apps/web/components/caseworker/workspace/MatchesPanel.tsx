@@ -73,7 +73,7 @@ export function MatchesPanel({
                   >
                     {added ? <><Check className="h-3 w-3" /> In plan</> : <><Plus className="h-3 w-3" /> Add to plan</>}
                   </button>
-                  <a href={`/jobs/${m.job.id}`} className="text-[11px] font-semibold text-teal-700 hover:underline">View job →</a>
+                  <a href={`/jobs/${m.job.id}?from=caseworker`} className="text-[11px] font-semibold text-teal-700 hover:underline">View job →</a>
                 </div>
               </li>
             );

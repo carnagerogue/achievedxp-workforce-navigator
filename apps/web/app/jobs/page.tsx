@@ -18,8 +18,9 @@ import {
   Calendar,
   HardHat,
 } from 'lucide-react';
-import type { JobDto, OffenseType, PaginatedJobsDto, CompatibilityRating, ConvictionType } from '@dxp/shared';
+import { decisionFor, type JobDto, type OffenseType, type PaginatedJobsDto, type CompatibilityRating, type ConvictionType } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
+import { DecisionBadge } from '../../components/decision/DecisionBadge';
 import { scoreJobUnified } from '../../lib/job-scoring';
 import { getLocalProfile } from '../../lib/local-profile';
 import { candidateProfilesFromStored, convictionTypesFor, type StoredProfile } from '../../lib/profile-store';
@@ -605,6 +606,7 @@ function JobRow({
     ? (job.locationPostalCode ? `${cityRegion} ${job.locationPostalCode}` : cityRegion)
     : 'Location TBD';
   const salary = prettySalary(job.salaryMin, job.salaryMax, job.salaryCurrency);
+  const decision = decisionFor(job, { convictionSelected: !!rating });
 
   return (
     <li className="group relative transition-colors hover:bg-slate-50/70">
@@ -628,6 +630,7 @@ function JobRow({
                 <Radio className="h-3 w-3" /> Remote
               </span>
             )}
+            <DecisionBadge band={decision.band} label={decision.label} />
           </div>
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-slate-600">
             <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -651,11 +654,9 @@ function JobRow({
               <span className="truncate text-slate-500">Skills: {job.requiredSkills.join(', ')}</span>
             )}
           </div>
-          {rating && (
-            <p className="mt-2 line-clamp-2 max-w-2xl text-xs leading-relaxed text-slate-600">
-              {rating.summary}
-            </p>
-          )}
+          <p className="mt-2 line-clamp-2 max-w-2xl text-xs leading-relaxed text-slate-600">
+            <span className="font-medium text-slate-700">Why:</span> {decision.reason}
+          </p>
         </Link>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex items-center gap-1.5">

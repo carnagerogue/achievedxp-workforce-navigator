@@ -193,3 +193,4 @@ export interface PaginatedJobsDto {
  */
 export * from './compatibility';
 export * from './classification';
+export * from './decision';

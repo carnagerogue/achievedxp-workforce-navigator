@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -18,8 +18,10 @@ import {
   GraduationCap,
   Award,
 } from 'lucide-react';
-import type { JobDto } from '@dxp/shared';
+import { decisionFor, type JobDto } from '@dxp/shared';
 import { getJob, getSimilarJobs } from '../../../lib/api';
+import { FitAndNextSteps } from '../../../components/decision/FitAndNextSteps';
+import { DecisionBadge } from '../../../components/decision/DecisionBadge';
 import { scoreJobUnified } from '../../../lib/job-scoring';
 import { getLocalProfile } from '../../../lib/local-profile';
 import { candidateProfilesFromStored, convictionTypesFor } from '../../../lib/profile-store';
@@ -58,6 +60,22 @@ export default function JobDetailPage() {
       hasConvictions: (p.convictions?.length ?? 0) > 0,
     }, job);
   }, [job, profileLoaded]);
+
+  const searchParams = useSearchParams();
+  const fromCaseworker = searchParams.get('from') === 'caseworker';
+
+  // Decision support — band + "fit and next steps" sourced from classification
+  // evidence (item 2). Leads instead of a bare score.
+  const decision = useMemo(() => {
+    if (!job) return null;
+    const p = profileLoaded ? getLocalProfile() : null;
+    const convictionSelected = (p?.convictions?.length ?? 0) > 0;
+    return decisionFor(job, {
+      hardBlocked: !!match?.hardBlockReason,
+      hardBlockReason: match?.hardBlockReason ?? null,
+      convictionSelected,
+    });
+  }, [job, match, profileLoaded]);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -119,17 +137,7 @@ export default function JobDetailPage() {
       {/* ─────────── Header card ─────────── */}
       <header className="relative mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {match && (
-            <span className={
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ' +
-              (match.chance === 'high' ? 'border-teal-300 bg-teal-50 text-teal-700'
-               : match.chance === 'medium' ? 'border-sky-300 bg-sky-50 text-sky-700'
-               : 'border-amber-300 bg-amber-50 text-amber-800')
-            }>
-              <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + (match.chance === 'high' ? 'bg-teal-500' : match.chance === 'medium' ? 'bg-sky-500' : 'bg-amber-500')} />
-              {match.label} · {match.score}% for you
-            </span>
-          )}
+          {decision && <DecisionBadge band={decision.band} label={decision.label} />}
           <SourceBadge code={job.sourceCode} />
           <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
           {job.remote && (
@@ -196,6 +204,13 @@ export default function JobDetailPage() {
           </a>
         </div>
       </header>
+
+      {/* ─────────── Fit & next steps (decision support) ─────────── */}
+      {decision && (
+        <div className="mt-6">
+          <FitAndNextSteps decision={decision} defaultEvidenceOpen={fromCaseworker} />
+        </div>
+      )}
 
       {/* ─────────── Qualifications ─────────── */}
       {(job.requiredSkills.length > 0 || job.requiredCertifications.length > 0 || job.minYearsExperience) && (
