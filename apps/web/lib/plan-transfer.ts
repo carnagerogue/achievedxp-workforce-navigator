@@ -96,6 +96,7 @@ export function portableToChecklist(p: PortablePlan): ChecklistItem[] {
     address: it.address, cityState: it.cityState, phone: it.phone, url: it.url,
     status: it.status || 'planned', targetDate: it.targetDate, notes: it.notes,
     addedAt: Date.now() + idx,
+    completedAt: it.status === 'completed' ? Date.now() : undefined,
   }));
 }
 

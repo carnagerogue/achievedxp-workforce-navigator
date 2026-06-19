@@ -66,7 +66,9 @@ export function nextStep(items: ChecklistItem[]): NextStep {
   }
   const overdue = overdueItems(items);
   if (overdue.length > 0) {
-    return { label: `Follow up: ${overdue[0].name}`, reason: `Past your target date${overdue.length > 1 ? ` (+${overdue.length - 1} more overdue)` : ''}.`, severity: 'urgent' };
+    const nm = overdue[0].name;
+    const label = /^follow up/i.test(nm) ? nm : `Follow up: ${nm}`;
+    return { label, reason: `Past your target date${overdue.length > 1 ? ` (+${overdue.length - 1} more overdue)` : ''}.`, severity: 'urgent' };
   }
   const soon = dueSoonItems(items);
   if (soon.length > 0) {

@@ -166,6 +166,10 @@ function EmptyState() {
       >
         <Plus className="h-4 w-4" /> Add first participant
       </Link>
+      <p className="mx-auto mt-4 inline-flex max-w-md items-start gap-1.5 rounded-lg bg-teal-50/70 px-3 py-2 text-xs text-teal-800">
+        <FileDown className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        Participants can build their own plan in “Local help → My Plan” and send you a code or file. Use <strong className="mx-0.5">Import plan</strong> above to load it as a participant.
+      </p>
       <div className="mt-6"><PrivacyControls /></div>
     </section>
   );

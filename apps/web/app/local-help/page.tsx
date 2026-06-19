@@ -451,10 +451,25 @@ function ChecklistView() {
     </>
   );
 
+  const connectNote = (
+    <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
+      <HeartHandshake className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+      <span>
+        Working with a caseworker or probation officer? Build your plan here, then{' '}
+        <button onClick={() => setShowShare(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">share</button>{' '}
+        it with them — or{' '}
+        <button onClick={() => setShowImport(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">import</button>{' '}
+        one they sent you. Everything stays private on your device.
+      </span>
+    </div>
+  );
+
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
+      <div className="space-y-4">
         {dialogs}
+        {connectNote}
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
           <ListChecks className="h-6 w-6" />
         </div>
@@ -471,6 +486,7 @@ function ChecklistView() {
         >
           <FileDown className="h-4 w-4" /> Import a plan from my caseworker
         </button>
+        </div>
       </div>
     );
   }
@@ -478,6 +494,7 @@ function ChecklistView() {
   return (
     <div className="space-y-4">
       {dialogs}
+      {connectNote}
 
       {/* Dashboard header */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
