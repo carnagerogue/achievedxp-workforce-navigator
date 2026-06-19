@@ -19,7 +19,17 @@ interface StoredPlan {
   aggregatedSteps?: Array<{ id: string; title: string; reason: string; estDuration?: string }>;
   phases?: Array<{ title: string; items: string[] }>;
   resources?: Array<{ label: string; resources: Array<{ name: string; phone?: string; url?: string }> }>;
+  tasks?: Array<{ title: string; status: string; category: string; dueDate?: string; notes?: string }>;
+  progressPct?: number;
+  dol?: {
+    wages?: { rateType: string; pct10?: number; median?: number; pct90?: number } | null;
+    centers?: Array<{ name: string; phone?: string; address?: string }>;
+    licenses?: Array<{ title: string; description?: string }>;
+    apprenticeships?: Array<{ title: string; sponsor?: string }>;
+  } | null;
 }
+
+const money = (n?: number) => (n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US'));
 
 export default function PlanPrintPage() {
   const [plan, setPlan] = useState<StoredPlan | null>(null);
@@ -96,6 +106,25 @@ export default function PlanPrintPage() {
         </Section>
       )}
 
+      {/* Tracked tasks + progress */}
+      {(plan.tasks ?? []).length > 0 && (
+        <Section title={`Action plan & progress${plan.progressPct != null ? ` — ${plan.progressPct}% complete` : ''}`}>
+          <ul className="space-y-1">
+            {(plan.tasks ?? []).map((t, i) => (
+              <li key={i} className="flex gap-1.5 text-xs">
+                <span>{t.status === 'completed' ? '☑' : '☐'}</span>
+                <span>
+                  <span className={'font-semibold ' + (t.status === 'completed' ? 'line-through text-slate-400' : '')}>{t.title}</span>
+                  <span className="text-slate-500">
+                    {' '}· {t.status}{t.dueDate ? ` · due ${t.dueDate}` : ''}{t.notes ? ` — ${t.notes}` : ''}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       {/* Training gaps */}
       {(plan.aggregatedSteps ?? []).length > 0 && (
         <Section title="Credentials & training to pursue">
@@ -122,6 +151,44 @@ export default function PlanPrintPage() {
                 </ul>
               </div>
             ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Local labor-market & training (DOL) */}
+      {plan.dol && ((plan.dol.wages) || (plan.dol.centers?.length) || (plan.dol.licenses?.length) || (plan.dol.apprenticeships?.length)) && (
+        <Section title="Local labor-market & training (DOL)">
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {plan.dol.wages && (
+              <div>
+                <p className="font-bold uppercase tracking-wider text-slate-600">Typical {plan.dol.wages.rateType.toLowerCase()} wages</p>
+                <p className="mt-0.5">10th {money(plan.dol.wages.pct10)} · Median {money(plan.dol.wages.median)} · 90th {money(plan.dol.wages.pct90)}</p>
+              </div>
+            )}
+            {(plan.dol.centers ?? []).length > 0 && (
+              <div>
+                <p className="font-bold uppercase tracking-wider text-slate-600">American Job Centers</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {(plan.dol.centers ?? []).map((c, i) => <li key={i}><span className="font-semibold">{c.name}</span>{c.address ? ` · ${c.address}` : ''}{c.phone ? ` · ${c.phone}` : ''}</li>)}
+                </ul>
+              </div>
+            )}
+            {(plan.dol.licenses ?? []).length > 0 && (
+              <div>
+                <p className="font-bold uppercase tracking-wider text-slate-600">License / cert requirements</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {(plan.dol.licenses ?? []).map((l, i) => <li key={i}><span className="font-semibold">{l.title}</span>{l.description ? ` — ${l.description}` : ''}</li>)}
+                </ul>
+              </div>
+            )}
+            {(plan.dol.apprenticeships ?? []).length > 0 && (
+              <div>
+                <p className="font-bold uppercase tracking-wider text-slate-600">Apprenticeships</p>
+                <ul className="mt-0.5 space-y-0.5">
+                  {(plan.dol.apprenticeships ?? []).map((a, i) => <li key={i}><span className="font-semibold">{a.title}</span>{a.sponsor ? ` · ${a.sponsor}` : ''}</li>)}
+                </ul>
+              </div>
+            )}
           </div>
         </Section>
       )}

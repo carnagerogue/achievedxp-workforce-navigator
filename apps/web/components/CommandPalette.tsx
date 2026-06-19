@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
+  ClipboardList, UserPlus, User,
 } from 'lucide-react';
 import { listJobs } from '../lib/api';
-import type { JobDto } from '@dxp/shared';
+import { CONVICTION_LABELS, type JobDto } from '@dxp/shared';
 import { useDebounce } from '../lib/use-debounce';
 import { prettyIndustry } from '../lib/format';
+import { getCaseload, type Participant } from '../lib/caseworker-store';
 
 /**
  * Global ⌘K / Ctrl+K palette.
@@ -21,10 +23,13 @@ import { prettyIndustry } from '../lib/format';
  */
 type CommandItem =
   | { kind: 'nav';  label: string; sub?: string; href: string;  Icon: typeof Command }
+  | { kind: 'participant'; label: string; sub: string; pid: string; Icon: typeof Command }
   | { kind: 'job';  label: string; sub: string;  job: JobDto;   Icon: typeof Command };
 
 const NAV_ITEMS: CommandItem[] = [
   { kind: 'nav', label: 'Dashboard',         sub: 'Your matches and saved jobs',           href: '/dashboard',       Icon: LayoutDashboard },
+  { kind: 'nav', label: 'Caseworker',        sub: 'Caseload command center',               href: '/caseworker',      Icon: ClipboardList   },
+  { kind: 'nav', label: 'New participant',   sub: 'Start a fresh caseworker workspace',    href: '/caseworker/new',  Icon: UserPlus        },
   { kind: 'nav', label: 'Browse jobs',       sub: 'Filter by city, ZIP, industry',         href: '/jobs',            Icon: Briefcase       },
   { kind: 'nav', label: 'Apprenticeships',   sub: 'Earn-while-you-learn pathways',         href: '/apprenticeships', Icon: HardHat         },
   { kind: 'nav', label: 'Local help',        sub: 'Job centers + reentry programs near you', href: '/local-help',    Icon: HeartHandshake  },
@@ -40,6 +45,7 @@ export function CommandPalette() {
   const [jobs, setJobs] = useState<JobDto[]>([]);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [caseload, setCaseload] = useState<Participant[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef  = useRef<HTMLUListElement>(null);
   const dq = useDebounce(q, 250);
@@ -67,7 +73,7 @@ export function CommandPalette() {
 
   // Reset state when the modal closes; focus the input when it opens.
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 10);
+    if (open) { setTimeout(() => inputRef.current?.focus(), 10); setCaseload(getCaseload()); }
     else { setQ(''); setJobs([]); setActive(0); }
   }, [open]);
 
@@ -83,9 +89,18 @@ export function CommandPalette() {
   }, [open, dq]);
 
   const items: CommandItem[] = useMemo(() => {
-    const nav = q.trim()
-      ? NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(q.toLowerCase()))
-      : NAV_ITEMS;
+    const ql = q.trim().toLowerCase();
+    const nav = ql ? NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(ql)) : NAV_ITEMS;
+    const participantItems: CommandItem[] = caseload
+      .filter((p) => !ql || `${p.name} ${p.careerGoal} ${CONVICTION_LABELS[p.conviction]}`.toLowerCase().includes(ql))
+      .slice(0, ql ? 8 : 5)
+      .map((p) => ({
+        kind: 'participant' as const,
+        label: p.name || 'Unnamed participant',
+        sub: [CONVICTION_LABELS[p.conviction], p.careerGoal].filter(Boolean).join(' · '),
+        pid: p.id,
+        Icon: User,
+      }));
     const jobItems: CommandItem[] = jobs.map((j) => ({
       kind: 'job',
       label: j.title,
@@ -94,8 +109,8 @@ export function CommandPalette() {
       job: j,
       Icon: Briefcase,
     }));
-    return [...nav, ...jobItems];
-  }, [q, jobs]);
+    return [...nav, ...participantItems, ...jobItems];
+  }, [q, jobs, caseload]);
 
   // Keep `active` inside bounds as the list shrinks/grows.
   useEffect(() => { setActive((a) => Math.min(a, Math.max(0, items.length - 1))); }, [items.length]);
@@ -103,7 +118,8 @@ export function CommandPalette() {
   const run = (item: CommandItem) => {
     setOpen(false);
     if (item.kind === 'nav') router.push(item.href);
-    else                     router.push(`/jobs/${item.job.id}`);
+    else if (item.kind === 'participant') router.push(`/caseworker/${item.pid}`);
+    else router.push(`/jobs/${item.job.id}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -155,14 +171,21 @@ export function CommandPalette() {
               )}
               {items.map((item, i) => {
                 const isFirstJob = item.kind === 'job' && (i === 0 || items[i - 1].kind !== 'job');
+                const isFirstParticipant = item.kind === 'participant' && (i === 0 || items[i - 1].kind !== 'participant');
+                const key = (item.kind === 'job' ? item.job.id : item.kind === 'participant' ? item.pid : item.href) + i;
                 return (
                   <>
+                    {isFirstParticipant && (
+                      <li key={`cw-heading`} className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Caseload
+                      </li>
+                    )}
                     {isFirstJob && (
                       <li key={`jobs-heading`} className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                         Jobs {loading && <span className="ml-1 text-slate-300">searching…</span>}
                       </li>
                     )}
-                    <li key={(item.kind === 'job' ? item.job.id : item.href) + i}>
+                    <li key={key}>
                       <button
                         type="button"
                         onClick={() => run(item)}

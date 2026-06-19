@@ -9,14 +9,16 @@
  */
 import {
   priorititiesFor,
+  buildTrainingBridge,
   type JobDto,
   type CandidateProfile,
   type SupervisionStatus,
+  type TrainingBridgeStep,
 } from '@dxp/shared';
 import { inferDomain } from './realistic-fit';
 import { scoreJobUnified, type UnifiedScore } from './job-scoring';
 import { COMMUNITY_RESOURCES, type CommunityResource } from './community-resources';
-import type { Participant, Barrier } from './caseworker-store';
+import type { Participant, Barrier, TaskCategory } from './caseworker-store';
 import type { StoredProfile } from './profile-store';
 
 // Re-export so existing importers keep working.
@@ -122,4 +124,43 @@ export function barriersToResources(p: Participant): BarrierResource[] {
 
 export function contextGuidance(p: Participant): string {
   return priorititiesFor(p.contextMode).guidance;
+}
+
+// ── Training-gap aggregation ──────────────────────────────────────────────
+// De-duplicates the credential steps across a participant's top matches so the
+// command center can count gaps and the workspace can render + add them as
+// tasks. Extracted from the old single-page useMemo so both surfaces share it.
+
+export function aggregateTrainingSteps(p: Participant, topJobs: JobDto[]): TrainingBridgeStep[] {
+  const map = new Map<string, TrainingBridgeStep>();
+  for (const job of topJobs) {
+    const bridge = buildTrainingBridge(
+      {
+        convictionType: p.conviction,
+        certifications: p.certifications,
+        desiredIndustries: participantDesiredIndustries(p),
+      },
+      {
+        id: job.id, title: job.title, company: job.company, description: job.description,
+        industry: job.industry, riskTier: job.riskTier,
+        requiredSkills: job.requiredSkills, requiredCertifications: job.requiredCertifications,
+      },
+    );
+    for (const s of bridge.steps) if (!map.has(s.id)) map.set(s.id, s);
+  }
+  return Array.from(map.values());
+}
+
+/** Map a training step's kind onto the task-engine category vocabulary. */
+export function trainingStepCategory(step: TrainingBridgeStep): TaskCategory {
+  switch (step.kind) {
+    case 'license':
+    case 'certification':
+    case 'training':
+      return 'training';
+    case 'application':
+      return 'application';
+    default:
+      return 'other';
+  }
 }

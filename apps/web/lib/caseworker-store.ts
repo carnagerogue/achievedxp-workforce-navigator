@@ -26,6 +26,51 @@ export const BARRIER_LABELS: Record<Barrier, string> = {
   legal: 'Legal / record clearing',
 };
 
+// ── Action / task engine ──────────────────────────────────────────────────
+// A participant's plan is a list of trackable tasks. The status vocabulary
+// mirrors checklist-store (planned → contacted → scheduled → completed) so the
+// whole app speaks one language for "where is this in the pipeline."
+
+export type TaskStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
+export type TaskCategory =
+  | 'application' | 'training' | 'document' | 'barrier' | 'appointment' | 'other';
+/** Provenance — which part of the cockpit generated this task. */
+export type TaskSource = 'plan' | 'match' | 'barrier' | 'training' | 'dol' | 'manual';
+
+export const TASK_STATUS_ORDER: TaskStatus[] = ['planned', 'contacted', 'scheduled', 'completed'];
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  planned: 'Planned',
+  contacted: 'Contacted',
+  scheduled: 'Scheduled',
+  completed: 'Completed',
+};
+export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
+  application: 'Application',
+  training: 'Training',
+  document: 'Document',
+  barrier: 'Barrier',
+  appointment: 'Appointment',
+  other: 'Other',
+};
+
+export interface Task {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  category: TaskCategory;
+  source: TaskSource;
+  /** ISO yyyy-mm-dd. */
+  dueDate?: string;
+  notes?: string;
+  /** Deep-link back to the task's origin so the UI can jump to it. */
+  ref?: { jobId?: string; url?: string; stepId?: string };
+  createdAt: number;
+  completedAt?: number;
+}
+
+export type NewTask = Omit<Task, 'id' | 'createdAt' | 'status' | 'completedAt'> &
+  Partial<Pick<Task, 'id' | 'status'>>;
+
 export interface Participant {
   id: string;
   name: string;
@@ -40,7 +85,9 @@ export interface Participant {
   careerGoal: string;
   barriers: Barrier[];
   notes: string;
-  /** Caseworker-checkable progress on plan actions, keyed by action id. */
+  /** The action plan — trackable tasks with status + due dates. */
+  tasks?: Task[];
+  /** @deprecated boolean progress map — superseded by `tasks`; kept for migration. */
   progress?: Record<string, boolean>;
   createdAt: number;
   updatedAt: number;
@@ -52,11 +99,37 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 const emit = () => listeners.forEach((fn) => fn());
 
+/**
+ * Normalize a persisted participant forward to the current shape. Defaults
+ * `tasks`, and back-fills it from the legacy boolean `progress` map (one-time)
+ * so historical progress is never lost when an older caseload is loaded.
+ */
+function migrateParticipant(p: Participant): Participant {
+  if (Array.isArray(p.tasks)) return p;
+  const tasks: Task[] = [];
+  if (p.progress) {
+    for (const [actionId, done] of Object.entries(p.progress)) {
+      if (!done) continue;
+      tasks.push({
+        id: `legacy:${actionId}`,
+        title: actionId,
+        status: 'completed',
+        category: 'other',
+        source: 'plan',
+        createdAt: p.createdAt || Date.now(),
+        completedAt: p.updatedAt || Date.now(),
+      });
+    }
+  }
+  return { ...p, tasks };
+}
+
 function read(): Participant[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Participant[]) : [];
+    const parsed = raw ? (JSON.parse(raw) as Participant[]) : [];
+    return parsed.map(migrateParticipant);
   } catch { return []; }
 }
 
@@ -138,10 +211,92 @@ export function setProgress(id: string, actionId: string, done: boolean) {
   commit(roster.map((p) => (p.id === id ? { ...p, progress: { ...(p.progress ?? {}), [actionId]: done }, updatedAt: Date.now() } : p)));
 }
 
+// ── Task mutators ─────────────────────────────────────────────────────────
+// All route through commit() so snapshot stability, write(), emit() and
+// session-only mode keep working unchanged.
+
+export function newTaskId(): string {
+  return 't_' + Math.random().toString(36).slice(2, 10);
+}
+
+function patchParticipant(id: string, fn: (p: Participant) => Participant) {
+  commit(roster.map((p) => (p.id === id ? { ...fn(p), updatedAt: Date.now() } : p)));
+}
+
+export function addTask(pid: string, t: NewTask): Task {
+  const task: Task = {
+    id: t.id ?? newTaskId(),
+    title: t.title,
+    status: t.status ?? 'planned',
+    category: t.category,
+    source: t.source,
+    dueDate: t.dueDate,
+    notes: t.notes,
+    ref: t.ref,
+    createdAt: Date.now(),
+  };
+  patchParticipant(pid, (p) => ({ ...p, tasks: [...(p.tasks ?? []), task] }));
+  return task;
+}
+
+export function updateTask(pid: string, taskId: string, patch: Partial<Task>) {
+  patchParticipant(pid, (p) => ({
+    ...p,
+    tasks: (p.tasks ?? []).map((t) => (t.id === taskId ? { ...t, ...patch } : t)),
+  }));
+}
+
+export function setTaskStatus(pid: string, taskId: string, status: TaskStatus) {
+  patchParticipant(pid, (p) => ({
+    ...p,
+    tasks: (p.tasks ?? []).map((t) =>
+      t.id === taskId
+        ? { ...t, status, completedAt: status === 'completed' ? Date.now() : undefined }
+        : t,
+    ),
+  }));
+}
+
+export function removeTask(pid: string, taskId: string) {
+  patchParticipant(pid, (p) => ({ ...p, tasks: (p.tasks ?? []).filter((t) => t.id !== taskId) }));
+}
+
+/**
+ * Idempotently add generated tasks (from matches / barriers / training) by
+ * their deterministic id. Never overwrites a task the caseworker already has —
+ * so re-scoring or reopening the workspace can't clobber edited status/notes.
+ */
+export function reconcileGeneratedTasks(pid: string, generated: NewTask[]) {
+  patchParticipant(pid, (p) => {
+    const existing = new Set((p.tasks ?? []).map((t) => t.id));
+    const fresh = generated
+      .filter((g) => g.id && !existing.has(g.id))
+      .map((g): Task => ({
+        id: g.id as string,
+        title: g.title,
+        status: g.status ?? 'planned',
+        category: g.category,
+        source: g.source,
+        dueDate: g.dueDate,
+        notes: g.notes,
+        ref: g.ref,
+        createdAt: Date.now(),
+      }));
+    return fresh.length ? { ...p, tasks: [...(p.tasks ?? []), ...fresh] } : p;
+  });
+}
+
 const EMPTY: Participant[] = [];
 export function useCaseload(): Participant[] {
   return useSyncExternalStore(subscribe, getCaseload, () => EMPTY);
 }
 export function usePersistEnabled(): boolean {
   return useSyncExternalStore(subscribe, isPersistEnabled, () => true);
+}
+export function useParticipant(id: string): Participant | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => roster.find((p) => p.id === id) ?? null,
+    () => null,
+  );
 }
