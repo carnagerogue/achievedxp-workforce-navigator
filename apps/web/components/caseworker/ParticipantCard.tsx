@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS } from '@dxp/shared';
 import type { Participant } from '../../lib/caseworker-store';
-import { Avatar } from './Avatar';
-import { ProgressRing } from './ProgressRing';
+import { Avatar } from '../common/Avatar';
+import { ProgressRing } from '../common/ProgressRing';
 import {
   progressPct, overdueTasks, nextDueTask, momentum, openTasks, type Momentum,
 } from '../../lib/caseworker-progress';

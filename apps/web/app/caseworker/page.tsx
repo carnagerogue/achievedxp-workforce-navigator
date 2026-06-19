@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ClipboardList, Plus, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ClipboardList, Plus, Users, FileDown } from 'lucide-react';
 import { CONVICTION_LABELS } from '@dxp/shared';
-import { useCaseload, type Participant } from '../../lib/caseworker-store';
+import { useCaseload, saveParticipant, type Participant } from '../../lib/caseworker-store';
+import { PlanImportDialog } from '../../components/plan/PlanImportDialog';
+import { portableToParticipant, type PortablePlan } from '../../lib/plan-transfer';
 import {
   progressPct, overdueTasks, lastActivityAt, needsAttention,
 } from '../../lib/caseworker-progress';
@@ -39,9 +42,18 @@ const SORTERS: Record<CaseloadSort, (a: Participant, b: Participant) => number> 
 
 export default function CaseworkerCommandCenter() {
   const caseload = useCaseload();
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<CaseloadSort>('recent');
   const [filter, setFilter] = useState<CaseloadFilter>('all');
+  const [showImport, setShowImport] = useState(false);
+
+  const importPlan = (plan: PortablePlan) => {
+    const p = portableToParticipant(plan);
+    saveParticipant(p);
+    setShowImport(false);
+    router.push(`/caseworker/${p.id}`);
+  };
 
   const visible = useMemo(
     () => caseload.filter((p) => matchesFilter(p, filter) && matchesQuery(p, query)).sort(SORTERS[sort]),
@@ -68,14 +80,32 @@ export default function CaseworkerCommandCenter() {
               </p>
             </div>
           </div>
-          <Link
-            href="/caseworker/new"
-            className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-navy-900 shadow transition hover:bg-teal-50"
-          >
-            <Plus className="h-4 w-4" /> New participant
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setShowImport(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              <FileDown className="h-4 w-4" /> Import plan
+            </button>
+            <Link
+              href="/caseworker/new"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-navy-900 shadow transition hover:bg-teal-50"
+            >
+              <Plus className="h-4 w-4" /> New participant
+            </Link>
+          </div>
         </div>
       </section>
+
+      {showImport && (
+        <PlanImportDialog
+          title="Import a participant plan"
+          hint="Paste a code or upload a file a participant built in their own “My Plan.” It becomes a new participant in your caseload."
+          allowMerge={false}
+          onImport={importPlan}
+          onClose={() => setShowImport(false)}
+        />
+      )}
 
       {caseload.length === 0 ? (
         <EmptyState />

@@ -6,7 +6,7 @@ import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
   AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
   HeartPulse, Wallet, Baby, Shirt, GraduationCap, ListChecks, Plus, Check,
-  Printer, Trash2,
+  Printer, Trash2, Share2, FileDown, Sparkles, AlertTriangle, CalendarClock, Flame,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -22,8 +22,19 @@ import { useDebounce } from '../../lib/use-debounce';
 import {
   useChecklist, useOwnerName, usePlanGoals, isInChecklist, toggleChecklist, removeFromChecklist,
   setChecklistStatus, setChecklistNotes, setChecklistTargetDate, setOwnerName, setPlanGoals,
-  clearChecklist, type ChecklistItem, type ChecklistStatus,
+  clearChecklist, importChecklist, useCheckins, addCheckin, removeCheckin,
+  type ChecklistItem, type ChecklistStatus, type CheckIn,
 } from '../../lib/checklist-store';
+import { Avatar } from '../../components/common/Avatar';
+import { ProgressRing } from '../../components/common/ProgressRing';
+import { PlanShareDialog } from '../../components/plan/PlanShareDialog';
+import { PlanImportDialog } from '../../components/plan/PlanImportDialog';
+import {
+  checklistToPortable, portableToChecklist, type PortablePlan,
+} from '../../lib/plan-transfer';
+import {
+  progressPct, countByStatus, overdueItems, dueSoonItems, nextStep, momentum,
+} from '../../lib/plan-progress';
 
 /**
  * In-person resources page. Two tabs of CareerOneStop / DOL data:
@@ -333,12 +344,18 @@ function fmtPlanDate(iso?: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function printPlan(owner: string, goals: string, items: ChecklistItem[]) {
+function printPlan(owner: string, goals: string, items: ChecklistItem[], checkins: CheckIn[] = []) {
   const win = window.open('', '_blank', 'width=820,height=1000');
   if (!win) return;
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const esc = (s: string) => (s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string));
   const count = (s: ChecklistStatus) => items.filter((i) => i.status === s).length;
+  const pct = items.length ? Math.round((count('completed') / items.length) * 100) : 0;
+  const wins = items.filter((i) => i.status === 'completed');
+  const upcoming = items.filter((i) => i.status !== 'completed' && i.targetDate);
+  const winsHtml = wins.length ? `<div class="block"><div class="lbl">Completed — wins</div><ul>${wins.map((w) => `<li>${esc(w.name)}${w.notes ? ` — ${esc(w.notes)}` : ''}</li>`).join('')}</ul></div>` : '';
+  const upHtml = upcoming.length ? `<div class="block"><div class="lbl">Upcoming commitments</div><ul>${upcoming.map((u) => `<li>${esc(fmtPlanDate(u.targetDate))} — ${esc(u.name)}</li>`).join('')}</ul></div>` : '';
+  const ciHtml = checkins.length ? `<div class="block"><div class="lbl">Recent weekly check-ins</div><ul>${checkins.slice(0, 6).map((c) => `<li>${esc(fmtPlanDate(c.date))} · ${c.rating}/5${c.note ? ` — ${esc(c.note)}` : ''}</li>`).join('')}</ul></div>` : '';
   const rows = items.map((it) => `
     <tr>
       <td class="st"><span class="mark">${STATUS_META[it.status].mark}</span> ${STATUS_META[it.status].label}</td>
@@ -358,6 +375,10 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[]) {
       .sub{color:#475569;margin:2px 0} .goals{margin:12px 0 0;padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px}
       .goals .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e}
       .summary{margin-top:12px;color:#334155} .summary b{color:#0f172a}
+      .pct{font-size:15px;font-weight:800;color:#0f766e}
+      .bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin:6px 0 0;max-width:320px} .bar i{display:block;height:100%;background:#0d9488}
+      .block{margin-top:14px} .block .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#0f766e;margin-bottom:3px}
+      .block ul{margin:0;padding-left:18px} .block li{margin:2px 0;color:#334155}
       table{width:100%;border-collapse:collapse;margin-top:16px}
       th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid #e2e8f0}
       th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
@@ -371,11 +392,14 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[]) {
     <h1>Reentry Action Plan &amp; Progress Report</h1>
     <p class="sub"><strong>Prepared by:</strong> ${esc(owner || '—')} &nbsp;·&nbsp; <strong>Date:</strong> ${today}</p>
     ${goals.trim() ? `<div class="goals"><div class="lbl">My goals</div>${esc(goals)}</div>` : ''}
-    <p class="summary"><b>${items.length}</b> resources on plan &nbsp;·&nbsp; <b>${count('completed')}</b> completed &nbsp;·&nbsp; <b>${count('scheduled')}</b> scheduled &nbsp;·&nbsp; <b>${count('contacted')}</b> contacted &nbsp;·&nbsp; <b>${count('planned')}</b> planned</p>
+    <p class="summary"><span class="pct">${pct}% complete</span> &nbsp;·&nbsp; <b>${items.length}</b> on plan &nbsp;·&nbsp; <b>${count('completed')}</b> completed &nbsp;·&nbsp; <b>${count('scheduled')}</b> scheduled &nbsp;·&nbsp; <b>${count('contacted')}</b> contacted &nbsp;·&nbsp; <b>${count('planned')}</b> planned</p>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    ${winsHtml}${upHtml}
     <table>
       <thead><tr><th>Status</th><th>Resource &amp; need</th><th>Target&nbsp;date</th><th>Plan / next step / outcome</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    ${ciHtml}
     <div class="sign"><div>Participant signature / date</div><div>Officer / case manager signature / date</div></div>
     <p class="foot">Self-reported progress toward reentry goals. Job centers and reentry programs sourced from the U.S. Department of Labor (CareerOneStop); community resources are vetted national programs and official government locators.</p>
     </body></html>`);
@@ -384,96 +408,237 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[]) {
   setTimeout(() => win.print(), 300);
 }
 
+const MOMENTUM_META = {
+  rising: { label: 'Rising', cls: 'bg-teal-50 text-teal-700 ring-teal-200' },
+  steady: { label: 'Steady', cls: 'bg-slate-50 text-slate-600 ring-slate-200' },
+  stalled: { label: 'Let’s get moving', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
+} as const;
+
 function ChecklistView() {
   const items = useChecklist();
   const owner = useOwnerName();
   const goals = usePlanGoals();
+  const checkins = useCheckins();
+  const [showShare, setShowShare] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+
+  const pct = progressPct(items);
+  const counts = countByStatus(items);
+  const next = nextStep(items);
+  const overdue = overdueItems(items);
+  const soon = dueSoonItems(items);
+  const mo = MOMENTUM_META[momentum(items)];
+
+  const handleImport = (plan: PortablePlan, mode: 'replace' | 'merge') => {
+    importChecklist(portableToChecklist(plan), mode);
+    setShowImport(false);
+  };
+
+  const dialogs = (
+    <>
+      {showShare && (
+        <PlanShareDialog plan={checklistToPortable(items, owner, goals)} audience="caseworker" onClose={() => setShowShare(false)} />
+      )}
+      {showImport && (
+        <PlanImportDialog
+          title="Import a plan"
+          hint="Paste a code or upload a file your caseworker shared with you."
+          allowMerge
+          onImport={handleImport}
+          onClose={() => setShowImport(false)}
+        />
+      )}
+    </>
+  );
 
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-card">
+        {dialogs}
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
           <ListChecks className="h-6 w-6" />
         </div>
         <h3 className="mt-4 text-base font-semibold text-navy-900">Build your reentry plan</h3>
         <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
           Browse <strong>Job Centers</strong>, <strong>Reentry Programs</strong>, and{' '}
-          <strong>Community Resources</strong>, then tap <em>Add to my plan</em>. For each one, track where
-          you are — planned, contacted, scheduled, completed — add appointment dates and next steps, and print a
-          progress report to show your parole or probation officer.
+          <strong>Community Resources</strong>, then tap <em>Add to my plan</em>. Track where you are,
+          set dates, and print a progress report for your parole or probation officer.
         </p>
+        <button
+          type="button"
+          onClick={() => setShowImport(true)}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700"
+        >
+          <FileDown className="h-4 w-4" /> Import a plan from my caseworker
+        </button>
       </div>
     );
   }
 
-  const count = (s: ChecklistStatus) => items.filter((i) => i.status === s).length;
-
   return (
-    <div>
-      <div className="mb-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/70 to-white p-4">
+    <div className="space-y-4">
+      {dialogs}
+
+      {/* Dashboard header */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+        <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-5 py-5">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_90%_-20%,rgba(45,212,229,0.25),transparent)]" />
+          <div className="relative flex items-center gap-4">
+            <Avatar name={owner || 'You'} size={52} />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-white">{owner ? `${owner}’s plan` : 'Your reentry plan'}</h2>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <StatusChip label="Completed" n={counts.completed ?? 0} cls="bg-teal-400/20 text-teal-50 ring-teal-300/30" />
+                <StatusChip label="Scheduled" n={counts.scheduled ?? 0} cls="bg-sky-400/20 text-sky-50 ring-sky-300/30" />
+                <StatusChip label="Contacted" n={counts.contacted ?? 0} cls="bg-amber-400/20 text-amber-50 ring-amber-300/30" />
+                <StatusChip label="Planned" n={counts.planned ?? 0} cls="bg-white/10 text-white ring-white/20" />
+                <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ring-inset ${mo.cls}`}>{mo.label}</span>
+              </div>
+            </div>
+            <div className="hidden sm:block"><ProgressRing pct={pct} size={60} stroke={5} /></div>
+          </div>
+        </div>
+
+        {/* Your next step */}
+        <div className={'flex items-start gap-3 px-5 py-3.5 ' + (next.severity === 'urgent' ? 'bg-rose-50/70' : 'bg-teal-50/50')}>
+          <span className={'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ' + (next.severity === 'urgent' ? 'bg-rose-100 text-rose-600' : 'bg-teal-100 text-teal-700')}>
+            {next.severity === 'urgent' ? <AlertTriangle className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Your next step</p>
+            <p className="text-sm font-bold text-navy-900">{next.label}</p>
+            <p className="text-xs text-slate-600">{next.reason}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Name, goals & actions */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block text-xs font-medium text-slate-700">Your name (on the report)</span>
-            <input
-              type="text"
-              value={owner}
-              onChange={(e) => setOwnerName(e.target.value)}
-              placeholder="e.g. Jordan Smith"
-              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+            <input type="text" value={owner} onChange={(e) => setOwnerName(e.target.value)} placeholder="e.g. Jordan Smith"
+              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-xs font-medium text-slate-700">My goals (what I'm working toward)</span>
-            <input
-              type="text"
-              value={goals}
-              onChange={(e) => setPlanGoals(e.target.value)}
-              placeholder="e.g. Find stable work + housing within 90 days"
-              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+            <span className="mb-1 block text-xs font-medium text-slate-700">My goals (what I&rsquo;m working toward)</span>
+            <input type="text" value={goals} onChange={(e) => setPlanGoals(e.target.value)} placeholder="e.g. Find stable work + housing within 90 days"
+              className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-600">
-            <strong className="text-navy-900">{items.length}</strong> on plan · {count('completed')} completed · {count('scheduled')} scheduled · {count('contacted')} contacted
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => printPlan(owner, goals, items)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
-            >
-              <Printer className="h-4 w-4" /> Print progress report
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (confirm('Clear your whole plan?')) clearChecklist(); }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
-            >
-              <Trash2 className="h-4 w-4" /> Clear
-            </button>
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setShowShare(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-navy-800">
+            <Share2 className="h-4 w-4" /> Share with my caseworker
+          </button>
+          <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700">
+            <FileDown className="h-4 w-4" /> Import a plan
+          </button>
+          <button type="button" onClick={() => printPlan(owner, goals, items, checkins)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700">
+            <Printer className="h-4 w-4" /> Print report
+          </button>
+          <button type="button" onClick={() => { if (confirm('Clear your whole plan?')) clearChecklist(); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700">
+            <Trash2 className="h-4 w-4" /> Clear
+          </button>
         </div>
-      </div>
+      </section>
+
+      {/* Needs attention */}
+      {(overdue.length > 0 || soon.length > 0) && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-card">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900"><Flame className="h-4 w-4 text-amber-600" /> Needs your attention</h3>
+          <ul className="mt-2 space-y-1.5">
+            {overdue.map((i) => (
+              <li key={i.id} className="flex items-center gap-2 text-xs"><AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-600" /><span className="font-semibold text-navy-900">{i.name}</span><span className="text-rose-700">overdue · {fmtPlanDate(i.targetDate)}</span></li>
+            ))}
+            {soon.map((i) => (
+              <li key={i.id} className="flex items-center gap-2 text-xs"><CalendarClock className="h-3.5 w-3.5 shrink-0 text-amber-600" /><span className="font-semibold text-navy-900">{i.name}</span><span className="text-amber-700">due {fmtPlanDate(i.targetDate)}</span></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Weekly check-in */}
+      <CheckinCard checkins={checkins} />
 
       <ul className="grid gap-3">
-        {items.map((it) => <ChecklistRow key={it.id} item={it} />)}
+        {items.map((it) => <ChecklistRow key={it.id} item={it} overdue={overdue.some((o) => o.id === it.id)} />)}
       </ul>
     </div>
   );
 }
 
-function ChecklistRow({ item }: { item: ChecklistItem }) {
-  const cleanPhone = (item.phone ?? '').replace(/[^\d]/g, '');
+function StatusChip({ label, n, cls }: { label: string; n: number; cls: string }) {
+  return <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ring-inset ${cls}`}>{n} {label}</span>;
+}
+
+function CheckinCard({ checkins }: { checkins: CheckIn[] }) {
+  const [rating, setRating] = useState(0);
+  const [note, setNote] = useState('');
+  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const log = () => {
+    if (!rating && !note.trim()) return;
+    addCheckin({ date: todayIso(), rating: rating || 3, note: note.trim() });
+    setRating(0); setNote('');
+  };
   return (
-    <li className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900"><HeartPulse className="h-4 w-4 text-teal-600" /> Weekly check-in</h3>
+      <p className="mt-0.5 text-xs text-slate-500">How did this week go? A quick note keeps you honest and shows effort over time.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((r) => (
+            <button key={r} type="button" onClick={() => setRating(r)} aria-label={`${r} out of 5`}
+              className={'h-7 w-7 rounded-full text-xs font-bold transition ' + (rating >= r ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') log(); }}
+          placeholder="What went well? What was hard?"
+          className="min-w-[180px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+        <button type="button" onClick={log} className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700">Log check-in</button>
+      </div>
+      {checkins.length > 0 && (
+        <ul className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
+          {checkins.slice(0, 4).map((c) => (
+            <li key={c.id} className="flex items-start gap-2 text-xs">
+              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-50 font-bold text-teal-700">{c.rating}</span>
+              <span className="flex-1 text-slate-600">{c.note || <span className="text-slate-400">No note</span>}</span>
+              <span className="shrink-0 text-slate-400">{fmtPlanDate(c.date)}</span>
+              <button onClick={() => removeCheckin(c.id)} className="shrink-0 text-slate-300 hover:text-rose-500" aria-label="Remove check-in"><Trash2 className="h-3 w-3" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ChecklistRow({ item, overdue = false }: { item: ChecklistItem; overdue?: boolean }) {
+  const cleanPhone = (item.phone ?? '').replace(/[^\d]/g, '');
+  const done = item.status === 'completed';
+  return (
+    <li className={'rounded-2xl border bg-white p-4 shadow-card sm:p-5 ' + (overdue ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200')}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          <button
+            type="button"
+            onClick={() => setChecklistStatus(item.id, done ? 'planned' : 'completed')}
+            aria-label={done ? 'Mark not done' : 'Mark done'}
+            className={
+              'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ' +
+              (done ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-300 bg-white text-transparent hover:border-teal-400 hover:text-teal-300')
+            }
+          >
+            <Check className="h-3 w-3" />
+          </button>
+          <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-navy-900">{item.name}</h3>
+            <h3 className={'text-base font-semibold text-navy-900 ' + (done ? 'line-through opacity-60' : '')}>{item.name}</h3>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
               {item.type}{item.category ? ` · ${item.category}` : ''}
             </span>
+            {overdue && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">Overdue</span>}
           </div>
           {(item.address || item.cityState) && (
             <p className="mt-1 text-sm text-slate-600">
@@ -492,6 +657,7 @@ function ChecklistRow({ item }: { item: ChecklistItem }) {
               </a>
             )}
           </div>
+        </div>
         </div>
         <button
           type="button"

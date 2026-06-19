@@ -1,15 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Printer, Sparkles, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { ProgressRing } from '../ProgressRing';
-import { Avatar } from '../Avatar';
+import { ArrowLeft, Printer, Sparkles, AlertTriangle, ShieldCheck, Share2 } from 'lucide-react';
+import { ProgressRing } from '../../common/ProgressRing';
+import { Avatar } from '../../common/Avatar';
 import type { NextBestAction } from '../../../lib/caseworker-nba';
 
 export interface HeaderStats { open: number; overdue: number; matches: number; barriers: number }
 
 export function WorkspaceHeader({
-  name, convictionLabel, contextLabel, supervisionLabel, pct, nba, stats, onPrint, onJump,
+  name, convictionLabel, contextLabel, supervisionLabel, pct, nba, stats, onPrint, onExport, onJump,
 }: {
   name: string;
   convictionLabel: string;
@@ -19,6 +19,7 @@ export function WorkspaceHeader({
   nba: NextBestAction;
   stats: HeaderStats;
   onPrint: () => void;
+  onExport: () => void;
   onJump: (anchor: string) => void;
 }) {
   const urgent = nba.severity === 'urgent';
@@ -31,12 +32,20 @@ export function WorkspaceHeader({
           <Link href="/caseworker" className="inline-flex items-center gap-1 text-xs font-semibold text-teal-100/90 hover:text-white">
             <ArrowLeft className="h-3.5 w-3.5" /> Command center
           </Link>
-          <button
-            onClick={onPrint}
-            className="inline-flex items-center gap-2 rounded-lg bg-white/95 px-4 py-2 text-xs font-semibold text-navy-900 shadow-sm transition hover:bg-white"
-          >
-            <Printer className="h-3.5 w-3.5" /> Save &amp; print plan
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onExport}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/20"
+            >
+              <Share2 className="h-3.5 w-3.5" /> Give to participant
+            </button>
+            <button
+              onClick={onPrint}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/95 px-4 py-2 text-xs font-semibold text-navy-900 shadow-sm transition hover:bg-white"
+            >
+              <Printer className="h-3.5 w-3.5" /> Save &amp; print plan
+            </button>
+          </div>
         </div>
 
         <div className="relative mt-4 flex items-center gap-4">

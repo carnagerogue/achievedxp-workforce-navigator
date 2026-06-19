@@ -20,6 +20,8 @@ import { progressPct, openTasks, overdueTasks } from '../../../lib/caseworker-pr
 import { nextBestAction } from '../../../lib/caseworker-nba';
 import { buildPlan, planTitle } from '../../../lib/caseworker-plan';
 import { loadDolIntel } from '../../../lib/caseworker-dol';
+import { PlanShareDialog } from '../../../components/plan/PlanShareDialog';
+import { participantToPortable } from '../../../lib/plan-transfer';
 import { WorkspaceHeader } from '../../../components/caseworker/workspace/WorkspaceHeader';
 import { IntakePanel } from '../../../components/caseworker/workspace/IntakePanel';
 import { MatchesPanel } from '../../../components/caseworker/workspace/MatchesPanel';
@@ -61,6 +63,7 @@ export default function ParticipantWorkspace() {
   // deferred-localStorage pattern used elsewhere in the app.
   const [draft, setDraft] = useState<Participant>(() => emptyDraft(pid));
   const [mounted, setMounted] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const seeded = useRef(isNew); // existing participants seed once on load
   const dirty = useRef(false);
   const urlReplaced = useRef(isNew ? false : true);
@@ -245,8 +248,17 @@ export default function ParticipantWorkspace() {
         nba={nba}
         stats={{ open: openTasks(merged).length, overdue: overdueTasks(merged).length, matches: top.length, barriers: draft.barriers.length }}
         onPrint={saveAndPrint}
+        onExport={() => { ensurePersist(); setShowExport(true); }}
         onJump={jump}
       />
+
+      {showExport && (
+        <PlanShareDialog
+          plan={participantToPortable(getParticipant(pid) ?? merged)}
+          audience="participant"
+          onClose={() => setShowExport(false)}
+        />
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[200px_1fr]">
         {/* Sticky section nav */}

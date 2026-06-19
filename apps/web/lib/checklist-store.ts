@@ -35,11 +35,24 @@ export interface ChecklistItem {
   /** Plan, next step, and outcome (e.g. "Intake 3/14 2pm — ask for Maria"). */
   notes?: string;
   addedAt: number;
+  /** Set when status becomes completed; powers momentum/streak + report wins. */
+  completedAt?: number;
+}
+
+/** Lightweight weekly self-check-in — turns the plan into a habit loop. */
+export interface CheckIn {
+  id: string;
+  /** ISO yyyy-mm-dd of the check-in. */
+  date: string;
+  /** 1–5 self-rating of how the week went. */
+  rating: number;
+  note: string;
 }
 
 const KEY = 'dxp.checklist';
 const NAME_KEY = 'dxp.checklist.name';
 const GOALS_KEY = 'dxp.checklist.goals';
+const CHECKINS_KEY = 'dxp.checklist.checkins';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -71,12 +84,14 @@ function normalize(items: ChecklistItem[]): ChecklistItem[] {
 let items: ChecklistItem[] = normalize(read<ChecklistItem[]>(KEY, []));
 let ownerName: string = read<string>(NAME_KEY, '');
 let planGoals: string = read<string>(GOALS_KEY, '');
+let checkins: CheckIn[] = read<CheckIn[]>(CHECKINS_KEY, []);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key === KEY) { items = normalize(read<ChecklistItem[]>(KEY, [])); emit(); }
     else if (e.key === NAME_KEY) { ownerName = read<string>(NAME_KEY, ''); emit(); }
     else if (e.key === GOALS_KEY) { planGoals = read<string>(GOALS_KEY, ''); emit(); }
+    else if (e.key === CHECKINS_KEY) { checkins = read<CheckIn[]>(CHECKINS_KEY, []); emit(); }
   });
 }
 
@@ -105,13 +120,43 @@ function patch(id: string, p: Partial<ChecklistItem>) {
   items = items.map((i) => (i.id === id ? { ...i, ...p } : i));
   write(KEY, items); emit();
 }
-export function setChecklistStatus(id: string, status: ChecklistStatus) { patch(id, { status }); }
+export function setChecklistStatus(id: string, status: ChecklistStatus) {
+  patch(id, { status, completedAt: status === 'completed' ? Date.now() : undefined });
+}
 export function setChecklistNotes(id: string, notes: string) { patch(id, { notes }); }
 export function setChecklistTargetDate(id: string, targetDate: string) { patch(id, { targetDate }); }
 
 export function clearChecklist() {
   items = [];
   write(KEY, items); emit();
+}
+
+/**
+ * Load a plan handed over from a caseworker (or another device). 'replace'
+ * swaps the whole plan; 'merge' appends items whose id isn't already present.
+ */
+export function importChecklist(incoming: ChecklistItem[], mode: 'replace' | 'merge' = 'replace') {
+  const clean = normalize(incoming);
+  if (mode === 'replace') {
+    items = clean;
+  } else {
+    const have = new Set(items.map((i) => i.id));
+    items = [...items, ...clean.filter((i) => !have.has(i.id))];
+  }
+  write(KEY, items); emit();
+}
+
+// ── Weekly check-ins ──────────────────────────────────────────────────────
+export function getCheckins(): CheckIn[] { return checkins; }
+export function addCheckin(c: Omit<CheckIn, 'id'>): CheckIn {
+  const entry: CheckIn = { ...c, id: 'ci_' + Math.random().toString(36).slice(2, 9) };
+  checkins = [entry, ...checkins];
+  write(CHECKINS_KEY, checkins); emit();
+  return entry;
+}
+export function removeCheckin(id: string) {
+  checkins = checkins.filter((c) => c.id !== id);
+  write(CHECKINS_KEY, checkins); emit();
 }
 
 export function getOwnerName(): string { return ownerName; }
@@ -129,4 +174,8 @@ export function useOwnerName(): string {
 }
 export function usePlanGoals(): string {
   return useSyncExternalStore(subscribe, getPlanGoals, () => '');
+}
+const EMPTY_CHECKINS: CheckIn[] = [];
+export function useCheckins(): CheckIn[] {
+  return useSyncExternalStore(subscribe, getCheckins, () => EMPTY_CHECKINS);
 }
