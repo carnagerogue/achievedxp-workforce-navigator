@@ -194,10 +194,11 @@ function JobsPage() {
     listJobs({
       q: dq || undefined,
       industry: industry || undefined,
-      city:       locationFilter.city,
-      region:     locationFilter.region,
-      postalCode: locationFilter.postalCode,
-      radiusMiles: locationFilter.postalCode ? radiusMiles : undefined,
+      // Remote ignores geography entirely — location + radius are irrelevant.
+      city:       remote ? undefined : locationFilter.city,
+      region:     remote ? undefined : locationFilter.region,
+      postalCode: remote ? undefined : locationFilter.postalCode,
+      radiusMiles: !remote && locationFilter.postalCode ? radiusMiles : undefined,
       offenseType: offenseType || undefined,
       hideFelonExclusions: hideClosedRecord || undefined,
       minSalary: minSalary || undefined,
@@ -256,7 +257,9 @@ function JobsPage() {
   const activeChips: Array<{ key: string; label: string; onClear: () => void }> = [];
   if (dq)             activeChips.push({ key: 'q',        label: `Search: "${dq}"`,                     onClear: () => setQ('') });
   if (industry)       activeChips.push({ key: 'industry', label: `Industry: ${prettyIndustry(industry)}`, onClear: () => setIndustry('') });
-  if (locationFilter.postalCode) {
+  if (remote) {
+    // Remote ignores geography — don't surface a location chip.
+  } else if (locationFilter.postalCode) {
     activeChips.push({ key: 'zip', label: `ZIP ${locationFilter.postalCode} (${radiusMiles} mi)`, onClear: () => setLocationInput('') });
   } else if (locationFilter.city && locationFilter.region) {
     activeChips.push({ key: 'cityregion', label: `${locationFilter.city}, ${locationFilter.region}`, onClear: () => setLocationInput('') });
@@ -316,12 +319,15 @@ function JobsPage() {
           <FilterField label="Location" Icon={MapPin}>
             <input
               type="text"
-              value={locationInput}
+              value={remote ? '' : locationInput}
               onChange={(e) => setLocationInput(e.target.value)}
-              placeholder="ZIP, city, or state"
-              className="block w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              disabled={remote}
+              placeholder={remote ? 'Not used for remote roles' : 'ZIP, city, or state'}
+              className="block w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
             />
-            <LocationHint filter={locationFilter} />
+            {remote
+              ? <p className="mt-1 text-xs text-slate-500">Remote is on — location &amp; radius don’t apply.</p>
+              : <LocationHint filter={locationFilter} />}
           </FilterField>
 
           <label className="text-sm sm:col-span-2">
@@ -331,7 +337,7 @@ function JobsPage() {
                 Radius
               </span>
               <span className="font-semibold text-teal-700">
-                {locationFilter.postalCode ? `${radiusMiles} miles` : 'enter a ZIP to use'}
+                {remote ? 'not used for remote' : locationFilter.postalCode ? `${radiusMiles} miles` : 'enter a ZIP to use'}
               </span>
             </span>
             <input
@@ -340,7 +346,7 @@ function JobsPage() {
               max={100}
               step={5}
               value={radiusMiles}
-              disabled={!locationFilter.postalCode}
+              disabled={remote || !locationFilter.postalCode}
               onChange={(e) => setRadiusMiles(Number(e.target.value))}
               className="block w-full accent-teal-600 disabled:opacity-50"
             />
@@ -405,7 +411,17 @@ function JobsPage() {
             </FilterField>
           )}
 
-          <div className="grid gap-3 sm:col-span-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:col-span-3 sm:grid-cols-3">
+            <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/60 p-3 text-sm text-slate-700 transition hover:bg-sky-50">
+              <input
+                type="checkbox"
+                checked={remote}
+                onChange={(e) => setRemote(e.target.checked)}
+                className="h-4 w-4 rounded border-sky-400 text-sky-600 focus:ring-sky-500"
+              />
+              <Radio className="h-4 w-4 text-sky-600" />
+              <span className="font-medium text-slate-800">Remote only — anywhere, no location needed</span>
+            </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 transition hover:bg-slate-100">
               <input
                 type="checkbox"

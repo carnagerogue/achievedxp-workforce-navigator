@@ -685,19 +685,22 @@ export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): Paginated
     pool = pool.filter((j) => j.industry === query.industry);
   }
 
-  if (query.region) {
-    pool = pool.filter((j) => j.locationRegion === query.region);
-  }
+  // Remote makes geography irrelevant — skip all location filters.
+  if (!query.remote) {
+    if (query.region) {
+      pool = pool.filter((j) => j.locationRegion === query.region);
+    }
 
-  if (query.city) {
-    const needle = query.city.toLowerCase();
-    pool = pool.filter((j) => (j.locationCity ?? '').toLowerCase().includes(needle));
-  }
+    if (query.city) {
+      const needle = query.city.toLowerCase();
+      pool = pool.filter((j) => (j.locationCity ?? '').toLowerCase().includes(needle));
+    }
 
-  if (query.postalCode) {
-    // Bucket by first 2 zip digits — close enough for a demo of radius search.
-    const prefix = query.postalCode.slice(0, 2);
-    pool = pool.filter((j) => (j.locationPostalCode ?? '').startsWith(prefix));
+    if (query.postalCode) {
+      // Bucket by first 2 zip digits — close enough for a demo of radius search.
+      const prefix = query.postalCode.slice(0, 2);
+      pool = pool.filter((j) => (j.locationPostalCode ?? '').startsWith(prefix));
+    }
   }
 
   if (query.hideFelonExclusions) {
