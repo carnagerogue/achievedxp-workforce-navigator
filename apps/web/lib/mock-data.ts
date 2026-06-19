@@ -22,6 +22,7 @@ import type {
   JobInput,
 } from '@dxp/shared';
 import { scoreJobCompatibility, isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
+import { classifyJob, normalizeLocation, isApprenticeshipType } from '@dxp/shared';
 import {
   getProfile,
   candidateProfilesFromStored,
@@ -1463,6 +1464,27 @@ export function mockApprenticeships(_kw: string, location: string) {
  * import-cycle-free; if no providers are configured this returns the
  * bundled JOBS immediately without paying for a network round trip.
  */
+/**
+ * Normalize + classify a job at serve time so every record carries a clean
+ * location, a strict apprenticeship flag, and a classification meta with
+ * confidence + audit trail — for both bundled mock data and live postings.
+ * Idempotent: live jobs already classified at ingestion keep their meta.
+ */
+export function enrichJob(j: JobDto): JobDto {
+  const { city, region } = normalizeLocation(j.locationCity, j.locationRegion, j.locationCountry);
+  const classification = j.classification ?? classifyJob({
+    title: j.title, description: j.description, company: j.company, industryHint: j.industry,
+  });
+  return {
+    ...j,
+    locationCity: city,
+    locationRegion: region,
+    isApprenticeship: isApprenticeshipType(classification.apprenticeship.value),
+    classification,
+  };
+}
+export const enrichPool = (jobs: JobDto[]): JobDto[] => jobs.map(enrichJob);
+
 export async function getJobPool(): Promise<{
   jobs: JobDto[];
   isMock: boolean;
@@ -1472,10 +1494,10 @@ export async function getJobPool(): Promise<{
   // AbortSignal.timeout) into bundles that don't need them.
   const { fetchLiveJobs, listEnabledProviders } = await import('./providers');
   if (listEnabledProviders().length === 0) {
-    return { jobs: JOBS, isMock: true, perProvider: [] };
+    return { jobs: enrichPool(JOBS), isMock: true, perProvider: [] };
   }
   const live = await fetchLiveJobs();
-  if (!live) return { jobs: JOBS, isMock: true, perProvider: [] };
-  return { jobs: live.jobs, isMock: false, perProvider: live.perProvider };
+  if (!live) return { jobs: enrichPool(JOBS), isMock: true, perProvider: [] };
+  return { jobs: enrichPool(live.jobs), isMock: false, perProvider: live.perProvider };
 }
 

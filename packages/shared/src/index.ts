@@ -1,6 +1,8 @@
 // Shared DTO/type surface used by both the API and the (Phase-3) Next.js
 // frontend. Keep this file small and free of runtime deps.
 
+import type { JobClassificationMeta } from './classification';
+
 export type RiskTier = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export type ConvictionCategory = 'FELONY' | 'MISDEMEANOR' | 'INFRACTION';
@@ -81,6 +83,12 @@ export interface JobDto {
   expiresAt: string | null;
   sourceCode?: string;
   sourceName?: string;
+  /**
+   * Inferred classifications with per-field confidence + audit trail. Separate
+   * from the source-provided facts above so the UI can distinguish fact from
+   * inference and suppress/flag uncertain labels. See `classifyJob`.
+   */
+  classification?: JobClassificationMeta;
 }
 
 export interface ScoreBreakdownDto {
@@ -184,3 +192,4 @@ export interface PaginatedJobsDto {
  * server-side DTOs are needed.
  */
 export * from './compatibility';
+export * from './classification';
