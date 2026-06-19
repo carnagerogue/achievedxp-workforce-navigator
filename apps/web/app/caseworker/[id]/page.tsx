@@ -3,12 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, Wrench, LifeBuoy, Landmark, ListChecks, CheckCircle2, User } from 'lucide-react';
+import { ClipboardList, Wrench, LifeBuoy, Landmark, ListChecks, CheckCircle2, User, Gauge } from 'lucide-react';
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS, type JobDto, type TrainingBridgeStep } from '@dxp/shared';
 import {
-  useParticipant, getParticipant, newParticipantId,
+  useParticipant, getParticipant, newParticipantId, setReadiness,
   type Participant, type Barrier,
 } from '../../../lib/caseworker-store';
+import {
+  assessReadiness, participantToReadinessInput, BAND_LABEL,
+  type ReadinessDomainKey, type DomainStatus, type DomainResult,
+} from '../../../lib/readiness';
+import { ReadinessPanel } from '../../../components/readiness/ReadinessPanel';
 import { getRepo } from '../../../lib/caseworker-repo';
 import {
   scoreJobsForParticipant, barriersToResources, contextGuidance,
@@ -44,12 +49,16 @@ const contextLabel = (mode: string) => USER_CONTEXT_OPTIONS.find((o) => o.value 
 
 const NAV = [
   { id: 'intake', label: 'Profile', Icon: User },
+  { id: 'readiness', label: 'Readiness', Icon: Gauge },
   { id: 'plan', label: 'Action plan', Icon: ListChecks },
   { id: 'matches', label: 'Matches', Icon: CheckCircle2 },
   { id: 'barriers', label: 'Local help', Icon: LifeBuoy },
   { id: 'training', label: 'Training', Icon: Wrench },
   { id: 'dol', label: 'Labor market', Icon: Landmark },
 ];
+
+const GAP_TASK_CATEGORY = (cat: string): 'training' | 'appointment' | 'barrier' | 'document' =>
+  cat === 'training' ? 'training' : cat === 'employment' ? 'appointment' : cat === 'legal' ? 'document' : 'barrier';
 
 export default function ParticipantWorkspace() {
   const params = useParams();
@@ -148,6 +157,10 @@ export default function ParticipantWorkspace() {
     () => nextBestAction(merged, { topMatchCount: top.length, trainingGapCount: aggregatedSteps.length }),
     [merged, top.length, aggregatedSteps.length],
   );
+  const readiness = useMemo(
+    () => assessReadiness(participantToReadinessInput(merged, aggregatedSteps.length), participant?.readiness ?? {}),
+    [merged, aggregatedSteps.length, participant?.readiness],
+  );
 
   // ── Added-state sets for "in plan" affordances ──
   const taskIds = new Set((participant?.tasks ?? []).map((t) => t.id));
@@ -183,6 +196,19 @@ export default function ParticipantWorkspace() {
     getRepo().reconcileGeneratedTasks(pid, [{
       id: `dol-ajc:${c.id}`, title: `Visit Job Center: ${c.name}`,
       category: 'appointment', source: 'dol', ref: { url: c.url },
+    }]);
+  };
+  const setDomainStatus = (domain: ReadinessDomainKey, status: DomainStatus) => {
+    ensurePersist();
+    setReadiness(pid, domain, status);
+  };
+  const addReadinessGap = (g: DomainResult) => {
+    if (!g.gap) return;
+    ensurePersist();
+    getRepo().reconcileGeneratedTasks(pid, [{
+      id: `readiness:${g.key}`, title: g.gap.taskTitle,
+      category: GAP_TASK_CATEGORY(g.gap.category), source: 'plan',
+      notes: g.gap.category, ref: g.gap.url ? { url: g.gap.url } : undefined,
     }]);
   };
 
@@ -230,6 +256,7 @@ export default function ParticipantWorkspace() {
       resources: resources.map((r) => ({ label: r.label, resources: r.resources.map((x) => ({ name: x.name, phone: x.phone, url: x.url })) })),
       tasks: (live.tasks ?? []).map((t) => ({ title: t.title, status: t.status, category: t.category, dueDate: t.dueDate, notes: t.notes })),
       progressPct: progressPct(live),
+      readiness: { score: readiness.score, band: BAND_LABEL[readiness.band], gaps: readiness.gaps.slice(0, 6).map((g) => g.gap?.label ?? g.label) },
       dol,
     };
     if (typeof window !== 'undefined') {
@@ -304,6 +331,13 @@ export default function ParticipantWorkspace() {
           <p className="inline-flex items-start gap-1.5 rounded-lg bg-teal-50/70 px-3 py-2 text-xs text-teal-800">
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {contextGuidance(draft)}
           </p>
+
+          <ReadinessPanel
+            result={readiness}
+            onSetStatus={setDomainStatus}
+            onAddGap={addReadinessGap}
+            addedGapKeys={taskIds}
+          />
 
           {participant && <ActionPlanPanel participant={participant} />}
 

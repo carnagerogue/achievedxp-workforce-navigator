@@ -21,6 +21,7 @@ interface StoredPlan {
   resources?: Array<{ label: string; resources: Array<{ name: string; phone?: string; url?: string }> }>;
   tasks?: Array<{ title: string; status: string; category: string; dueDate?: string; notes?: string }>;
   progressPct?: number;
+  readiness?: { score: number; band: string; gaps: string[] };
   dol?: {
     wages?: { rateType: string; pct10?: number; median?: number; pct90?: number } | null;
     centers?: Array<{ name: string; phone?: string; address?: string }>;
@@ -103,6 +104,21 @@ export default function PlanPrintPage() {
               </div>
             ))}
           </div>
+        </Section>
+      )}
+
+      {/* Readiness */}
+      {plan.readiness && (
+        <Section title={`Readiness — ${plan.readiness.score}% · ${plan.readiness.band}`}>
+          {plan.readiness.gaps.length === 0 ? (
+            <p className="text-slate-500">All assessed areas are ready.</p>
+          ) : (
+            <ul className="space-y-1">
+              {plan.readiness.gaps.map((g, i) => (
+                <li key={i} className="flex gap-1.5 text-xs"><span>○</span> {g}</li>
+              ))}
+            </ul>
+          )}
         </Section>
       )}
 

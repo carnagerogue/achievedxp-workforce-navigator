@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 
 /**
  * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
@@ -53,6 +54,7 @@ const KEY = 'dxp.checklist';
 const NAME_KEY = 'dxp.checklist.name';
 const GOALS_KEY = 'dxp.checklist.goals';
 const CHECKINS_KEY = 'dxp.checklist.checkins';
+const READINESS_KEY = 'dxp.checklist.readiness';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -85,6 +87,7 @@ let items: ChecklistItem[] = normalize(read<ChecklistItem[]>(KEY, []));
 let ownerName: string = read<string>(NAME_KEY, '');
 let planGoals: string = read<string>(GOALS_KEY, '');
 let checkins: CheckIn[] = read<CheckIn[]>(CHECKINS_KEY, []);
+let readiness: ReadinessAnswers = read<ReadinessAnswers>(READINESS_KEY, {});
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
@@ -92,6 +95,7 @@ if (typeof window !== 'undefined') {
     else if (e.key === NAME_KEY) { ownerName = read<string>(NAME_KEY, ''); emit(); }
     else if (e.key === GOALS_KEY) { planGoals = read<string>(GOALS_KEY, ''); emit(); }
     else if (e.key === CHECKINS_KEY) { checkins = read<CheckIn[]>(CHECKINS_KEY, []); emit(); }
+    else if (e.key === READINESS_KEY) { readiness = read<ReadinessAnswers>(READINESS_KEY, {}); emit(); }
   });
 }
 
@@ -178,4 +182,15 @@ export function usePlanGoals(): string {
 const EMPTY_CHECKINS: CheckIn[] = [];
 export function useCheckins(): CheckIn[] {
   return useSyncExternalStore(subscribe, getCheckins, () => EMPTY_CHECKINS);
+}
+
+// ── Readiness self-assessment answers ─────────────────────────────────────
+export function getReadiness(): ReadinessAnswers { return readiness; }
+export function setReadinessAnswer(domain: ReadinessDomainKey, status: DomainStatus) {
+  readiness = { ...readiness, [domain]: status };
+  write(READINESS_KEY, readiness); emit();
+}
+const EMPTY_READINESS: ReadinessAnswers = {};
+export function useReadiness(): ReadinessAnswers {
+  return useSyncExternalStore(subscribe, getReadiness, () => EMPTY_READINESS);
 }

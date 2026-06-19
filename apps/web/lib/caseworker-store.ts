@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ConvictionType, UserContextMode, EducationLevel } from '@dxp/shared';
+import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 
 /**
  * Caseload store — saved participants for Caseworker Mode, localStorage-backed
@@ -87,6 +88,8 @@ export interface Participant {
   notes: string;
   /** The action plan — trackable tasks with status + due dates. */
   tasks?: Task[];
+  /** Manual readiness statuses by domain (overrides auto-derived suggestions). */
+  readiness?: ReadinessAnswers;
   /** @deprecated boolean progress map — superseded by `tasks`; kept for migration. */
   progress?: Record<string, boolean>;
   createdAt: number;
@@ -259,6 +262,10 @@ export function setTaskStatus(pid: string, taskId: string, status: TaskStatus) {
 
 export function removeTask(pid: string, taskId: string) {
   patchParticipant(pid, (p) => ({ ...p, tasks: (p.tasks ?? []).filter((t) => t.id !== taskId) }));
+}
+
+export function setReadiness(pid: string, domain: ReadinessDomainKey, status: DomainStatus) {
+  patchParticipant(pid, (p) => ({ ...p, readiness: { ...(p.readiness ?? {}), [domain]: status } }));
 }
 
 /**

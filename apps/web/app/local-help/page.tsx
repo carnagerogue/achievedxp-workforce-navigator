@@ -6,7 +6,7 @@ import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
   AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
   HeartPulse, Wallet, Baby, Shirt, GraduationCap, ListChecks, Plus, Check,
-  Printer, Trash2, Share2, FileDown, Sparkles, AlertTriangle, CalendarClock, Flame,
+  Printer, Trash2, Share2, FileDown, Sparkles, AlertTriangle, CalendarClock, Flame, Gauge,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -35,6 +35,12 @@ import {
 import {
   progressPct, countByStatus, overdueItems, dueSoonItems, nextStep, momentum,
 } from '../../lib/plan-progress';
+import { useReadiness, setReadinessAnswer } from '../../lib/checklist-store';
+import {
+  assessReadiness, selfToReadinessInput, BAND_LABEL,
+  type ReadinessDomainKey, type DomainStatus, type DomainResult,
+} from '../../lib/readiness';
+import { ReadinessPanel } from '../../components/readiness/ReadinessPanel';
 
 /**
  * In-person resources page. Two tabs of CareerOneStop / DOL data:
@@ -48,7 +54,7 @@ import {
  * CareerOneStop token never reaches the browser.
  */
 export default function LocalHelpPage() {
-  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'checklist'>('ajc');
+  const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'readiness' | 'checklist'>('ajc');
   const [location, setLocation] = useState('44113');
   const [radius, setRadius] = useState(50);
   const dLoc = useDebounce(location, 400);
@@ -111,6 +117,9 @@ export default function LocalHelpPage() {
           <TabButton active={tab === 'community'} onClick={() => setTab('community')}>
             <LifeBuoy className="h-4 w-4" /> Community Resources
           </TabButton>
+          <TabButton active={tab === 'readiness'} onClick={() => setTab('readiness')}>
+            <Gauge className="h-4 w-4" /> Readiness
+          </TabButton>
           <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
             <ListChecks className="h-4 w-4" /> My Plan
             {checklist.length > 0 && (
@@ -129,6 +138,7 @@ export default function LocalHelpPage() {
         {tab === 'ajc' && <AjcResults location={dLoc} radius={radius} />}
         {tab === 'reentry' && <ReentryResults location={dLoc} radius={radius} />}
         {tab === 'community' && <CommunityResources location={dLoc} />}
+        {tab === 'readiness' && <ReadinessView />}
         {tab === 'checklist' && <ChecklistView />}
       </div>
 
@@ -344,7 +354,10 @@ function fmtPlanDate(iso?: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function printPlan(owner: string, goals: string, items: ChecklistItem[], checkins: CheckIn[] = []) {
+function printPlan(
+  owner: string, goals: string, items: ChecklistItem[], checkins: CheckIn[] = [],
+  readiness?: { score: number; band: string; gaps: string[] },
+) {
   const win = window.open('', '_blank', 'width=820,height=1000');
   if (!win) return;
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -356,6 +369,7 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[], checkin
   const winsHtml = wins.length ? `<div class="block"><div class="lbl">Completed — wins</div><ul>${wins.map((w) => `<li>${esc(w.name)}${w.notes ? ` — ${esc(w.notes)}` : ''}</li>`).join('')}</ul></div>` : '';
   const upHtml = upcoming.length ? `<div class="block"><div class="lbl">Upcoming commitments</div><ul>${upcoming.map((u) => `<li>${esc(fmtPlanDate(u.targetDate))} — ${esc(u.name)}</li>`).join('')}</ul></div>` : '';
   const ciHtml = checkins.length ? `<div class="block"><div class="lbl">Recent weekly check-ins</div><ul>${checkins.slice(0, 6).map((c) => `<li>${esc(fmtPlanDate(c.date))} · ${c.rating}/5${c.note ? ` — ${esc(c.note)}` : ''}</li>`).join('')}</ul></div>` : '';
+  const rdHtml = readiness ? `<div class="block"><div class="lbl">Readiness — ${readiness.score}% · ${esc(readiness.band)}</div>${readiness.gaps.length ? `<ul>${readiness.gaps.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>` : '<p>All assessed areas are ready.</p>'}</div>` : '';
   const rows = items.map((it) => `
     <tr>
       <td class="st"><span class="mark">${STATUS_META[it.status].mark}</span> ${STATUS_META[it.status].label}</td>
@@ -394,7 +408,7 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[], checkin
     ${goals.trim() ? `<div class="goals"><div class="lbl">My goals</div>${esc(goals)}</div>` : ''}
     <p class="summary"><span class="pct">${pct}% complete</span> &nbsp;·&nbsp; <b>${items.length}</b> on plan &nbsp;·&nbsp; <b>${count('completed')}</b> completed &nbsp;·&nbsp; <b>${count('scheduled')}</b> scheduled &nbsp;·&nbsp; <b>${count('contacted')}</b> contacted &nbsp;·&nbsp; <b>${count('planned')}</b> planned</p>
     <div class="bar"><i style="width:${pct}%"></i></div>
-    ${winsHtml}${upHtml}
+    ${rdHtml}${winsHtml}${upHtml}
     <table>
       <thead><tr><th>Status</th><th>Resource &amp; need</th><th>Target&nbsp;date</th><th>Plan / next step / outcome</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -408,6 +422,54 @@ function printPlan(owner: string, goals: string, items: ChecklistItem[], checkin
   setTimeout(() => win.print(), 300);
 }
 
+function readinessCatFromChecklist(c?: string): string | undefined {
+  const v = (c || '').toLowerCase();
+  if (/hous|shelter/.test(v)) return 'housing';
+  if (/transport|transit/.test(v)) return 'transit';
+  if (/food/.test(v)) return 'food';
+  if (/health|recov|treatment/.test(v)) return 'health';
+  if (/legal|record|\bid\b|document/.test(v)) return 'legal';
+  if (/child|family/.test(v)) return 'family';
+  if (/train|educ|skill/.test(v)) return 'training';
+  if (/job|employ/.test(v)) return 'employment';
+  return undefined;
+}
+
+function ReadinessView() {
+  const items = useChecklist();
+  const goals = usePlanGoals();
+  const answers = useReadiness();
+
+  const completedCategories = items
+    .filter((i) => i.status === 'completed')
+    .map((i) => readinessCatFromChecklist(i.category))
+    .filter((c): c is string => Boolean(c));
+
+  const result = assessReadiness(selfToReadinessInput({ careerGoal: goals, completedCategories }), answers);
+  const addedGapKeys = new Set(items.map((i) => i.id));
+
+  const onAddGap = (g: DomainResult) => {
+    if (!g.gap) return;
+    if (items.some((i) => i.id === `readiness:${g.key}`)) return;
+    toggleChecklist({ id: `readiness:${g.key}`, name: g.gap.taskTitle, type: 'Readiness step', category: g.label, url: g.gap.url });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
+        <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+        <span>See where you stand across what employers and programs look for. Mark each area, and add what&rsquo;s missing to your plan — then share your progress with a caseworker.</span>
+      </div>
+      <ReadinessPanel
+        result={result}
+        onSetStatus={(d: ReadinessDomainKey, s: DomainStatus) => setReadinessAnswer(d, s)}
+        onAddGap={onAddGap}
+        addedGapKeys={addedGapKeys}
+      />
+    </div>
+  );
+}
+
 const MOMENTUM_META = {
   rising: { label: 'Rising', cls: 'bg-teal-50 text-teal-700 ring-teal-200' },
   steady: { label: 'Steady', cls: 'bg-slate-50 text-slate-600 ring-slate-200' },
@@ -419,8 +481,14 @@ function ChecklistView() {
   const owner = useOwnerName();
   const goals = usePlanGoals();
   const checkins = useCheckins();
+  const rdAnswers = useReadiness();
   const [showShare, setShowShare] = useState(false);
   const [showImport, setShowImport] = useState(false);
+
+  const rdCompleted = items.filter((i) => i.status === 'completed')
+    .map((i) => readinessCatFromChecklist(i.category)).filter((c): c is string => Boolean(c));
+  const rd = assessReadiness(selfToReadinessInput({ careerGoal: goals, completedCategories: rdCompleted }), rdAnswers);
+  const rdSummary = { score: rd.score, band: BAND_LABEL[rd.band], gaps: rd.gaps.slice(0, 5).map((g) => g.gap?.label ?? g.label) };
 
   const pct = progressPct(items);
   const counts = countByStatus(items);
@@ -550,7 +618,7 @@ function ChecklistView() {
           <button type="button" onClick={() => setShowImport(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700">
             <FileDown className="h-4 w-4" /> Import a plan
           </button>
-          <button type="button" onClick={() => printPlan(owner, goals, items, checkins)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700">
+          <button type="button" onClick={() => printPlan(owner, goals, items, checkins, rdSummary)} className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700">
             <Printer className="h-4 w-4" /> Print report
           </button>
           <button type="button" onClick={() => { if (confirm('Clear your whole plan?')) clearChecklist(); }} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700">
