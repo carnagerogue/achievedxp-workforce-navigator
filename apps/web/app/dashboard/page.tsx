@@ -274,10 +274,10 @@ export default function DashboardPage() {
         title="Top matches"
         count={counts.top}
         tone="teal"
-        description="Strong overall fit. Score 70 or higher, no legal restrictions flagged."
+        description="Strong overall fit — a strong-match rating with no legal barriers flagged."
       >
         {topMatches.length === 0 ? (
-          <EmptyState>Nothing cleared the 70+ threshold yet — widen your target industries or add more skills.</EmptyState>
+          <EmptyState>No strong matches yet — add your target industries and skills in your profile so we can rank by fit.</EmptyState>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {topMatches.map((m, i) => (
@@ -293,7 +293,7 @@ export default function DashboardPage() {
         title="Medium matches"
         count={counts.medium}
         tone="amber"
-        description="Partial fit. Score 40–69. Might be worth a look if top matches are thin."
+        description="Partial fit — worth a look if your top matches are thin."
       >
         {mediumMatches.length === 0 ? (
           <EmptyState>No medium matches — that's fine if your top list is healthy.</EmptyState>

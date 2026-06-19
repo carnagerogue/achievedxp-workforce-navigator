@@ -8,6 +8,7 @@ import {
 import type { ConvictionDto } from '@dxp/shared';
 import { createUser, upsertProfile } from '../../lib/api';
 import { getUserId, setUserId } from '../../lib/session';
+import { getLocalProfile, setLocalProfile } from '../../lib/local-profile';
 import { ConvictionForm, newConviction } from '../../components/ConvictionForm';
 import { RichChipPicker } from '../../components/RichChipPicker';
 import {
@@ -109,7 +110,7 @@ export default function OnboardingPage() {
     email: '',
     displayName: '',
     locationCity: '',
-    locationRegion: 'OH',
+    locationRegion: '',
     locationPostalCode: '',
     yearsExperience: 0,
     hasTransportation: false,
@@ -121,6 +122,30 @@ export default function OnboardingPage() {
     onParoleOrProbation: false,
     convictions: [],
   });
+
+  // Hydrate from the saved profile when editing, so "Edit profile" doesn't
+  // overwrite the record with blanks. Runs after mount to avoid an SSR/client
+  // hydration mismatch.
+  useEffect(() => {
+    const p = getLocalProfile();
+    if (!p) return;
+    setState({
+      email: p.email ?? '',
+      displayName: p.displayName ?? '',
+      locationCity: p.locationCity ?? '',
+      locationRegion: p.locationRegion ?? '',
+      locationPostalCode: p.locationPostalCode ?? '',
+      yearsExperience: p.yearsExperience ?? 0,
+      hasTransportation: p.hasTransportation ?? false,
+      willingToRelocate: p.willingToRelocate ?? false,
+      skills: new Set(p.skills ?? []),
+      certifications: new Set(p.certifications ?? []),
+      desiredIndustries: new Set(p.desiredIndustries ?? []),
+      hasRecord: (p.convictions?.length ?? 0) > 0,
+      onParoleOrProbation: p.onParoleOrProbation ?? false,
+      convictions: (p.convictions ?? []) as ConvictionDto[],
+    });
+  }, []);
 
   const step = STEPS[stepIdx];
   const isLast = stepIdx === STEPS.length - 1;
@@ -189,7 +214,7 @@ export default function OnboardingPage() {
       }
 
       const hasFelonyRecord = state.convictions.some((c) => c.category === 'FELONY');
-      await upsertProfile({
+      const profilePayload = {
         userId,
         locationCity: state.locationCity || undefined,
         locationRegion: state.locationRegion || undefined,
@@ -203,7 +228,11 @@ export default function OnboardingPage() {
         skills: [...state.skills],
         certifications: [...state.certifications],
         desiredIndustries: [...state.desiredIndustries],
-      });
+      };
+      await upsertProfile(profilePayload);
+      // Mirror locally so Browse /jobs + job detail score with the real profile
+      // and "Edit profile" can re-hydrate this wizard.
+      setLocalProfile({ ...profilePayload, email: state.email, displayName: state.displayName });
 
       toast.success('Profile saved', 'Loading your matches…');
       router.push('/dashboard');

@@ -19,8 +19,10 @@ import {
   HardHat,
 } from 'lucide-react';
 import type { JobDto, OffenseType, PaginatedJobsDto, CompatibilityRating, ConvictionType } from '@dxp/shared';
-import { scoreJobCompatibility } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
+import { scoreJobUnified } from '../../lib/job-scoring';
+import { getLocalProfile } from '../../lib/local-profile';
+import { candidateProfilesFromStored, convictionTypesFor, type StoredProfile } from '../../lib/profile-store';
 import { RiskBadge } from '../../components/RiskBadge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { JobRowSkeleton } from '../../components/Skeleton';
@@ -142,6 +144,34 @@ function JobsPage() {
   const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(initialApprOnly);
   const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
+  const [localProfile, setLocalProfile] = useState<StoredProfile | null>(null);
+
+  // Load the saved profile so browse scores with the user's real background
+  // (the same shared scorer the dashboard uses) — not conviction-only. Default
+  // the conviction filter from their record when the URL doesn't set one.
+  useEffect(() => {
+    const p = getLocalProfile();
+    setLocalProfile(p);
+    const fromProfile = p?.convictions?.[0]?.offenseType;
+    if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const scoreInputs = useMemo(() => {
+    if (offenseType) {
+      const ct = OFFENSE_TO_CONVICTION[offenseType];
+      return { candidates: [{ convictionType: ct }], convictionTypes: [ct as string], profile: localProfile, hasConvictions: true };
+    }
+    if (localProfile) {
+      return {
+        candidates: candidateProfilesFromStored(localProfile),
+        convictionTypes: convictionTypesFor(localProfile),
+        profile: localProfile,
+        hasConvictions: (localProfile.convictions?.length ?? 0) > 0,
+      };
+    }
+    return { candidates: [], convictionTypes: [], profile: null, hasConvictions: false };
+  }, [offenseType, localProfile]);
 
   // Debounce the text inputs so we don't hit the API on every keystroke.
   // 300ms feels instant but eliminates burst requests.
@@ -196,45 +226,28 @@ function JobsPage() {
    * runs locally, ~few-ms per 50 jobs.
    */
   const scoredResults = useMemo(() => {
-    if (!offenseType) return results.map((job) => ({ job, rating: null as CompatibilityRating | null }));
-    const conviction = OFFENSE_TO_CONVICTION[offenseType];
-    const out = results.map((job) => ({
-      job,
-      rating: scoreJobCompatibility(
-        { convictionType: conviction },
-        {
-          id: job.id,
-          title: job.title,
-          company: job.company,
-          description: job.description,
-          industry: job.industry,
-          riskTier: job.riskTier,
-          excludesFelons: job.excludesFelons,
-          backgroundCheckLikely: job.backgroundCheckLikely,
-          isApprenticeship: job.isApprenticeship,
-          remote: job.remote,
-          locationRegion: job.locationRegion,
-          locationCity: job.locationCity,
-          requiredSkills: job.requiredSkills,
-          requiredCertifications: job.requiredCertifications,
-        },
-      ),
-    }));
-    out.sort((a, b) => (b.rating?.score ?? 0) - (a.rating?.score ?? 0));
+    const out = results.map((job) => {
+      const u = scoreJobUnified(scoreInputs, job);
+      // Overlay the unified score/chance/label onto the rating so the chip and
+      // sort reflect the blended (conviction + realistic-fit + barriers) result
+      // — identical to the dashboard — while the drawer keeps the full breakdown.
+      const rating = { ...u.rating, score: u.score, chance: u.chance, label: u.label } as CompatibilityRating;
+      return { job, rating };
+    });
+    out.sort((a, b) => b.rating.score - a.rating.score);
     return out;
-  }, [results, offenseType]);
+  }, [results, scoreInputs]);
 
   /** Apply the chance-band filter. Even when hiding, surface a count so users know jobs were filtered. */
   const visibleResults = useMemo(() => {
-    if (!offenseType || chanceFilter === 'all') return scoredResults;
+    if (chanceFilter === 'all') return scoredResults;
     return scoredResults.filter(({ rating }) => {
-      if (!rating) return true;
       if (chanceFilter === 'high_only')   return rating.chance === 'high';
       if (chanceFilter === 'high_medium') return rating.chance !== 'low';
       if (chanceFilter === 'hide_low')    return rating.chance !== 'low';
       return true;
     });
-  }, [scoredResults, offenseType, chanceFilter]);
+  }, [scoredResults, chanceFilter]);
 
   const hiddenLowCount = scoredResults.length - visibleResults.length;
 

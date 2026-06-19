@@ -29,6 +29,7 @@ import {
   type StoredProfile,
 } from './profile-store';
 import { realisticFit, type RealisticFit } from './realistic-fit';
+import { isExclusionaryEmployer } from './job-scoring';
 
 const NOW = Date.now();
 const DAY = 24 * 60 * 60 * 1000;
@@ -949,6 +950,12 @@ function convictionContext(
   for (const ct of convictionTypes) {
     const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: j.industry, title: j.title });
     if (hit.blocked) { hardBlockReason = hit.reason; break; }
+  }
+  // Federal / security-clearance employers are categorical barriers too — treat
+  // them like a hard block so the dashboard never recommends a military-base or
+  // clearance-gated posting as a top match (consistent with lib/job-scoring).
+  if (!hardBlockReason && isExclusionaryEmployer(j)) {
+    hardBlockReason = 'Federal / security-clearance employer — typically disqualifies people with records.';
   }
   return { rating, hardBlockReason };
 }

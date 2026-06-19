@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import type { JobDto } from '@dxp/shared';
 import { getJob, getSimilarJobs } from '../../../lib/api';
+import { scoreJobUnified } from '../../../lib/job-scoring';
+import { getLocalProfile } from '../../../lib/local-profile';
+import { candidateProfilesFromStored, convictionTypesFor } from '../../../lib/profile-store';
 import { RiskBadge } from '../../../components/RiskBadge';
 import { SourceBadge } from '../../../components/SourceBadge';
 import { Skeleton } from '../../../components/Skeleton';
@@ -38,6 +41,23 @@ export default function JobDetailPage() {
   const [similar, setSimilar] = useState<JobDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+
+  useEffect(() => { setProfileLoaded(true); }, []);
+
+  // Compatibility for this job against the user's saved profile (same shared
+  // scorer as the dashboard and Browse). Null when there's no profile yet.
+  const match = useMemo(() => {
+    if (!job || !profileLoaded) return null;
+    const p = getLocalProfile();
+    if (!p) return null;
+    return scoreJobUnified({
+      candidates: candidateProfilesFromStored(p),
+      convictionTypes: convictionTypesFor(p),
+      profile: p,
+      hasConvictions: (p.convictions?.length ?? 0) > 0,
+    }, job);
+  }, [job, profileLoaded]);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -99,6 +119,17 @@ export default function JobDetailPage() {
       {/* ─────────── Header card ─────────── */}
       <header className="relative mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
         <div className="mb-4 flex flex-wrap items-center gap-2">
+          {match && (
+            <span className={
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ' +
+              (match.chance === 'high' ? 'border-teal-300 bg-teal-50 text-teal-700'
+               : match.chance === 'medium' ? 'border-sky-300 bg-sky-50 text-sky-700'
+               : 'border-amber-300 bg-amber-50 text-amber-800')
+            }>
+              <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + (match.chance === 'high' ? 'bg-teal-500' : match.chance === 'medium' ? 'bg-sky-500' : 'bg-amber-500')} />
+              {match.label} · {match.score}% for you
+            </span>
+          )}
           <SourceBadge code={job.sourceCode} />
           <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
           {job.remote && (
