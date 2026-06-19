@@ -16,7 +16,7 @@ import {
 } from '../../../lib/caseworker';
 import { listJobs } from '../../../lib/api';
 import { useDebounce } from '../../../lib/use-debounce';
-import { progressPct } from '../../../lib/caseworker-progress';
+import { progressPct, openTasks, overdueTasks } from '../../../lib/caseworker-progress';
 import { nextBestAction } from '../../../lib/caseworker-nba';
 import { buildPlan, planTitle } from '../../../lib/caseworker-plan';
 import { loadDolIntel } from '../../../lib/caseworker-dol';
@@ -174,6 +174,21 @@ export default function ParticipantWorkspace() {
     document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Scroll-spy: highlight the section currently in view in the side nav.
+  const [activeSection, setActiveSection] = useState('intake');
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (vis[0]) setActiveSection((vis[0].target as HTMLElement).id);
+      },
+      { rootMargin: '-25% 0px -65% 0px', threshold: 0 },
+    );
+    NAV.forEach((n) => { const el = document.getElementById(n.id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, [participant, mounted]);
+
   const saveAndPrint = async () => {
     ensurePersist();
     persist(draft);
@@ -225,8 +240,10 @@ export default function ParticipantWorkspace() {
         name={draft.name}
         convictionLabel={CONVICTION_LABELS[draft.conviction]}
         contextLabel={contextLabel(draft.contextMode)}
+        supervisionLabel={draft.supervision !== 'none' ? draft.supervision.replace(/_/g, ' ') : undefined}
         pct={pct}
         nba={nba}
+        stats={{ open: openTasks(merged).length, overdue: overdueTasks(merged).length, matches: top.length, barriers: draft.barriers.length }}
         onPrint={saveAndPrint}
         onJump={jump}
       />
@@ -234,16 +251,24 @@ export default function ParticipantWorkspace() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[200px_1fr]">
         {/* Sticky section nav */}
         <nav className="hidden lg:block">
-          <div className="sticky top-24 space-y-1">
-            {NAV.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => jump(n.id)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-600 transition hover:bg-teal-50 hover:text-teal-700"
-              >
-                <n.Icon className="h-4 w-4" /> {n.label}
-              </button>
-            ))}
+          <div className="sticky top-24 space-y-0.5">
+            {NAV.map((n) => {
+              const active = activeSection === n.id;
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => jump(n.id)}
+                  className={
+                    'flex w-full items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-left text-sm font-semibold transition ' +
+                    (active
+                      ? 'border-teal-500 bg-teal-50 text-teal-700'
+                      : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800')
+                  }
+                >
+                  <n.Icon className={'h-4 w-4 ' + (active ? 'text-teal-600' : 'text-slate-400')} /> {n.label}
+                </button>
+              );
+            })}
           </div>
         </nav>
 

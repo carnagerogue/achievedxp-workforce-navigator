@@ -31,9 +31,10 @@ export function nextBestAction(p: Participant, ctx: NbaContext): NextBestAction 
   const overdue = overdueTasks(p);
   if (overdue.length > 0) {
     const t = overdue[0];
+    const extra = overdue.length > 1 ? ` (+${overdue.length - 1} more overdue)` : '';
     return {
-      label: `Follow up: ${t.title}`,
-      reason: `Overdue${t.dueDate ? ` since ${t.dueDate}` : ''}.`,
+      label: t.title,
+      reason: `Overdue${t.dueDate ? ` since ${t.dueDate}` : ''}${extra} — follow up.`,
       severity: 'urgent',
       anchor: 'plan',
     };
