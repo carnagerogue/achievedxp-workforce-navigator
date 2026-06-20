@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import type { ConvictionType, UserContextMode, EducationLevel } from '@dxp/shared';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
+import type { SupervisionCondition } from './supervision';
 
 /**
  * Caseload store — saved participants for Caseworker Mode, localStorage-backed
@@ -83,6 +84,8 @@ export interface Participant {
   /** Supervising officer name + next report-to-officer date (for the supervision summary). */
   officerName?: string;
   nextReportDate?: string;
+  /** Supervision conditions / check-ins being tracked. */
+  conditions?: SupervisionCondition[];
   yearsSinceRelease: number | null;
   education: EducationLevel;
   skills: string[];
@@ -276,6 +279,16 @@ export function setReadiness(pid: string, domain: ReadinessDomainKey, status: Do
 
 export function setSupervisionMeta(pid: string, patch: { officerName?: string; nextReportDate?: string }) {
   patchParticipant(pid, (p) => ({ ...p, ...patch }));
+}
+
+export function addCondition(pid: string, c: SupervisionCondition) {
+  patchParticipant(pid, (p) => ({ ...p, conditions: [...(p.conditions ?? []), c] }));
+}
+export function updateCondition(pid: string, id: string, patch: Partial<SupervisionCondition>) {
+  patchParticipant(pid, (p) => ({ ...p, conditions: (p.conditions ?? []).map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
+}
+export function removeCondition(pid: string, id: string) {
+  patchParticipant(pid, (p) => ({ ...p, conditions: (p.conditions ?? []).filter((c) => c.id !== id) }));
 }
 
 /**

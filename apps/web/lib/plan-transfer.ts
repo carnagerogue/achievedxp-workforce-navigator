@@ -16,7 +16,7 @@ import {
   assessReadiness, participantToReadinessInput, selfToReadinessInput,
   type ReadinessAnswers,
 } from './readiness';
-import type { SupervisionInfo } from './supervision';
+import type { SupervisionInfo, SupervisionCondition } from './supervision';
 
 export interface PortableItem {
   name: string;
@@ -54,6 +54,8 @@ export interface PortablePlan {
   readinessScore?: number;
   /** Supervising officer + next report date, so it travels with a shared plan. */
   supervision?: SupervisionInfo;
+  /** Supervision conditions / check-ins. */
+  conditions?: SupervisionCondition[];
 }
 
 // ── encode / decode (URL-safe base64 of JSON, unicode-safe) ───────────────
@@ -102,7 +104,7 @@ export function downloadPlan(p: PortablePlan, filename = 'reentry-plan.json') {
 // ── checklist (individual) ↔ portable ─────────────────────────────────────
 export function checklistToPortable(
   items: ChecklistItem[], name: string, goals: string,
-  readiness: ReadinessAnswers = {}, supervision?: SupervisionInfo,
+  readiness: ReadinessAnswers = {}, supervision?: SupervisionInfo, conditions?: SupervisionCondition[],
 ): PortablePlan {
   const readinessScore = assessReadiness(selfToReadinessInput({ careerGoal: goals }), readiness).score;
   return {
@@ -116,6 +118,7 @@ export function checklistToPortable(
     readiness,
     readinessScore,
     supervision,
+    conditions,
   };
 }
 
@@ -158,6 +161,7 @@ export function participantToPortable(p: Participant): PortablePlan {
       supervisionType: p.supervision === 'probation' ? 'probation' : p.supervision === 'none' ? 'none' : 'parole',
       nextReportDate: p.nextReportDate,
     },
+    conditions: p.conditions,
   };
 }
 
@@ -200,6 +204,7 @@ export function portableToParticipant(p: PortablePlan): Participant {
     notes: 'Imported from a participant-built plan.',
     tasks,
     readiness: p.readiness,
+    conditions: p.conditions,
     createdAt: now,
     updatedAt: now,
   };

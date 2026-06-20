@@ -17,6 +17,91 @@ export interface SupervisionInfo {
   nextReportDate?: string; // ISO yyyy-mm-dd
 }
 
+// ── Supervision conditions ────────────────────────────────────────────────
+export type ConditionType =
+  | 'check_in' | 'drug_test' | 'program' | 'community_service'
+  | 'curfew' | 'travel' | 'no_contact' | 'employment' | 'fees' | 'other';
+export type ConditionCadence = 'once' | 'weekly' | 'biweekly' | 'monthly' | 'as_needed';
+export type ConditionStatus = 'met' | 'due_soon' | 'overdue' | 'pending';
+
+export interface SupervisionCondition {
+  id: string;
+  type: ConditionType;
+  label: string;
+  cadence: ConditionCadence;
+  dueDate?: string;   // next due (ISO yyyy-mm-dd)
+  lastMet?: string;   // last completed (ISO)
+  notes?: string;
+  done?: boolean;     // for one-time conditions
+  createdAt: number;
+}
+
+export const CONDITION_TYPE_LABEL: Record<ConditionType, string> = {
+  check_in: 'Report / check-in', drug_test: 'Drug / alcohol test', program: 'Program / class',
+  community_service: 'Community service', curfew: 'Curfew', travel: 'Travel restriction',
+  no_contact: 'No-contact order', employment: 'Maintain employment', fees: 'Fees / restitution', other: 'Other',
+};
+export const CADENCE_LABEL: Record<ConditionCadence, string> = {
+  once: 'One-time', weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', as_needed: 'As needed',
+};
+
+/** Common conditions, one tap to add. */
+export const CONDITION_TEMPLATES: { type: ConditionType; label: string; cadence: ConditionCadence }[] = [
+  { type: 'check_in', label: 'Report to officer', cadence: 'monthly' },
+  { type: 'drug_test', label: 'Drug / alcohol test', cadence: 'as_needed' },
+  { type: 'employment', label: 'Maintain / seek employment', cadence: 'weekly' },
+  { type: 'program', label: 'Attend required program', cadence: 'weekly' },
+  { type: 'community_service', label: 'Community service hours', cadence: 'monthly' },
+  { type: 'fees', label: 'Pay supervision fees', cadence: 'monthly' },
+  { type: 'curfew', label: 'Observe curfew', cadence: 'as_needed' },
+  { type: 'travel', label: 'Stay within travel limits', cadence: 'as_needed' },
+  { type: 'no_contact', label: 'Honor no-contact order', cadence: 'as_needed' },
+];
+
+const CADENCE_DAYS: Record<ConditionCadence, number> = { weekly: 7, biweekly: 14, monthly: 30, once: 0, as_needed: 0 };
+
+export function conditionStatus(c: SupervisionCondition, now = Date.now()): ConditionStatus {
+  if (c.cadence === 'once' && c.done) return 'met';
+  if (c.cadence === 'as_needed') return 'pending';
+  const e = dueEpoch(c.dueDate);
+  if (Number.isNaN(e)) return 'pending';
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  if (e < today.getTime()) return 'overdue';
+  if (e <= today.getTime() + 7 * DAY) return 'due_soon';
+  return 'pending';
+}
+
+function isoAfter(days: number, from = Date.now()): string {
+  const d = new Date(from + days * DAY);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Fields to apply when a condition is marked done — advances recurring ones. */
+export function advanceCondition(c: SupervisionCondition): Partial<SupervisionCondition> {
+  const todayIso = isoAfter(0);
+  if (c.cadence === 'once') return { done: true, lastMet: todayIso };
+  if (c.cadence === 'as_needed') return { lastMet: todayIso };
+  return { lastMet: todayIso, dueDate: isoAfter(CADENCE_DAYS[c.cadence]) };
+}
+
+/** Sensible first due date for a new recurring condition (undefined for once/as-needed). */
+export function defaultConditionDue(cadence: ConditionCadence): string | undefined {
+  return cadence === 'once' || cadence === 'as_needed' ? undefined : isoAfter(CADENCE_DAYS[cadence]);
+}
+
+export interface ComplianceRead { label: string; tone: 'ok' | 'attention' | 'at_risk'; overdue: number; dueSoon: number }
+export function complianceFromConditions(conditions: SupervisionCondition[]): ComplianceRead {
+  let overdue = 0, dueSoon = 0;
+  for (const c of conditions) {
+    const s = conditionStatus(c);
+    if (s === 'overdue') overdue++;
+    else if (s === 'due_soon') dueSoon++;
+  }
+  if (overdue > 0) return { label: 'At risk', tone: 'at_risk', overdue, dueSoon };
+  if (dueSoon > 0) return { label: 'Attention needed', tone: 'attention', overdue, dueSoon };
+  return { label: 'On track', tone: 'ok', overdue, dueSoon };
+}
+
 export type ReportDueState = 'none' | 'ok' | 'due_soon' | 'overdue';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -61,7 +146,13 @@ export interface SupervisionSummary {
   completed: { domain: string; title: string }[];
   readiness: { score: number; band: string; focus: string[] };
   checkins: { date: string; rating: number; note: string }[];
+  conditions: { label: string; cadence: string; statusLabel: string; nextDue?: string; lastMet?: string }[];
+  compliance: ComplianceRead;
 }
+
+const COND_STATUS_LABEL: Record<ConditionStatus, string> = {
+  met: 'Met', due_soon: 'Due soon', overdue: 'Overdue', pending: 'In place',
+};
 
 export function buildSupervisionSummary(model: PlanModel, info: SupervisionInfo): SupervisionSummary {
   const jobs = model.steps.filter((s) => s.domain === 'jobs');
@@ -92,6 +183,11 @@ export function buildSupervisionSummary(model: PlanModel, info: SupervisionInfo)
       focus: model.readiness.gaps.slice(0, 5).map((g) => g.gap?.label ?? g.label),
     },
     checkins: (model.checkins ?? []).slice(0, 8).map((c) => ({ date: c.date, rating: c.rating, note: c.note })),
+    conditions: (model.conditions ?? []).map((c) => ({
+      label: c.label, cadence: CADENCE_LABEL[c.cadence], statusLabel: COND_STATUS_LABEL[conditionStatus(c)],
+      nextDue: c.dueDate, lastMet: c.lastMet,
+    })),
+    compliance: complianceFromConditions(model.conditions ?? []),
   };
 }
 
@@ -114,6 +210,9 @@ export function printSupervisionSummary(s: SupervisionSummary) {
   const ciHtml = s.checkins.length
     ? `<ul>${s.checkins.map((c) => `<li>${esc(fmtDate(c.date))} · ${c.rating}/5${c.note ? ` — ${esc(c.note)}` : ''}</li>`).join('')}</ul>`
     : `<p class="muted">No check-ins logged yet.</p>`;
+  const condHtml = s.conditions.length
+    ? `<table><thead><tr><th>Condition</th><th>Cadence</th><th>Status</th><th>Next due</th></tr></thead><tbody>${s.conditions.map((c) => `<tr><td>${esc(c.label)}</td><td>${esc(c.cadence)}</td><td>${esc(c.statusLabel)}</td><td>${esc(fmtDate(c.nextDue))}</td></tr>`).join('')}</tbody></table>`
+    : `<p class="muted">No conditions tracked yet.</p>`;
 
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Employment &amp; Supervision Summary</title>
   <style>
@@ -139,6 +238,8 @@ export function printSupervisionSummary(s: SupervisionSummary) {
       <p><b>Next report date:</b> ${esc(fmtDate(s.nextReportDate))}</p><p><b>Readiness:</b> ${s.readiness.score}% · ${esc(s.readiness.band)}</p>
     </div>
     <div class="prov">Self-reported by the participant for supervision review. Not an employer or agency record.</div>
+
+    <h2>Supervision conditions — ${esc(s.compliance.label)}${s.compliance.overdue ? ` (${s.compliance.overdue} overdue)` : ''}</h2>${condHtml}
 
     <h2>Job-search activity</h2>
     <div class="counts">

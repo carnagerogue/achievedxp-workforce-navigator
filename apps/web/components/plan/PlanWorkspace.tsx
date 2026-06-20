@@ -6,7 +6,10 @@ import {
   Users, ListChecks, Check, Trash2, Plus, ExternalLink, Sparkles, AlertTriangle, ChevronDown,
   Share2, FileDown, Printer, HeartHandshake, ShieldCheck, ScrollText, CalendarClock,
 } from 'lucide-react';
-import { reportDueState } from '../../lib/supervision';
+import {
+  reportDueState, conditionStatus, complianceFromConditions, CONDITION_TEMPLATES,
+  CADENCE_LABEL, type ConditionStatus, type ConditionCadence, type ConditionType, type SupervisionCondition,
+} from '../../lib/supervision';
 import { ProgressRing } from '../common/ProgressRing';
 import { Avatar } from '../common/Avatar';
 import {
@@ -194,7 +197,86 @@ function SupervisionCard({ model, actions }: { model: PlanModel; actions: PlanAc
       {due !== 'none' && (
         <p className={'mt-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ' + dueCls}><CalendarClock className="h-3.5 w-3.5" /> {dueMsg}</p>
       )}
+      {actions.addCondition && <ConditionsBlock conditions={model.conditions ?? []} actions={actions} />}
     </section>
+  );
+}
+
+const COND_PILL: Record<ConditionStatus, string> = {
+  met: 'bg-teal-50 text-teal-700 ring-teal-200',
+  due_soon: 'bg-amber-50 text-amber-700 ring-amber-200',
+  overdue: 'bg-rose-50 text-rose-700 ring-rose-200',
+  pending: 'bg-slate-100 text-slate-600 ring-slate-200',
+};
+const COND_PILL_LABEL: Record<ConditionStatus, string> = { met: 'Met', due_soon: 'Due soon', overdue: 'Overdue', pending: 'In place' };
+
+function ConditionsBlock({ conditions, actions }: { conditions: SupervisionCondition[]; actions: PlanActions }) {
+  const list = conditions ?? [];
+  const comp = complianceFromConditions(list);
+  const compCls = comp.tone === 'at_risk' ? 'bg-rose-50 text-rose-700 ring-rose-200'
+    : comp.tone === 'attention' ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-teal-50 text-teal-700 ring-teal-200';
+  const haveLabels = new Set(list.map((c) => c.label.toLowerCase()));
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState('');
+  const [type, setType] = useState<ConditionType>('other');
+  const [cadence, setCadence] = useState<ConditionCadence>('monthly');
+
+  const addCustom = () => { const t = label.trim(); if (!t) return; actions.addCondition!({ type, label: t, cadence }); setLabel(''); setType('other'); setCadence('monthly'); setAdding(false); };
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500"><ListChecks className="h-3.5 w-3.5" /> Conditions &amp; check-ins</h4>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${compCls}`}>
+          {comp.tone === 'at_risk' && <AlertTriangle className="h-3 w-3" />} {comp.label}{comp.overdue ? ` · ${comp.overdue} overdue` : comp.dueSoon ? ` · ${comp.dueSoon} due soon` : ''}
+        </span>
+      </div>
+
+      {list.length > 0 && (
+        <ul className="mt-2 space-y-1.5">{list.map((c) => <ConditionRow key={c.id} c={c} actions={actions} />)}</ul>
+      )}
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {CONDITION_TEMPLATES.filter((t) => !haveLabels.has(t.label.toLowerCase())).slice(0, 6).map((t) => (
+          <button key={t.label} onClick={() => actions.addCondition!({ type: t.type, label: t.label, cadence: t.cadence })}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700">
+            <Plus className="h-3 w-3" /> {t.label}
+          </button>
+        ))}
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700"><Plus className="h-3 w-3" /> Custom</button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') setAdding(false); }} placeholder="Condition…"
+            className="min-w-[160px] flex-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm focus:border-teal-500 focus:outline-none" />
+          <select value={cadence} onChange={(e) => setCadence(e.target.value as ConditionCadence)} className="rounded-md border border-slate-300 px-2 py-1.5 text-xs focus:border-teal-500 focus:outline-none">
+            {(['once', 'weekly', 'biweekly', 'monthly', 'as_needed'] as ConditionCadence[]).map((c) => <option key={c} value={c}>{CADENCE_LABEL[c]}</option>)}
+          </select>
+          <button onClick={addCustom} className="rounded-md bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">Add</button>
+          <button onClick={() => setAdding(false)} className="px-2 py-1.5 text-xs font-semibold text-slate-500">Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConditionRow({ c, actions }: { c: SupervisionCondition; actions: PlanActions }) {
+  const status = conditionStatus(c);
+  const showDue = c.cadence !== 'as_needed';
+  return (
+    <li className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 p-2.5">
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${COND_PILL[status]}`}>{COND_PILL_LABEL[status]}</span>
+      <span className="min-w-0 flex-1 text-sm font-semibold text-navy-900">{c.label} <span className="font-normal text-slate-400">· {CADENCE_LABEL[c.cadence]}</span></span>
+      {showDue && (
+        <input type="date" value={c.dueDate ?? ''} onChange={(e) => actions.setConditionDue!(c.id, e.target.value)}
+          className={'rounded-md border px-1.5 py-1 text-[11px] focus:border-teal-500 focus:outline-none ' + (status === 'overdue' ? 'border-rose-300 text-rose-700' : 'border-slate-300 text-slate-600')} />
+      )}
+      <button onClick={() => actions.markConditionMet!(c.id)} className="inline-flex items-center gap-1 rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700"><Check className="h-3 w-3" /> {c.cadence === 'once' ? 'Done' : 'Mark met'}</button>
+      <button onClick={() => actions.removeCondition!(c.id)} className="text-slate-300 hover:text-rose-500" aria-label="Remove condition"><Trash2 className="h-3.5 w-3.5" /></button>
+    </li>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
-import type { SupervisionInfo } from './supervision';
+import type { SupervisionInfo, SupervisionCondition } from './supervision';
 
 /**
  * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
@@ -59,6 +59,7 @@ const GOALS_KEY = 'dxp.checklist.goals';
 const CHECKINS_KEY = 'dxp.checklist.checkins';
 const READINESS_KEY = 'dxp.checklist.readiness';
 const SUPERVISION_KEY = 'dxp.checklist.supervision';
+const CONDITIONS_KEY = 'dxp.checklist.conditions';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -93,6 +94,7 @@ let planGoals: string = read<string>(GOALS_KEY, '');
 let checkins: CheckIn[] = read<CheckIn[]>(CHECKINS_KEY, []);
 let readiness: ReadinessAnswers = read<ReadinessAnswers>(READINESS_KEY, {});
 let supervisionInfo: SupervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {});
+let conditions: SupervisionCondition[] = read<SupervisionCondition[]>(CONDITIONS_KEY, []);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
@@ -102,6 +104,7 @@ if (typeof window !== 'undefined') {
     else if (e.key === CHECKINS_KEY) { checkins = read<CheckIn[]>(CHECKINS_KEY, []); emit(); }
     else if (e.key === READINESS_KEY) { readiness = read<ReadinessAnswers>(READINESS_KEY, {}); emit(); }
     else if (e.key === SUPERVISION_KEY) { supervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {}); emit(); }
+    else if (e.key === CONDITIONS_KEY) { conditions = read<SupervisionCondition[]>(CONDITIONS_KEY, []); emit(); }
   });
 }
 
@@ -210,4 +213,27 @@ export function setSupervisionInfo(patch: Partial<SupervisionInfo>) {
 const EMPTY_SUPERVISION: SupervisionInfo = {};
 export function useSupervisionInfo(): SupervisionInfo {
   return useSyncExternalStore(subscribe, getSupervisionInfo, () => EMPTY_SUPERVISION);
+}
+
+// ── Supervision conditions ────────────────────────────────────────────────
+export function getConditions(): SupervisionCondition[] { return conditions; }
+export function addCondition(c: SupervisionCondition) {
+  conditions = [...conditions, c];
+  write(CONDITIONS_KEY, conditions); emit();
+}
+export function updateCondition(id: string, patch: Partial<SupervisionCondition>) {
+  conditions = conditions.map((c) => (c.id === id ? { ...c, ...patch } : c));
+  write(CONDITIONS_KEY, conditions); emit();
+}
+export function removeCondition(id: string) {
+  conditions = conditions.filter((c) => c.id !== id);
+  write(CONDITIONS_KEY, conditions); emit();
+}
+export function setConditions(list: SupervisionCondition[]) {
+  conditions = list;
+  write(CONDITIONS_KEY, conditions); emit();
+}
+const EMPTY_CONDITIONS: SupervisionCondition[] = [];
+export function useConditions(): SupervisionCondition[] {
+  return useSyncExternalStore(subscribe, getConditions, () => EMPTY_CONDITIONS);
 }

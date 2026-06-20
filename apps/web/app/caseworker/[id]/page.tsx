@@ -7,9 +7,10 @@ import { ClipboardList, Wrench, LifeBuoy, Landmark, ListChecks, CheckCircle2, Us
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS, type JobDto, type TrainingBridgeStep } from '@dxp/shared';
 import {
   useParticipant, getParticipant, newParticipantId, setReadiness, setSupervisionMeta,
+  addCondition, updateCondition, removeCondition,
   type Participant, type Barrier,
 } from '../../../lib/caseworker-store';
-import { buildSupervisionSummary, printSupervisionSummary } from '../../../lib/supervision';
+import { buildSupervisionSummary, printSupervisionSummary, advanceCondition, defaultConditionDue } from '../../../lib/supervision';
 import {
   assessReadiness, participantToReadinessInput, BAND_LABEL,
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
@@ -234,6 +235,7 @@ export default function ParticipantWorkspace() {
     readiness,
     isCaseworker: true,
     supervision: { officerName: draft.officerName, supervisionType, nextReportDate: draft.nextReportDate },
+    conditions: participant?.conditions ?? [],
     steps: (participant?.tasks ?? []).map((t): PlanStep => ({
       id: t.id, title: t.title, status: t.status,
       domain: t.domain ?? deriveStepDomain(t),
@@ -257,6 +259,10 @@ export default function ParticipantWorkspace() {
       if (patch.nextReportDate !== undefined) meta.nextReportDate = patch.nextReportDate;
       if (Object.keys(meta).length) setSupervisionMeta(pid, meta);
     },
+    addCondition: (c) => { ensurePersist(); addCondition(pid, { id: `cond_${Math.random().toString(36).slice(2, 9)}`, type: c.type, label: c.label, cadence: c.cadence, dueDate: c.dueDate ?? defaultConditionDue(c.cadence), createdAt: Date.now() }); },
+    markConditionMet: (id) => { const c = (participant?.conditions ?? []).find((x) => x.id === id); if (c) updateCondition(pid, id, advanceCondition(c)); },
+    setConditionDue: (id, d) => updateCondition(pid, id, { dueDate: d || undefined }),
+    removeCondition: (id) => removeCondition(pid, id),
     onSupervisionSummary: () => { ensurePersist(); printSupervisionSummary(buildSupervisionSummary(planModel, planModel.supervision ?? {})); },
     onPrint: () => saveAndPrint(),
     onShare: () => { ensurePersist(); setShowExport(true); },

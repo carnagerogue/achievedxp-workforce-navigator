@@ -8,7 +8,7 @@ import type {
   ReadinessDomainKey, DomainStatus, DomainResult, ReadinessResult,
 } from './readiness';
 import type { CheckIn } from './checklist-store';
-import type { SupervisionInfo } from './supervision';
+import type { SupervisionInfo, SupervisionCondition, ConditionType, ConditionCadence } from './supervision';
 
 export type PlanDomain = ReadinessDomainKey | 'jobs' | 'general';
 export type PlanStepStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
@@ -32,8 +32,11 @@ export interface PlanModel {
   steps: PlanStep[];
   checkins?: CheckIn[];
   supervision?: SupervisionInfo;
+  conditions?: SupervisionCondition[];
   isCaseworker: boolean;
 }
+
+export interface NewCondition { type: ConditionType; label: string; cadence: ConditionCadence; dueDate?: string }
 
 export interface PlanActions {
   setDomainStatus: (d: ReadinessDomainKey, s: DomainStatus) => void;
@@ -48,6 +51,10 @@ export interface PlanActions {
   addCheckin?: (rating: number, note: string) => void;
   removeCheckin?: (id: string) => void;
   setSupervision?: (patch: Partial<SupervisionInfo>) => void;
+  addCondition?: (c: NewCondition) => void;
+  markConditionMet?: (id: string) => void;
+  setConditionDue?: (id: string, date: string) => void;
+  removeCondition?: (id: string) => void;
   onSupervisionSummary?: () => void;
   onShare?: () => void;
   onImport?: () => void;

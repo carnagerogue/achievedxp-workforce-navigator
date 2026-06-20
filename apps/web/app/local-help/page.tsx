@@ -35,8 +35,11 @@ import {
 import {
   progressPct, countByStatus, overdueItems, dueSoonItems, nextStep, momentum,
 } from '../../lib/plan-progress';
-import { useReadiness, setReadinessAnswer, useSupervisionInfo, setSupervisionInfo } from '../../lib/checklist-store';
-import { buildSupervisionSummary, printSupervisionSummary } from '../../lib/supervision';
+import {
+  useReadiness, setReadinessAnswer, useSupervisionInfo, setSupervisionInfo,
+  useConditions, addCondition, updateCondition, removeCondition, setConditions,
+} from '../../lib/checklist-store';
+import { buildSupervisionSummary, printSupervisionSummary, advanceCondition, defaultConditionDue } from '../../lib/supervision';
 import {
   assessReadiness, selfToReadinessInput, BAND_LABEL,
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
@@ -482,6 +485,7 @@ function ChecklistView() {
   const checkins = useCheckins();
   const rdAnswers = useReadiness();
   const supervision = useSupervisionInfo();
+  const conditionList = useConditions();
   const [showShare, setShowShare] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -498,13 +502,14 @@ function ChecklistView() {
       }
     }
     if (plan.supervision) setSupervisionInfo(plan.supervision);
+    if (plan.conditions) setConditions(plan.conditions);
     setShowImport(false);
   };
 
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
   const model: PlanModel = {
-    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision,
+    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList,
     steps: items.map((i): PlanStep => ({
       id: i.id, title: i.name, status: i.status,
       domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
@@ -525,6 +530,10 @@ function ChecklistView() {
     addCheckin: (rating, note) => addCheckin({ date: todayIso(), rating, note }),
     removeCheckin: (id) => removeCheckin(id),
     setSupervision: (patch) => setSupervisionInfo(patch),
+    addCondition: (c) => addCondition({ id: `cond_${Math.random().toString(36).slice(2, 9)}`, type: c.type, label: c.label, cadence: c.cadence, dueDate: c.dueDate ?? defaultConditionDue(c.cadence), createdAt: Date.now() }),
+    markConditionMet: (id) => { const c = conditionList.find((x) => x.id === id); if (c) updateCondition(id, advanceCondition(c)); },
+    setConditionDue: (id, d) => updateCondition(id, { dueDate: d || undefined }),
+    removeCondition: (id) => removeCondition(id),
     onSupervisionSummary: () => printSupervisionSummary(buildSupervisionSummary(model, supervision)),
     onShare: () => setShowShare(true),
     onImport: () => setShowImport(true),
@@ -534,7 +543,7 @@ function ChecklistView() {
   return (
     <div className="space-y-4">
       {showShare && (
-        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision)} audience="caseworker" onClose={() => setShowShare(false)} />
+        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision, conditionList)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />
