@@ -9,6 +9,7 @@ import {
   Building2,
   CheckCircle2,
   AlertTriangle,
+  Compass,
 } from 'lucide-react';
 import { LiveStats } from '../components/LiveStats';
 
@@ -36,11 +37,18 @@ export default function LandingPage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/onboarding"
+                href="/start"
                 className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover"
               >
-                Build my profile
+                <Compass className="h-4 w-4" />
+                Just got out? Start here
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="/onboarding"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 backdrop-blur transition hover:border-slate-400 hover:bg-white"
+              >
+                Build my profile
               </Link>
               <Link
                 href="/jobs"
