@@ -38,6 +38,7 @@ import {
 import {
   useReadiness, setReadinessAnswer, useSupervisionInfo, setSupervisionInfo,
   useConditions, addCondition, updateCondition, removeCondition, setConditions,
+  useFees, addFee, updateFee, removeFee, setFees,
 } from '../../lib/checklist-store';
 import { buildSupervisionSummary, printSupervisionSummary, advanceCondition, defaultConditionDue } from '../../lib/supervision';
 import {
@@ -486,6 +487,7 @@ function ChecklistView() {
   const rdAnswers = useReadiness();
   const supervision = useSupervisionInfo();
   const conditionList = useConditions();
+  const feeList = useFees();
   const [showShare, setShowShare] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -503,13 +505,14 @@ function ChecklistView() {
     }
     if (plan.supervision) setSupervisionInfo(plan.supervision);
     if (plan.conditions) setConditions(plan.conditions);
+    if (plan.fees) setFees(plan.fees);
     setShowImport(false);
   };
 
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
   const model: PlanModel = {
-    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList,
+    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList, fees: feeList,
     steps: items.map((i): PlanStep => ({
       id: i.id, title: i.name, status: i.status,
       domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
@@ -534,6 +537,11 @@ function ChecklistView() {
     markConditionMet: (id) => { const c = conditionList.find((x) => x.id === id); if (c) updateCondition(id, advanceCondition(c)); },
     setConditionDue: (id, d) => updateCondition(id, { dueDate: d || undefined }),
     removeCondition: (id) => removeCondition(id),
+    addFee: (f) => addFee({ id: `fee_${Math.random().toString(36).slice(2, 9)}`, kind: f.kind, label: f.label, total: f.total, dueDate: f.dueDate, payments: [], createdAt: Date.now() }),
+    logPayment: (feeId, amount, date, note) => { const o = feeList.find((x) => x.id === feeId); if (o) updateFee(feeId, { payments: [...(o.payments ?? []), { id: `pay_${Math.random().toString(36).slice(2, 9)}`, amount, date, note }] }); },
+    removePayment: (feeId, paymentId) => { const o = feeList.find((x) => x.id === feeId); if (o) updateFee(feeId, { payments: (o.payments ?? []).filter((p) => p.id !== paymentId) }); },
+    setFeeDue: (feeId, d) => updateFee(feeId, { dueDate: d || undefined }),
+    removeFee: (feeId) => removeFee(feeId),
     onSupervisionSummary: () => printSupervisionSummary(buildSupervisionSummary(model, supervision)),
     onShare: () => setShowShare(true),
     onImport: () => setShowImport(true),
@@ -543,7 +551,7 @@ function ChecklistView() {
   return (
     <div className="space-y-4">
       {showShare && (
-        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision, conditionList)} audience="caseworker" onClose={() => setShowShare(false)} />
+        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision, conditionList, feeList)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />

@@ -16,7 +16,7 @@ import {
   assessReadiness, participantToReadinessInput, selfToReadinessInput,
   type ReadinessAnswers,
 } from './readiness';
-import type { SupervisionInfo, SupervisionCondition } from './supervision';
+import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './supervision';
 
 export interface PortableItem {
   name: string;
@@ -56,6 +56,8 @@ export interface PortablePlan {
   supervision?: SupervisionInfo;
   /** Supervision conditions / check-ins. */
   conditions?: SupervisionCondition[];
+  /** Fees / fines / restitution being tracked. */
+  fees?: FeeObligation[];
 }
 
 // ── encode / decode (URL-safe base64 of JSON, unicode-safe) ───────────────
@@ -105,6 +107,7 @@ export function downloadPlan(p: PortablePlan, filename = 'reentry-plan.json') {
 export function checklistToPortable(
   items: ChecklistItem[], name: string, goals: string,
   readiness: ReadinessAnswers = {}, supervision?: SupervisionInfo, conditions?: SupervisionCondition[],
+  fees?: FeeObligation[],
 ): PortablePlan {
   const readinessScore = assessReadiness(selfToReadinessInput({ careerGoal: goals }), readiness).score;
   return {
@@ -119,6 +122,7 @@ export function checklistToPortable(
     readinessScore,
     supervision,
     conditions,
+    fees,
   };
 }
 
@@ -162,6 +166,7 @@ export function participantToPortable(p: Participant): PortablePlan {
       nextReportDate: p.nextReportDate,
     },
     conditions: p.conditions,
+    fees: p.fees,
   };
 }
 
@@ -205,6 +210,7 @@ export function portableToParticipant(p: PortablePlan): Participant {
     tasks,
     readiness: p.readiness,
     conditions: p.conditions,
+    fees: p.fees,
     createdAt: now,
     updatedAt: now,
   };

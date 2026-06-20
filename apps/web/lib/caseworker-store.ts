@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import type { ConvictionType, UserContextMode, EducationLevel } from '@dxp/shared';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
-import type { SupervisionCondition } from './supervision';
+import type { SupervisionCondition, FeeObligation } from './supervision';
 
 /**
  * Caseload store — saved participants for Caseworker Mode, localStorage-backed
@@ -86,6 +86,8 @@ export interface Participant {
   nextReportDate?: string;
   /** Supervision conditions / check-ins being tracked. */
   conditions?: SupervisionCondition[];
+  /** Fees / fines / restitution being tracked. */
+  fees?: FeeObligation[];
   yearsSinceRelease: number | null;
   education: EducationLevel;
   skills: string[];
@@ -289,6 +291,16 @@ export function updateCondition(pid: string, id: string, patch: Partial<Supervis
 }
 export function removeCondition(pid: string, id: string) {
   patchParticipant(pid, (p) => ({ ...p, conditions: (p.conditions ?? []).filter((c) => c.id !== id) }));
+}
+
+export function addFee(pid: string, o: FeeObligation) {
+  patchParticipant(pid, (p) => ({ ...p, fees: [...(p.fees ?? []), o] }));
+}
+export function updateFee(pid: string, id: string, patch: Partial<FeeObligation>) {
+  patchParticipant(pid, (p) => ({ ...p, fees: (p.fees ?? []).map((o) => (o.id === id ? { ...o, ...patch } : o)) }));
+}
+export function removeFee(pid: string, id: string) {
+  patchParticipant(pid, (p) => ({ ...p, fees: (p.fees ?? []).filter((o) => o.id !== id) }));
 }
 
 /**

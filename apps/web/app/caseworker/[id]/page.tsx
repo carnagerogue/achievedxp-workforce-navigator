@@ -7,7 +7,7 @@ import { ClipboardList, Wrench, LifeBuoy, Landmark, ListChecks, CheckCircle2, Us
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS, type JobDto, type TrainingBridgeStep } from '@dxp/shared';
 import {
   useParticipant, getParticipant, newParticipantId, setReadiness, setSupervisionMeta,
-  addCondition, updateCondition, removeCondition,
+  addCondition, updateCondition, removeCondition, addFee, updateFee, removeFee,
   type Participant, type Barrier,
 } from '../../../lib/caseworker-store';
 import { buildSupervisionSummary, printSupervisionSummary, advanceCondition, defaultConditionDue } from '../../../lib/supervision';
@@ -236,6 +236,7 @@ export default function ParticipantWorkspace() {
     isCaseworker: true,
     supervision: { officerName: draft.officerName, supervisionType, nextReportDate: draft.nextReportDate },
     conditions: participant?.conditions ?? [],
+    fees: participant?.fees ?? [],
     steps: (participant?.tasks ?? []).map((t): PlanStep => ({
       id: t.id, title: t.title, status: t.status,
       domain: t.domain ?? deriveStepDomain(t),
@@ -263,6 +264,11 @@ export default function ParticipantWorkspace() {
     markConditionMet: (id) => { const c = (participant?.conditions ?? []).find((x) => x.id === id); if (c) updateCondition(pid, id, advanceCondition(c)); },
     setConditionDue: (id, d) => updateCondition(pid, id, { dueDate: d || undefined }),
     removeCondition: (id) => removeCondition(pid, id),
+    addFee: (f) => { ensurePersist(); addFee(pid, { id: `fee_${Math.random().toString(36).slice(2, 9)}`, kind: f.kind, label: f.label, total: f.total, dueDate: f.dueDate, payments: [], createdAt: Date.now() }); },
+    logPayment: (feeId, amount, date, note) => { const o = (participant?.fees ?? []).find((x) => x.id === feeId); if (o) updateFee(pid, feeId, { payments: [...(o.payments ?? []), { id: `pay_${Math.random().toString(36).slice(2, 9)}`, amount, date, note }] }); },
+    removePayment: (feeId, paymentId) => { const o = (participant?.fees ?? []).find((x) => x.id === feeId); if (o) updateFee(pid, feeId, { payments: (o.payments ?? []).filter((p) => p.id !== paymentId) }); },
+    setFeeDue: (feeId, d) => updateFee(pid, feeId, { dueDate: d || undefined }),
+    removeFee: (feeId) => removeFee(pid, feeId),
     onSupervisionSummary: () => { ensurePersist(); printSupervisionSummary(buildSupervisionSummary(planModel, planModel.supervision ?? {})); },
     onPrint: () => saveAndPrint(),
     onShare: () => { ensurePersist(); setShowExport(true); },

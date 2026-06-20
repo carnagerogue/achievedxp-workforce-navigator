@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
-import type { SupervisionInfo, SupervisionCondition } from './supervision';
+import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './supervision';
 
 /**
  * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
@@ -60,6 +60,7 @@ const CHECKINS_KEY = 'dxp.checklist.checkins';
 const READINESS_KEY = 'dxp.checklist.readiness';
 const SUPERVISION_KEY = 'dxp.checklist.supervision';
 const CONDITIONS_KEY = 'dxp.checklist.conditions';
+const FEES_KEY = 'dxp.checklist.fees';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -95,6 +96,7 @@ let checkins: CheckIn[] = read<CheckIn[]>(CHECKINS_KEY, []);
 let readiness: ReadinessAnswers = read<ReadinessAnswers>(READINESS_KEY, {});
 let supervisionInfo: SupervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {});
 let conditions: SupervisionCondition[] = read<SupervisionCondition[]>(CONDITIONS_KEY, []);
+let fees: FeeObligation[] = read<FeeObligation[]>(FEES_KEY, []);
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
@@ -105,6 +107,7 @@ if (typeof window !== 'undefined') {
     else if (e.key === READINESS_KEY) { readiness = read<ReadinessAnswers>(READINESS_KEY, {}); emit(); }
     else if (e.key === SUPERVISION_KEY) { supervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {}); emit(); }
     else if (e.key === CONDITIONS_KEY) { conditions = read<SupervisionCondition[]>(CONDITIONS_KEY, []); emit(); }
+    else if (e.key === FEES_KEY) { fees = read<FeeObligation[]>(FEES_KEY, []); emit(); }
   });
 }
 
@@ -236,4 +239,27 @@ export function setConditions(list: SupervisionCondition[]) {
 const EMPTY_CONDITIONS: SupervisionCondition[] = [];
 export function useConditions(): SupervisionCondition[] {
   return useSyncExternalStore(subscribe, getConditions, () => EMPTY_CONDITIONS);
+}
+
+// ── Fees / fines / restitution ────────────────────────────────────────────
+export function getFees(): FeeObligation[] { return fees; }
+export function addFee(o: FeeObligation) {
+  fees = [...fees, o];
+  write(FEES_KEY, fees); emit();
+}
+export function updateFee(id: string, patch: Partial<FeeObligation>) {
+  fees = fees.map((o) => (o.id === id ? { ...o, ...patch } : o));
+  write(FEES_KEY, fees); emit();
+}
+export function removeFee(id: string) {
+  fees = fees.filter((o) => o.id !== id);
+  write(FEES_KEY, fees); emit();
+}
+export function setFees(list: FeeObligation[]) {
+  fees = list;
+  write(FEES_KEY, fees); emit();
+}
+const EMPTY_FEES: FeeObligation[] = [];
+export function useFees(): FeeObligation[] {
+  return useSyncExternalStore(subscribe, getFees, () => EMPTY_FEES);
 }

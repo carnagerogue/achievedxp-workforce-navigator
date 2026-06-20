@@ -8,7 +8,7 @@ import type {
   ReadinessDomainKey, DomainStatus, DomainResult, ReadinessResult,
 } from './readiness';
 import type { CheckIn } from './checklist-store';
-import type { SupervisionInfo, SupervisionCondition, ConditionType, ConditionCadence } from './supervision';
+import type { SupervisionInfo, SupervisionCondition, ConditionType, ConditionCadence, FeeObligation, FeeKind } from './supervision';
 
 export type PlanDomain = ReadinessDomainKey | 'jobs' | 'general';
 export type PlanStepStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
@@ -33,10 +33,12 @@ export interface PlanModel {
   checkins?: CheckIn[];
   supervision?: SupervisionInfo;
   conditions?: SupervisionCondition[];
+  fees?: FeeObligation[];
   isCaseworker: boolean;
 }
 
 export interface NewCondition { type: ConditionType; label: string; cadence: ConditionCadence; dueDate?: string }
+export interface NewFee { kind: FeeKind; label: string; total: number; dueDate?: string }
 
 export interface PlanActions {
   setDomainStatus: (d: ReadinessDomainKey, s: DomainStatus) => void;
@@ -55,6 +57,11 @@ export interface PlanActions {
   markConditionMet?: (id: string) => void;
   setConditionDue?: (id: string, date: string) => void;
   removeCondition?: (id: string) => void;
+  addFee?: (f: NewFee) => void;
+  logPayment?: (feeId: string, amount: number, date: string, note?: string) => void;
+  removePayment?: (feeId: string, paymentId: string) => void;
+  setFeeDue?: (feeId: string, date: string) => void;
+  removeFee?: (feeId: string) => void;
   onSupervisionSummary?: () => void;
   onShare?: () => void;
   onImport?: () => void;

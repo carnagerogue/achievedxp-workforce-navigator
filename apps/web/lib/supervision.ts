@@ -89,6 +89,52 @@ export function defaultConditionDue(cadence: ConditionCadence): string | undefin
   return cadence === 'once' || cadence === 'as_needed' ? undefined : isoAfter(CADENCE_DAYS[cadence]);
 }
 
+// ── Fees / fines / restitution ────────────────────────────────────────────
+export type FeeKind = 'supervision_fee' | 'fine' | 'restitution' | 'program_fee' | 'other';
+export interface FeePayment { id: string; date: string; amount: number; note?: string }
+export interface FeeObligation {
+  id: string;
+  kind: FeeKind;
+  label: string;
+  total: number;          // total owed (USD)
+  payments: FeePayment[];
+  dueDate?: string;       // next payment due (ISO)
+  createdAt: number;
+}
+
+export const FEE_KIND_LABEL: Record<FeeKind, string> = {
+  supervision_fee: 'Supervision fee', fine: 'Court fine', restitution: 'Restitution',
+  program_fee: 'Program fee', other: 'Other',
+};
+export const FEE_TEMPLATES: { kind: FeeKind; label: string }[] = [
+  { kind: 'supervision_fee', label: 'Supervision fee' },
+  { kind: 'restitution', label: 'Restitution' },
+  { kind: 'fine', label: 'Court fine' },
+  { kind: 'program_fee', label: 'Program fee' },
+];
+
+export const feePaid = (o: FeeObligation): number => (o.payments ?? []).reduce((s, p) => s + (p.amount || 0), 0);
+export const feeBalance = (o: FeeObligation): number => Math.max(0, (o.total || 0) - feePaid(o));
+export const feePct = (o: FeeObligation): number => (o.total > 0 ? Math.min(100, Math.round((feePaid(o) / o.total) * 100)) : 100);
+export function feeIsBehind(o: FeeObligation, now = Date.now()): boolean {
+  if (feeBalance(o) <= 0) return false;
+  const e = dueEpoch(o.dueDate);
+  if (Number.isNaN(e)) return false;
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  return e < today.getTime();
+}
+
+export interface FeesTotals { owed: number; paid: number; balance: number; behind: number }
+export function feesTotals(list: FeeObligation[]): FeesTotals {
+  let owed = 0, paid = 0, behind = 0;
+  for (const o of list) { owed += o.total || 0; paid += feePaid(o); if (feeIsBehind(o)) behind++; }
+  return { owed, paid, balance: Math.max(0, owed - paid), behind };
+}
+
+export function fmtMoney(n: number): string {
+  return '$' + Math.round(n || 0).toLocaleString('en-US');
+}
+
 export interface ComplianceRead { label: string; tone: 'ok' | 'attention' | 'at_risk'; overdue: number; dueSoon: number }
 export function complianceFromConditions(conditions: SupervisionCondition[]): ComplianceRead {
   let overdue = 0, dueSoon = 0;
@@ -148,6 +194,8 @@ export interface SupervisionSummary {
   checkins: { date: string; rating: number; note: string }[];
   conditions: { label: string; cadence: string; statusLabel: string; nextDue?: string; lastMet?: string }[];
   compliance: ComplianceRead;
+  fees: { label: string; total: number; paid: number; balance: number; behind: boolean }[];
+  feesTotals: FeesTotals;
 }
 
 const COND_STATUS_LABEL: Record<ConditionStatus, string> = {
@@ -188,6 +236,8 @@ export function buildSupervisionSummary(model: PlanModel, info: SupervisionInfo)
       nextDue: c.dueDate, lastMet: c.lastMet,
     })),
     compliance: complianceFromConditions(model.conditions ?? []),
+    fees: (model.fees ?? []).map((o) => ({ label: o.label, total: o.total, paid: feePaid(o), balance: feeBalance(o), behind: feeIsBehind(o) })),
+    feesTotals: feesTotals(model.fees ?? []),
   };
 }
 
@@ -213,6 +263,9 @@ export function printSupervisionSummary(s: SupervisionSummary) {
   const condHtml = s.conditions.length
     ? `<table><thead><tr><th>Condition</th><th>Cadence</th><th>Status</th><th>Next due</th></tr></thead><tbody>${s.conditions.map((c) => `<tr><td>${esc(c.label)}</td><td>${esc(c.cadence)}</td><td>${esc(c.statusLabel)}</td><td>${esc(fmtDate(c.nextDue))}</td></tr>`).join('')}</tbody></table>`
     : `<p class="muted">No conditions tracked yet.</p>`;
+  const feesHtml = s.fees.length
+    ? `<table><thead><tr><th>Obligation</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${s.fees.map((f) => `<tr><td>${esc(f.label)}${f.behind ? ' <b style="color:#b91c1c">(behind)</b>' : ''}</td><td>${fmtMoney(f.total)}</td><td>${fmtMoney(f.paid)}</td><td>${fmtMoney(f.balance)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td><b>${fmtMoney(s.feesTotals.owed)}</b></td><td><b>${fmtMoney(s.feesTotals.paid)}</b></td><td><b>${fmtMoney(s.feesTotals.balance)}</b></td></tr></tbody></table>`
+    : `<p class="muted">No financial obligations tracked.</p>`;
 
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Employment &amp; Supervision Summary</title>
   <style>
@@ -240,6 +293,8 @@ export function printSupervisionSummary(s: SupervisionSummary) {
     <div class="prov">Self-reported by the participant for supervision review. Not an employer or agency record.</div>
 
     <h2>Supervision conditions — ${esc(s.compliance.label)}${s.compliance.overdue ? ` (${s.compliance.overdue} overdue)` : ''}</h2>${condHtml}
+
+    <h2>Fees, fines &amp; restitution${s.feesTotals.balance > 0 ? ` — ${esc(fmtMoney(s.feesTotals.balance))} balance` : ' — paid in full'}</h2>${feesHtml}
 
     <h2>Job-search activity</h2>
     <div class="counts">
