@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {
-  AlertTriangle, ArrowRight, TrendingUp, Minus, TrendingDown, MapPin, Target, ShieldCheck, ShieldAlert,
+  AlertTriangle, ArrowRight, TrendingUp, Minus, TrendingDown, MapPin, Target, ShieldCheck, ShieldAlert, CheckCircle2,
 } from 'lucide-react';
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS } from '@dxp/shared';
 import type { Participant } from '../../lib/caseworker-store';
@@ -80,6 +80,8 @@ export function ParticipantCard({ p }: { p: Participant }) {
           <p className="truncate text-[11px] text-slate-600">
             <span className="font-semibold text-slate-700">Next:</span> {next.title}{next.dueDate ? ` · ${next.dueDate}` : ''}
           </p>
+        ) : total > 0 ? (
+          <p className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700"><CheckCircle2 className="h-3 w-3" /> All steps complete — plan a next move</p>
         ) : (
           <p className="text-[11px] font-medium text-amber-700">No plan yet — start the first steps</p>
         )}

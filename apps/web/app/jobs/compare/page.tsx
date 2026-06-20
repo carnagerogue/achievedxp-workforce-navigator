@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, ExternalLink, Building2, MapPin, Wallet, Clock, Briefcase,
-  Wrench, GraduationCap, X, GitCompare,
+  Wrench, GraduationCap, X, GitCompare, Target,
 } from 'lucide-react';
 import type { JobDto } from '@dxp/shared';
 import { getJobsByIds } from '../../../lib/api';
@@ -12,6 +12,15 @@ import { useCompareIds, toggleCompare, clearCompare } from '../../../lib/persona
 import { RiskBadge } from '../../../components/RiskBadge';
 import { SourceBadge } from '../../../components/SourceBadge';
 import { prettyDate, prettyIndustry, prettySalary } from '../../../lib/format';
+import { getLocalProfile } from '../../../lib/local-profile';
+import { candidateProfilesFromStored, convictionTypesFor, type StoredProfile } from '../../../lib/profile-store';
+import { scoreJobUnified } from '../../../lib/job-scoring';
+
+const CHANCE_CHIP: Record<'high' | 'medium' | 'low', string> = {
+  high: 'bg-teal-50 text-teal-700 ring-teal-200',
+  medium: 'bg-amber-50 text-amber-700 ring-amber-200',
+  low: 'bg-rose-50 text-rose-700 ring-rose-200',
+};
 
 /**
  * Side-by-side comparison for up to 3 jobs. The source of truth is the
@@ -22,6 +31,7 @@ export default function ComparePage() {
   const ids = useCompareIds();
   const [jobs, setJobs] = useState<JobDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<StoredProfile | null>(null);
 
   useEffect(() => {
     if (ids.length === 0) { setJobs([]); return; }
@@ -31,6 +41,23 @@ export default function ComparePage() {
       .catch(() => setJobs([]))
       .finally(() => setLoading(false));
   }, [ids]);
+
+  useEffect(() => { setProfile(getLocalProfile()); }, []);
+
+  // Same conviction-aware scorer as Browse + the dashboard, so the one
+  // dimension that matters most here is front-and-center, not absent.
+  const scoreInputs = useMemo(() => ({
+    candidates: profile ? candidateProfilesFromStored(profile) : [],
+    convictionTypes: profile ? convictionTypesFor(profile) : [],
+    profile,
+    hasConvictions: (profile?.convictions?.length ?? 0) > 0,
+  }), [profile]);
+  const scoreByJob = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof scoreJobUnified>>();
+    if (!profile) return m;
+    for (const j of jobs) m.set(j.id, scoreJobUnified(scoreInputs, j));
+    return m;
+  }, [jobs, scoreInputs, profile]);
 
   if (ids.length === 0) {
     return (
@@ -62,7 +89,7 @@ export default function ComparePage() {
           </Link>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">Compare jobs</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Side-by-side on the fields that matter — location, salary, requirements, and risk.
+            Side-by-side on the fields that matter — your match, location, salary, requirements, and risk.
           </p>
         </div>
         <button
@@ -115,6 +142,27 @@ export default function ComparePage() {
                     </a>
                   </div>
                 ))}
+              </Row>
+
+              <Row label="Your match" Icon={Target} accent>
+                {jobs.map((j) => {
+                  const u = scoreByJob.get(j.id);
+                  if (!u) {
+                    return (
+                      <div key={j.id} className="pt-4 text-sm">
+                        <Link href="/onboarding" className="text-xs font-semibold text-teal-700 hover:underline">Build a profile to score →</Link>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={j.id} className="pt-4">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${CHANCE_CHIP[u.chance]}`}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" /> {u.label} · {u.score}%
+                      </span>
+                      <p className="mt-1.5 text-[11px] leading-snug text-slate-600">{u.explanation}</p>
+                    </div>
+                  );
+                })}
               </Row>
 
               <Row label="Location" Icon={MapPin}>

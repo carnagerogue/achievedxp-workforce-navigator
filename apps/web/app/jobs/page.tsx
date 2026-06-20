@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -187,13 +187,28 @@ function JobsPage() {
 
   const locationFilter = useMemo(() => parseLocationInput(dLocation), [dLocation]);
 
-  useEffect(() => {
-    setOffset(0);
-    setResults([]);
-  }, [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]);
+  // One signature for the whole filter set. Pagination is keyed off (queryKey,
+  // offset) in a single effect so a filter change can't race a stale `offset`
+  // into a wrong-page append + redundant fetch (was two effects sharing deps).
+  const queryKey = useMemo(
+    () => JSON.stringify([dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]),
+    [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly],
+  );
+  const prevQueryKey = useRef(queryKey);
 
   useEffect(() => {
+    const queryChanged = prevQueryKey.current !== queryKey;
+    // Filter changed while paged past the first page: reset to page 0 and let
+    // the offset change re-run this effect once. No fetch on this pass.
+    if (queryChanged && offset !== 0) {
+      prevQueryKey.current = queryKey;
+      setResults([]);
+      setOffset(0);
+      return;
+    }
+    prevQueryKey.current = queryKey;
     const isFirstPage = offset === 0;
+    if (queryChanged) setResults([]);
     if (isFirstPage) setLoading(true); else setLoadingMore(true);
     setError(null);
 
@@ -223,7 +238,8 @@ function JobsPage() {
         setLoading(false);
         setLoadingMore(false);
       });
-  }, [offset, dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey, offset]);
 
   const loadMore = () => setOffset(results.length);
   const hasMore = results.length < total;

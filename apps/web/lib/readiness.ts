@@ -189,6 +189,20 @@ export const BAND_LABEL: Record<ReadinessBand, string> = {
   ready: 'Job-ready',
 };
 
+/**
+ * Map a plan domain onto the local-help category vocabulary the auto-"ready"
+ * suggestions check. Lets a completed step credit its readiness domain even
+ * after a handoff import (which rewrites `source`/`notes` but preserves
+ * `domain`) — so the readiness score never silently regresses on import.
+ */
+const DOMAIN_TO_CATEGORY: Record<string, string> = {
+  housing: 'housing', transportation: 'transit', health_recovery: 'health',
+  legal_compliance: 'legal', id_documents: 'legal',
+  credentials_skills: 'training', education: 'training', digital_literacy: 'training',
+  work_readiness: 'employment', jobs: 'employment',
+  finances: 'food', support_network: 'family',
+};
+
 /** Categories a participant has already completed (for the auto "ready" signal). */
 function completedCategoriesFromTasks(p: Participant): string[] {
   const out = new Set<string>();
@@ -197,6 +211,9 @@ function completedCategoriesFromTasks(p: Participant): string[] {
     if (t.source === 'barrier' && t.notes) out.add(t.notes);
     if (t.category === 'appointment') out.add('employment');
     if (t.category === 'training') out.add('training');
+    // Domain survives the portable-plan handoff; credit it directly so an
+    // imported completed step keeps its readiness signal.
+    if (t.domain && DOMAIN_TO_CATEGORY[t.domain]) out.add(DOMAIN_TO_CATEGORY[t.domain]);
   }
   return [...out];
 }

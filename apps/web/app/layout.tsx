@@ -25,9 +25,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="flex min-h-full flex-col font-sans">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-teal-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         <ToastProvider>
           <SiteHeader />
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+          <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
             <ErrorBoundary>{children}</ErrorBoundary>
           </main>
           <SiteFooter />

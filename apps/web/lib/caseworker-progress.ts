@@ -4,7 +4,7 @@
  * rings) and the workspace header. No DOM, no localStorage — unit-testable.
  */
 import type { Participant, Task } from './caseworker-store';
-import { complianceFromConditions } from './supervision';
+import { complianceFromConditions, feeIsBehind } from './supervision';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -94,9 +94,15 @@ export function overdueConditionCount(p: Participant): number {
   return complianceFromConditions(p.conditions ?? []).overdue;
 }
 
+/** Obligations past due with a balance — also a technical-violation risk. */
+export function behindFeeCount(p: Participant, now: number = Date.now()): number {
+  return (p.fees ?? []).filter((o) => feeIsBehind(o, now)).length;
+}
+
 export function needsAttention(p: Participant, now: number = Date.now()): boolean {
   return (
     overdueConditionCount(p) > 0 ||
+    behindFeeCount(p, now) > 0 ||
     overdueTasks(p, now).length > 0 ||
     momentum(p, 14, now) === 'stalled' ||
     (p.tasks ?? []).length === 0

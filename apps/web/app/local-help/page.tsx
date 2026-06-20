@@ -541,6 +541,7 @@ function ChecklistView() {
     logPayment: (feeId, amount, date, note) => { const o = feeList.find((x) => x.id === feeId); if (o) updateFee(feeId, { payments: [...(o.payments ?? []), { id: `pay_${Math.random().toString(36).slice(2, 9)}`, amount, date, note }] }); },
     removePayment: (feeId, paymentId) => { const o = feeList.find((x) => x.id === feeId); if (o) updateFee(feeId, { payments: (o.payments ?? []).filter((p) => p.id !== paymentId) }); },
     setFeeDue: (feeId, d) => updateFee(feeId, { dueDate: d || undefined }),
+    setFeeTotal: (feeId, total) => updateFee(feeId, { total }),
     removeFee: (feeId) => removeFee(feeId),
     onSupervisionSummary: () => printSupervisionSummary(buildSupervisionSummary(model, supervision)),
     onShare: () => setShowShare(true),

@@ -61,6 +61,7 @@ export interface PlanActions {
   logPayment?: (feeId: string, amount: number, date: string, note?: string) => void;
   removePayment?: (feeId: string, paymentId: string) => void;
   setFeeDue?: (feeId: string, date: string) => void;
+  setFeeTotal?: (feeId: string, total: number) => void;
   removeFee?: (feeId: string) => void;
   onSupervisionSummary?: () => void;
   onShare?: () => void;

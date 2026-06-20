@@ -279,7 +279,7 @@ export function setReadiness(pid: string, domain: ReadinessDomainKey, status: Do
   patchParticipant(pid, (p) => ({ ...p, readiness: { ...(p.readiness ?? {}), [domain]: status } }));
 }
 
-export function setSupervisionMeta(pid: string, patch: { officerName?: string; nextReportDate?: string }) {
+export function setSupervisionMeta(pid: string, patch: { officerName?: string; nextReportDate?: string; supervision?: SupervisionKind }) {
   patchParticipant(pid, (p) => ({ ...p, ...patch }));
 }
 

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   reportDueState, conditionStatus, complianceFromConditions, CONDITION_TEMPLATES, CADENCE_LABEL,
-  feePaid, feeBalance, feePct, feeIsBehind, feesTotals, fmtMoney, FEE_TEMPLATES, FEE_KIND_LABEL,
+  feePaid, feeBalance, feePct, feeIsBehind, feeAmountSet, feesTotals, fmtMoney, FEE_TEMPLATES, FEE_KIND_LABEL,
   type ConditionStatus, type ConditionCadence, type ConditionType, type SupervisionCondition,
   type FeeObligation, type FeeKind,
 } from '../../lib/supervision';
@@ -294,10 +294,15 @@ function FeesBlock({ fees, actions }: { fees: FeeObligation[]; actions: PlanActi
   const [kind, setKind] = useState<FeeKind>('supervision_fee');
   const [total, setTotal] = useState('');
 
+  const anyAmountSet = list.some(feeAmountSet);
   const balCls = totals.behind > 0 ? 'bg-rose-50 text-rose-700 ring-rose-200'
-    : totals.balance > 0 ? 'bg-amber-50 text-amber-700 ring-amber-200' : 'bg-teal-50 text-teal-700 ring-teal-200';
+    : totals.balance > 0 ? 'bg-amber-50 text-amber-700 ring-amber-200'
+    : list.length && !anyAmountSet ? 'bg-slate-100 text-slate-600 ring-slate-200'
+    : 'bg-teal-50 text-teal-700 ring-teal-200';
   const balLabel = totals.behind > 0 ? `${fmtMoney(totals.balance)} owed · ${totals.behind} behind`
-    : totals.balance > 0 ? `${fmtMoney(totals.balance)} balance` : list.length ? 'Paid in full' : 'None tracked';
+    : totals.balance > 0 ? `${fmtMoney(totals.balance)} balance`
+    : list.length && !anyAmountSet ? 'Add amounts owed'
+    : list.length ? 'Paid in full' : 'None tracked';
 
   const addTemplate = (k: FeeKind, lbl: string) => actions.addFee!({ kind: k, label: lbl, total: 0 });
   const addCustom = () => {
@@ -358,12 +363,16 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
   const balance = feeBalance(o);
   const pct = feePct(o);
   const behind = feeIsBehind(o);
-  const settled = balance <= 0 && o.total > 0;
+  const amountSet = feeAmountSet(o);
+  const settled = balance <= 0 && amountSet;
   const payments = [...(o.payments ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1));
   const [open, setOpen] = useState(false);
   const [amt, setAmt] = useState('');
+  const [totalDraft, setTotalDraft] = useState(amountSet ? String(o.total) : '');
+  const [editTotal, setEditTotal] = useState(false);
 
   const logPay = () => { const v = Math.round(Number(amt) || 0); if (v <= 0) return; actions.logPayment!(o.id, v, todayIso()); setAmt(''); };
+  const saveTotal = () => { const v = Math.max(0, Math.round(Number(totalDraft) || 0)); actions.setFeeTotal?.(o.id, v); setEditTotal(false); };
   const barCls = settled ? 'bg-teal-500' : behind ? 'bg-rose-500' : 'bg-amber-500';
 
   return (
@@ -374,7 +383,19 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
           {behind && <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200"><AlertTriangle className="h-2.5 w-2.5" /> Behind</span>}
           {settled && <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 ring-1 ring-inset ring-teal-200"><Check className="h-2.5 w-2.5" /> Paid</span>}
         </span>
-        <span className="text-xs font-semibold text-navy-900">{fmtMoney(balance)} <span className="font-normal text-slate-400">left of {fmtMoney(o.total)}</span></span>
+        {amountSet && !editTotal ? (
+          <button onClick={() => { setTotalDraft(String(o.total)); setEditTotal(true); }} className="text-xs font-semibold text-navy-900 hover:text-teal-700" title="Edit amount owed">
+            {fmtMoney(balance)} <span className="font-normal text-slate-400">left of {fmtMoney(o.total)}</span>
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-[11px] font-medium text-slate-500">{amountSet ? 'Amount owed' : 'Set amount owed'}</span>
+            <span className="inline-flex items-center rounded-md border border-slate-300 bg-white pl-2"><span className="text-xs text-slate-400">$</span>
+              <input autoFocus type="number" min="0" value={totalDraft} onChange={(e) => setTotalDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveTotal(); if (e.key === 'Escape') setEditTotal(false); }} placeholder="Total"
+                className="w-20 rounded-md px-1.5 py-1 text-xs focus:outline-none" /></span>
+            <button onClick={saveTotal} className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700">Save</button>
+          </span>
+        )}
         <button onClick={() => actions.removeFee!(o.id)} className="text-slate-300 hover:text-rose-500" aria-label="Remove obligation"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
 

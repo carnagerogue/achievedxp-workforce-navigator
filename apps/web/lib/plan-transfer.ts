@@ -187,10 +187,15 @@ export function portableToParticipant(p: PortablePlan): Participant {
   }));
   const prof = p.profile ?? {};
   const sup = p.supervision ?? {};
+  // Prefer the full-fidelity profile field — the portable `supervisionType` only
+  // has 3 values and would otherwise collapse `parole_and_probation` to `parole`.
+  const VALID_KINDS: SupervisionKind[] = ['none', 'parole', 'probation', 'parole_and_probation'];
+  const profKind = VALID_KINDS.includes(prof.supervision as SupervisionKind) ? (prof.supervision as SupervisionKind) : undefined;
   const supervisionKind: SupervisionKind =
-    sup.supervisionType === 'parole' ? 'parole'
-    : sup.supervisionType === 'probation' ? 'probation'
-    : (prof.supervision as SupervisionKind) ?? 'none';
+    profKind
+    ?? (sup.supervisionType === 'parole' ? 'parole'
+      : sup.supervisionType === 'probation' ? 'probation'
+      : 'none');
   return {
     id: newParticipantId(),
     name: p.person.name || 'Imported participant',

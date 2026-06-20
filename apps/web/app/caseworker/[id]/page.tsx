@@ -254,8 +254,10 @@ export default function ParticipantWorkspace() {
     removeStep: (id) => getRepo().removeTask(pid, id),
     setSupervision: (patch) => {
       ensurePersist();
-      if (patch.supervisionType !== undefined) set('supervision', patch.supervisionType);
-      const meta: { officerName?: string; nextReportDate?: string } = {};
+      // Persist all three through the store immediately (not just the debounced
+      // draft) so one logical supervision edit can't half-save on a quick nav.
+      const meta: { officerName?: string; nextReportDate?: string; supervision?: typeof draft.supervision } = {};
+      if (patch.supervisionType !== undefined) { set('supervision', patch.supervisionType); meta.supervision = patch.supervisionType; }
       if (patch.officerName !== undefined) meta.officerName = patch.officerName;
       if (patch.nextReportDate !== undefined) meta.nextReportDate = patch.nextReportDate;
       if (Object.keys(meta).length) setSupervisionMeta(pid, meta);
@@ -268,6 +270,7 @@ export default function ParticipantWorkspace() {
     logPayment: (feeId, amount, date, note) => { const o = (participant?.fees ?? []).find((x) => x.id === feeId); if (o) updateFee(pid, feeId, { payments: [...(o.payments ?? []), { id: `pay_${Math.random().toString(36).slice(2, 9)}`, amount, date, note }] }); },
     removePayment: (feeId, paymentId) => { const o = (participant?.fees ?? []).find((x) => x.id === feeId); if (o) updateFee(pid, feeId, { payments: (o.payments ?? []).filter((p) => p.id !== paymentId) }); },
     setFeeDue: (feeId, d) => updateFee(pid, feeId, { dueDate: d || undefined }),
+    setFeeTotal: (feeId, total) => updateFee(pid, feeId, { total }),
     removeFee: (feeId) => removeFee(pid, feeId),
     onSupervisionSummary: () => { ensurePersist(); printSupervisionSummary(buildSupervisionSummary(planModel, planModel.supervision ?? {})); },
     onPrint: () => saveAndPrint(),

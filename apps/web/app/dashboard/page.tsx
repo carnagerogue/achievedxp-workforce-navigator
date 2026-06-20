@@ -13,6 +13,7 @@ import { JobCardSkeleton } from '../../components/Skeleton';
 import { MiniJobList } from '../../components/MiniJobList';
 import { InsightsPanel } from '../../components/InsightsPanel';
 import { SaveJobButton } from '../../components/SaveJobButton';
+import { TodayFocus } from '../../components/TodayFocus';
 import { ApplicationStatusPicker } from '../../components/ApplicationStatusPicker';
 import {
   useSavedJobIds,
@@ -134,9 +135,12 @@ export default function DashboardPage() {
         <div className="mt-5 flex flex-wrap gap-3">
           <CountPill tone="teal"  Icon={Trophy}          label="Top"    value={counts.top} />
           <CountPill tone="amber" Icon={TrendingUp}      label="Medium" value={counts.medium} />
-          <CountPill tone="rose"  Icon={AlertTriangle}   label="Avoid"  value={counts.avoid} />
+          <CountPill tone="rose"  Icon={AlertTriangle}   label="Higher-barrier"  value={counts.avoid} />
         </div>
       </div>
+
+      {/* ─── Staying on track — deadlines that prevent technical violations ─── */}
+      <TodayFocus />
 
       {/* ─── Local help shortcut (always visible) ─── */}
       <Link
@@ -309,13 +313,13 @@ export default function DashboardPage() {
       </Section>
 
       <Section
-        title="Jobs to avoid"
+        title="Higher-barrier roles — here's why"
         count={counts.avoid}
         tone="rose"
-        description="These postings have a legal restriction that would block your application. We show them so you know why."
+        description="These postings have a legal restriction that would likely block your application right now. We show them — and the reason — so you can decide for yourself and avoid wasted effort."
       >
         {avoid.length === 0 ? (
-          <EmptyState>Nothing flagged — no postings in the pool hit our avoid criteria.</EmptyState>
+          <EmptyState>Nothing flagged — no postings in the pool have a barrier that would block you.</EmptyState>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {avoid.map((m, i) => (

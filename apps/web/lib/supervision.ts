@@ -115,7 +115,10 @@ export const FEE_TEMPLATES: { kind: FeeKind; label: string }[] = [
 
 export const feePaid = (o: FeeObligation): number => (o.payments ?? []).reduce((s, p) => s + (p.amount || 0), 0);
 export const feeBalance = (o: FeeObligation): number => Math.max(0, (o.total || 0) - feePaid(o));
-export const feePct = (o: FeeObligation): number => (o.total > 0 ? Math.min(100, Math.round((feePaid(o) / o.total) * 100)) : 100);
+/** Percent paid. A 0-total obligation means "amount not set yet" → 0%, not 100%. */
+export const feePct = (o: FeeObligation): number => (o.total > 0 ? Math.min(100, Math.round((feePaid(o) / o.total) * 100)) : 0);
+/** Whether the obligation has its amount filled in. */
+export const feeAmountSet = (o: FeeObligation): boolean => (o.total || 0) > 0;
 export function feeIsBehind(o: FeeObligation, now = Date.now()): boolean {
   if (feeBalance(o) <= 0) return false;
   const e = dueEpoch(o.dueDate);
@@ -209,7 +212,10 @@ export function buildSupervisionSummary(model: PlanModel, info: SupervisionInfo)
   const jobCounts = {
     total: jobs.length,
     applied: count('contacted') + count('scheduled') + count('completed'),
-    interviews: count('scheduled'),
+    // A hired role necessarily reached the interview stage — keep the funnel
+    // monotonic (applied ≥ interviews ≥ offers) so the officer report never
+    // shows more offers than interviews.
+    interviews: count('scheduled') + count('completed'),
     closed: count('completed'),
   };
   const completed = model.steps
