@@ -1,13 +1,13 @@
 'use client';
 
-import { Users, AlertTriangle, Gauge, Flame } from 'lucide-react';
+import { Users, Gauge, Flame, ShieldAlert } from 'lucide-react';
 import type { Participant } from '../../lib/caseworker-store';
-import { progressPct, overdueTasks, needsAttention } from '../../lib/caseworker-progress';
+import { progressPct, needsAttention, overdueConditionCount } from '../../lib/caseworker-progress';
 
 /** KPI strip across the top of the command center. */
 export function CommandCenterHeader({ caseload }: { caseload: Participant[] }) {
   const total = caseload.length;
-  const withOverdue = caseload.filter((p) => overdueTasks(p).length > 0).length;
+  const atRisk = caseload.filter((p) => overdueConditionCount(p) > 0).length;
   const attention = caseload.filter((p) => needsAttention(p)).length;
   const avgProgress = total
     ? Math.round(caseload.reduce((s, p) => s + progressPct(p), 0) / total)
@@ -16,7 +16,7 @@ export function CommandCenterHeader({ caseload }: { caseload: Participant[] }) {
   const tiles = [
     { Icon: Users, label: 'On caseload', value: String(total), tone: 'text-teal-600' },
     { Icon: Flame, label: 'Need attention', value: String(attention), tone: attention ? 'text-amber-600' : 'text-slate-400' },
-    { Icon: AlertTriangle, label: 'Have overdue items', value: String(withOverdue), tone: withOverdue ? 'text-rose-600' : 'text-slate-400' },
+    { Icon: ShieldAlert, label: 'At risk (compliance)', value: String(atRisk), tone: atRisk ? 'text-rose-600' : 'text-slate-400' },
     { Icon: Gauge, label: 'Avg. plan progress', value: `${avgProgress}%`, tone: 'text-navy-700' },
   ];
 

@@ -4,6 +4,7 @@
  * rings) and the workspace header. No DOM, no localStorage — unit-testable.
  */
 import type { Participant, Task } from './caseworker-store';
+import { complianceFromConditions } from './supervision';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -88,8 +89,14 @@ export function lastActivityAt(p: Participant): number {
 }
 
 /** True if this person should bubble to the top of "needs attention today". */
+/** Overdue supervision conditions — a technical-violation risk. */
+export function overdueConditionCount(p: Participant): number {
+  return complianceFromConditions(p.conditions ?? []).overdue;
+}
+
 export function needsAttention(p: Participant, now: number = Date.now()): boolean {
   return (
+    overdueConditionCount(p) > 0 ||
     overdueTasks(p, now).length > 0 ||
     momentum(p, 14, now) === 'stalled' ||
     (p.tasks ?? []).length === 0

@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import {
-  AlertTriangle, ArrowRight, TrendingUp, Minus, TrendingDown, MapPin, Target, ShieldCheck,
+  AlertTriangle, ArrowRight, TrendingUp, Minus, TrendingDown, MapPin, Target, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS } from '@dxp/shared';
 import type { Participant } from '../../lib/caseworker-store';
 import { Avatar } from '../common/Avatar';
 import { ProgressRing } from '../common/ProgressRing';
 import {
-  progressPct, overdueTasks, nextDueTask, momentum, openTasks, type Momentum,
+  progressPct, overdueTasks, nextDueTask, momentum, openTasks, overdueConditionCount, type Momentum,
 } from '../../lib/caseworker-progress';
 
 const MOMENTUM_META: Record<Momentum, { label: string; cls: string; Icon: typeof TrendingUp }> = {
@@ -27,6 +27,7 @@ export function ParticipantCard({ p }: { p: Participant }) {
   const mo = MOMENTUM_META[momentum(p)];
   const open = openTasks(p).length;
   const total = (p.tasks ?? []).length;
+  const odCond = overdueConditionCount(p);
 
   return (
     <Link
@@ -47,6 +48,11 @@ export function ParticipantCard({ p }: { p: Participant }) {
 
       {/* status badges */}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {odCond > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">
+            <ShieldAlert className="h-2.5 w-2.5" /> At risk · {odCond}
+          </span>
+        )}
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{contextLabel(p.contextMode)}</span>
         {p.supervision !== 'none' && (
           <span className="inline-flex items-center gap-0.5 rounded-full bg-navy-50 px-2 py-0.5 text-[10px] font-semibold capitalize text-navy-700">

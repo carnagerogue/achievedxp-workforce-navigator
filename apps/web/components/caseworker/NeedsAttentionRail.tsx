@@ -1,26 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { Flame, AlertTriangle, TrendingDown, CircleDashed, ChevronRight } from 'lucide-react';
+import { Flame, AlertTriangle, TrendingDown, CircleDashed, ChevronRight, ShieldAlert } from 'lucide-react';
 import type { Participant } from '../../lib/caseworker-store';
-import { overdueTasks, momentum, dueSoonTasks } from '../../lib/caseworker-progress';
+import { overdueTasks, momentum, dueSoonTasks, overdueConditionCount } from '../../lib/caseworker-progress';
 
 interface Attn { p: Participant; reason: string; Icon: typeof Flame; tone: string; rank: number }
 
 function assess(p: Participant): Attn | null {
+  const odCond = overdueConditionCount(p);
+  if (odCond > 0) {
+    return { p, reason: `${odCond} supervision condition${odCond === 1 ? '' : 's'} overdue — violation risk`, Icon: ShieldAlert, tone: 'text-rose-600', rank: 0 };
+  }
   const overdue = overdueTasks(p);
   if (overdue.length > 0) {
-    return { p, reason: `${overdue.length} overdue: ${overdue[0].title}`, Icon: AlertTriangle, tone: 'text-rose-600', rank: 0 };
-  }
-  if ((p.tasks ?? []).length === 0) {
-    return { p, reason: 'No plan yet — build the first steps', Icon: CircleDashed, tone: 'text-slate-500', rank: 2 };
+    return { p, reason: `${overdue.length} overdue: ${overdue[0].title}`, Icon: AlertTriangle, tone: 'text-rose-600', rank: 1 };
   }
   if (momentum(p) === 'stalled') {
-    return { p, reason: 'Stalled — no progress lately', Icon: TrendingDown, tone: 'text-amber-600', rank: 1 };
+    return { p, reason: 'Stalled — no progress lately', Icon: TrendingDown, tone: 'text-amber-600', rank: 2 };
+  }
+  if ((p.tasks ?? []).length === 0) {
+    return { p, reason: 'No plan yet — build the first steps', Icon: CircleDashed, tone: 'text-slate-500', rank: 3 };
   }
   const soon = dueSoonTasks(p);
   if (soon.length > 0) {
-    return { p, reason: `Due soon: ${soon[0].title}`, Icon: Flame, tone: 'text-amber-600', rank: 3 };
+    return { p, reason: `Due soon: ${soon[0].title}`, Icon: Flame, tone: 'text-amber-600', rank: 4 };
   }
   return null;
 }
