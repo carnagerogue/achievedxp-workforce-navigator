@@ -35,7 +35,8 @@ import {
 import {
   progressPct, countByStatus, overdueItems, dueSoonItems, nextStep, momentum,
 } from '../../lib/plan-progress';
-import { useReadiness, setReadinessAnswer } from '../../lib/checklist-store';
+import { useReadiness, setReadinessAnswer, useSupervisionInfo, setSupervisionInfo } from '../../lib/checklist-store';
+import { buildSupervisionSummary, printSupervisionSummary } from '../../lib/supervision';
 import {
   assessReadiness, selfToReadinessInput, BAND_LABEL,
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
@@ -480,6 +481,7 @@ function ChecklistView() {
   const goals = usePlanGoals();
   const checkins = useCheckins();
   const rdAnswers = useReadiness();
+  const supervision = useSupervisionInfo();
   const [showShare, setShowShare] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -495,13 +497,14 @@ function ChecklistView() {
         if (s) setReadinessAnswer(d as ReadinessDomainKey, s as DomainStatus);
       }
     }
+    if (plan.supervision) setSupervisionInfo(plan.supervision);
     setShowImport(false);
   };
 
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
   const model: PlanModel = {
-    ownerName: owner, goals, readiness, isCaseworker: false, checkins,
+    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision,
     steps: items.map((i): PlanStep => ({
       id: i.id, title: i.name, status: i.status,
       domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
@@ -521,6 +524,8 @@ function ChecklistView() {
     setGoals: (v) => setPlanGoals(v),
     addCheckin: (rating, note) => addCheckin({ date: todayIso(), rating, note }),
     removeCheckin: (id) => removeCheckin(id),
+    setSupervision: (patch) => setSupervisionInfo(patch),
+    onSupervisionSummary: () => printSupervisionSummary(buildSupervisionSummary(model, supervision)),
     onShare: () => setShowShare(true),
     onImport: () => setShowImport(true),
     onPrint: () => printPlan(owner, goals, items, checkins, rdSummary),
@@ -529,7 +534,7 @@ function ChecklistView() {
   return (
     <div className="space-y-4">
       {showShare && (
-        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers)} audience="caseworker" onClose={() => setShowShare(false)} />
+        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />

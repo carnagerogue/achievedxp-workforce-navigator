@@ -80,6 +80,9 @@ export interface Participant {
   conviction: ConvictionType;
   contextMode: UserContextMode;
   supervision: SupervisionKind;
+  /** Supervising officer name + next report-to-officer date (for the supervision summary). */
+  officerName?: string;
+  nextReportDate?: string;
   yearsSinceRelease: number | null;
   education: EducationLevel;
   skills: string[];
@@ -269,6 +272,10 @@ export function removeTask(pid: string, taskId: string) {
 
 export function setReadiness(pid: string, domain: ReadinessDomainKey, status: DomainStatus) {
   patchParticipant(pid, (p) => ({ ...p, readiness: { ...(p.readiness ?? {}), [domain]: status } }));
+}
+
+export function setSupervisionMeta(pid: string, patch: { officerName?: string; nextReportDate?: string }) {
+  patchParticipant(pid, (p) => ({ ...p, ...patch }));
 }
 
 /**

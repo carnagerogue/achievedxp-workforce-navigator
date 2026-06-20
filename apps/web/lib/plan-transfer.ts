@@ -16,6 +16,7 @@ import {
   assessReadiness, participantToReadinessInput, selfToReadinessInput,
   type ReadinessAnswers,
 } from './readiness';
+import type { SupervisionInfo } from './supervision';
 
 export interface PortableItem {
   name: string;
@@ -51,6 +52,8 @@ export interface PortablePlan {
   readiness?: ReadinessAnswers;
   /** Informational readiness score at export time (for share/import preview). */
   readinessScore?: number;
+  /** Supervising officer + next report date, so it travels with a shared plan. */
+  supervision?: SupervisionInfo;
 }
 
 // ── encode / decode (URL-safe base64 of JSON, unicode-safe) ───────────────
@@ -98,7 +101,8 @@ export function downloadPlan(p: PortablePlan, filename = 'reentry-plan.json') {
 
 // ── checklist (individual) ↔ portable ─────────────────────────────────────
 export function checklistToPortable(
-  items: ChecklistItem[], name: string, goals: string, readiness: ReadinessAnswers = {},
+  items: ChecklistItem[], name: string, goals: string,
+  readiness: ReadinessAnswers = {}, supervision?: SupervisionInfo,
 ): PortablePlan {
   const readinessScore = assessReadiness(selfToReadinessInput({ careerGoal: goals }), readiness).score;
   return {
@@ -111,6 +115,7 @@ export function checklistToPortable(
     })),
     readiness,
     readinessScore,
+    supervision,
   };
 }
 
@@ -148,6 +153,11 @@ export function participantToPortable(p: Participant): PortablePlan {
     },
     readiness: p.readiness,
     readinessScore,
+    supervision: {
+      officerName: p.officerName,
+      supervisionType: p.supervision === 'probation' ? 'probation' : p.supervision === 'none' ? 'none' : 'parole',
+      nextReportDate: p.nextReportDate,
+    },
   };
 }
 
@@ -167,12 +177,19 @@ export function portableToParticipant(p: PortablePlan): Participant {
     completedAt: it.status === 'completed' ? now : undefined,
   }));
   const prof = p.profile ?? {};
+  const sup = p.supervision ?? {};
+  const supervisionKind: SupervisionKind =
+    sup.supervisionType === 'parole' ? 'parole'
+    : sup.supervisionType === 'probation' ? 'probation'
+    : (prof.supervision as SupervisionKind) ?? 'none';
   return {
     id: newParticipantId(),
     name: p.person.name || 'Imported participant',
     conviction: prof.conviction ?? 'other',
     contextMode: 'recently_released',
-    supervision: (prof.supervision as SupervisionKind) ?? 'none',
+    supervision: supervisionKind,
+    officerName: sup.officerName,
+    nextReportDate: sup.nextReportDate,
     yearsSinceRelease: null,
     education: prof.education ?? 'unknown',
     skills: [],

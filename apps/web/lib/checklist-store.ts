@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
+import type { SupervisionInfo } from './supervision';
 
 /**
  * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
@@ -57,6 +58,7 @@ const NAME_KEY = 'dxp.checklist.name';
 const GOALS_KEY = 'dxp.checklist.goals';
 const CHECKINS_KEY = 'dxp.checklist.checkins';
 const READINESS_KEY = 'dxp.checklist.readiness';
+const SUPERVISION_KEY = 'dxp.checklist.supervision';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -90,6 +92,7 @@ let ownerName: string = read<string>(NAME_KEY, '');
 let planGoals: string = read<string>(GOALS_KEY, '');
 let checkins: CheckIn[] = read<CheckIn[]>(CHECKINS_KEY, []);
 let readiness: ReadinessAnswers = read<ReadinessAnswers>(READINESS_KEY, {});
+let supervisionInfo: SupervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {});
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
@@ -98,6 +101,7 @@ if (typeof window !== 'undefined') {
     else if (e.key === GOALS_KEY) { planGoals = read<string>(GOALS_KEY, ''); emit(); }
     else if (e.key === CHECKINS_KEY) { checkins = read<CheckIn[]>(CHECKINS_KEY, []); emit(); }
     else if (e.key === READINESS_KEY) { readiness = read<ReadinessAnswers>(READINESS_KEY, {}); emit(); }
+    else if (e.key === SUPERVISION_KEY) { supervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {}); emit(); }
   });
 }
 
@@ -195,4 +199,15 @@ export function setReadinessAnswer(domain: ReadinessDomainKey, status: DomainSta
 const EMPTY_READINESS: ReadinessAnswers = {};
 export function useReadiness(): ReadinessAnswers {
   return useSyncExternalStore(subscribe, getReadiness, () => EMPTY_READINESS);
+}
+
+// ── Supervision info (officer, type, next report date) ────────────────────
+export function getSupervisionInfo(): SupervisionInfo { return supervisionInfo; }
+export function setSupervisionInfo(patch: Partial<SupervisionInfo>) {
+  supervisionInfo = { ...supervisionInfo, ...patch };
+  write(SUPERVISION_KEY, supervisionInfo); emit();
+}
+const EMPTY_SUPERVISION: SupervisionInfo = {};
+export function useSupervisionInfo(): SupervisionInfo {
+  return useSyncExternalStore(subscribe, getSupervisionInfo, () => EMPTY_SUPERVISION);
 }

@@ -4,8 +4,9 @@ import { useState } from 'react';
 import {
   FileText, Home, Bus, HeartPulse, Scale, GraduationCap, Award, Briefcase, Laptop, Wallet,
   Users, ListChecks, Check, Trash2, Plus, ExternalLink, Sparkles, AlertTriangle, ChevronDown,
-  Share2, FileDown, Printer, HeartHandshake,
+  Share2, FileDown, Printer, HeartHandshake, ShieldCheck, ScrollText, CalendarClock,
 } from 'lucide-react';
+import { reportDueState } from '../../lib/supervision';
 import { ProgressRing } from '../common/ProgressRing';
 import { Avatar } from '../common/Avatar';
 import {
@@ -83,6 +84,7 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
             <div className="relative mt-4 flex flex-wrap gap-2">
               {actions.onShare && <HdrBtn onClick={actions.onShare} Icon={Share2} label={model.isCaseworker ? 'Give to participant' : 'Share'} />}
               {actions.onImport && <HdrBtn onClick={actions.onImport} Icon={FileDown} label="Import" />}
+              {actions.onSupervisionSummary && <HdrBtn onClick={actions.onSupervisionSummary} Icon={ScrollText} label="Supervision summary" />}
               {actions.onPrint && <HdrBtn onClick={actions.onPrint} Icon={Printer} label="Print" primary />}
             </div>
           )}
@@ -119,6 +121,11 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
         </section>
       )}
 
+      {/* Supervision */}
+      {model.supervision && actions.setSupervision && (
+        <SupervisionCard model={model} actions={actions} />
+      )}
+
       {/* Domain sections */}
       {domains.map(({ def, res, steps: dSteps }) => (
         <DomainCard key={def.key} domainKey={def.key} label={def.label} whatReady={def.whatReady}
@@ -150,6 +157,44 @@ function HdrBtn({ onClick, Icon, label, primary }: { onClick: () => void; Icon: 
       'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ' +
       (primary ? 'bg-white/95 text-navy-900 hover:bg-white' : 'border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20')
     }><Icon className="h-3.5 w-3.5" /> {label}</button>
+  );
+}
+
+function SupervisionCard({ model, actions }: { model: PlanModel; actions: PlanActions }) {
+  const sup = model.supervision ?? {};
+  const due = reportDueState(sup.nextReportDate);
+  const dueCls = due === 'overdue' ? 'border-rose-200 bg-rose-50 text-rose-700'
+    : due === 'due_soon' ? 'border-amber-200 bg-amber-50 text-amber-700'
+    : 'border-teal-200 bg-teal-50 text-teal-700';
+  const dueMsg = due === 'overdue' ? `Report to your officer was due ${sup.nextReportDate}`
+    : due === 'due_soon' ? `Report to your officer by ${sup.nextReportDate}`
+    : `Next report to your officer: ${sup.nextReportDate}`;
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-navy-900"><ShieldCheck className="h-4 w-4 text-teal-600" /> Supervision</h3>
+        {actions.onSupervisionSummary && (
+          <button onClick={actions.onSupervisionSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-800"><ScrollText className="h-3.5 w-3.5" /> Supervision summary</button>
+        )}
+      </div>
+      <p className="mt-0.5 text-xs text-slate-500">Stay ahead of check-ins and prove your effort — generate a clean summary for your officer anytime.</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Officer name</span>
+          <input value={sup.officerName ?? ''} onChange={(e) => actions.setSupervision!({ officerName: e.target.value })} placeholder="e.g. Officer Lee"
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" /></label>
+        <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Supervision type</span>
+          <select value={sup.supervisionType ?? 'none'} onChange={(e) => actions.setSupervision!({ supervisionType: e.target.value as 'parole' | 'probation' | 'none' })}
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500">
+            <option value="none">None</option><option value="parole">Parole</option><option value="probation">Probation</option>
+          </select></label>
+        <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Next report date</span>
+          <input type="date" value={sup.nextReportDate ?? ''} onChange={(e) => actions.setSupervision!({ nextReportDate: e.target.value || undefined })}
+            className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" /></label>
+      </div>
+      {due !== 'none' && (
+        <p className={'mt-3 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold ' + dueCls}><CalendarClock className="h-3.5 w-3.5" /> {dueMsg}</p>
+      )}
+    </section>
   );
 }
 

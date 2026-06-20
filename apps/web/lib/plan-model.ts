@@ -8,6 +8,7 @@ import type {
   ReadinessDomainKey, DomainStatus, DomainResult, ReadinessResult,
 } from './readiness';
 import type { CheckIn } from './checklist-store';
+import type { SupervisionInfo } from './supervision';
 
 export type PlanDomain = ReadinessDomainKey | 'jobs' | 'general';
 export type PlanStepStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
@@ -30,6 +31,7 @@ export interface PlanModel {
   readiness: ReadinessResult;
   steps: PlanStep[];
   checkins?: CheckIn[];
+  supervision?: SupervisionInfo;
   isCaseworker: boolean;
 }
 
@@ -45,6 +47,8 @@ export interface PlanActions {
   setGoals?: (v: string) => void;
   addCheckin?: (rating: number, note: string) => void;
   removeCheckin?: (id: string) => void;
+  setSupervision?: (patch: Partial<SupervisionInfo>) => void;
+  onSupervisionSummary?: () => void;
   onShare?: () => void;
   onImport?: () => void;
   onPrint?: () => void;

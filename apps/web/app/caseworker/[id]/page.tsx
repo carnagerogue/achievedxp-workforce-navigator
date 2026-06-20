@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { ClipboardList, Wrench, LifeBuoy, Landmark, ListChecks, CheckCircle2, User, Gauge } from 'lucide-react';
 import { CONVICTION_LABELS, USER_CONTEXT_OPTIONS, type JobDto, type TrainingBridgeStep } from '@dxp/shared';
 import {
-  useParticipant, getParticipant, newParticipantId, setReadiness,
+  useParticipant, getParticipant, newParticipantId, setReadiness, setSupervisionMeta,
   type Participant, type Barrier,
 } from '../../../lib/caseworker-store';
+import { buildSupervisionSummary, printSupervisionSummary } from '../../../lib/supervision';
 import {
   assessReadiness, participantToReadinessInput, BAND_LABEL,
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
@@ -225,17 +226,20 @@ export default function ParticipantWorkspace() {
   };
 
   // ── Unified plan model + actions (merged Readiness + action plan) ──
+  const supervisionType: 'parole' | 'probation' | 'none' =
+    draft.supervision === 'probation' ? 'probation' : draft.supervision === 'none' ? 'none' : 'parole';
   const planModel: PlanModel = useMemo(() => ({
     ownerName: draft.name,
     goals: draft.careerGoal,
     readiness,
     isCaseworker: true,
+    supervision: { officerName: draft.officerName, supervisionType, nextReportDate: draft.nextReportDate },
     steps: (participant?.tasks ?? []).map((t): PlanStep => ({
       id: t.id, title: t.title, status: t.status,
       domain: t.domain ?? deriveStepDomain(t),
       dueDate: t.dueDate, notes: t.notes, url: t.ref?.url, jobId: t.ref?.jobId, source: t.source,
     })),
-  }), [draft.name, draft.careerGoal, readiness, participant]);
+  }), [draft.name, draft.careerGoal, draft.officerName, draft.nextReportDate, supervisionType, readiness, participant]);
 
   const planActions: PlanActions = {
     setDomainStatus,
@@ -245,6 +249,15 @@ export default function ParticipantWorkspace() {
     setStepDue: (id, d) => getRepo().updateTask(pid, id, { dueDate: d || undefined }),
     setStepNotes: (id, n) => getRepo().updateTask(pid, id, { notes: n }),
     removeStep: (id) => getRepo().removeTask(pid, id),
+    setSupervision: (patch) => {
+      ensurePersist();
+      if (patch.supervisionType !== undefined) set('supervision', patch.supervisionType);
+      const meta: { officerName?: string; nextReportDate?: string } = {};
+      if (patch.officerName !== undefined) meta.officerName = patch.officerName;
+      if (patch.nextReportDate !== undefined) meta.nextReportDate = patch.nextReportDate;
+      if (Object.keys(meta).length) setSupervisionMeta(pid, meta);
+    },
+    onSupervisionSummary: () => { ensurePersist(); printSupervisionSummary(buildSupervisionSummary(planModel, planModel.supervision ?? {})); },
     onPrint: () => saveAndPrint(),
     onShare: () => { ensurePersist(); setShowExport(true); },
   };
