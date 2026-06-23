@@ -197,6 +197,14 @@ export interface CommunityResponse {
 export const getCommunityResources = (category: string, location: string) =>
   request<CommunityResponse>(`/community?category=${encodeURIComponent(category)}&location=${encodeURIComponent(location)}`);
 
+// --- SAMHSA treatment locator (live, no API key) ---
+export interface TreatmentResponse {
+  source: string | null;
+  results: CommunityLiveResource[];
+}
+export const getTreatmentCenters = (location: string) =>
+  request<TreatmentResponse>(`/treatment?location=${encodeURIComponent(location)}`);
+
 export const getCosWages = (onetCodeOrKeyword: string, location?: string) => {
   const q = `onet=${encodeURIComponent(onetCodeOrKeyword)}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
   return request<unknown>(`/careeronestop/wages?${q}`);

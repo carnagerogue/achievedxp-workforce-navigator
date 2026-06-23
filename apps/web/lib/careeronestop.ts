@@ -16,6 +16,8 @@
  *   https://www.careeronestop.org/Developers/WebAPI/technical-information.aspx
  */
 
+import { geocodeFree } from './geocode';
+
 const BASE = 'https://api.careeronestop.org/v1';
 
 interface CacheEntry { expires: number; data: unknown }
@@ -203,6 +205,13 @@ export async function geocodeLocation(location: string): Promise<GeoPoint> {
       lat = typeof top.Latitude === 'number' ? top.Latitude : null;
       lng = typeof top.Longitude === 'number' ? top.Longitude : null;
     }
+  }
+  // No-key fallback so coordinate lookups (e.g. SAMHSA treatment) work even
+  // without a CareerOneStop token.
+  if (lat == null || lng == null) {
+    const free = await geocodeFree(location);
+    if (free.lat != null && free.lng != null) { lat = free.lat; lng = free.lng; }
+    state = state ?? free.state;
   }
   if (!state) {
     const m = /,\s*([A-Za-z]{2})\b/.exec(location);
