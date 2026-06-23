@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Compass, ShieldAlert, Check, ArrowRight, Phone, Users, Plus, Trash2,
   HeartHandshake, Sparkles, BookOpen, ChevronDown, LifeBuoy, Target, Star,
+  Briefcase, HardHat, Rocket, HandCoins, MapPin,
 } from 'lucide-react';
 import {
   PHASES, phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow, EVIDENCE_BASE,
@@ -91,6 +92,9 @@ export default function ReentryCompassPage() {
 
       {/* Future self */}
       <FutureSelfSection value={futureSelf} />
+
+      {/* Explore all tools */}
+      <ToolsGrid />
 
       {/* Why this plan */}
       <EvidencePanel />
@@ -391,6 +395,36 @@ function FutureSelfSection({ value }: { value: string }) {
         className="mt-3 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
       <p className="mt-2 text-[11px] text-slate-400">Based on desistance research (Maruna, &ldquo;Making Good&rdquo;): a forward identity and hope drive lasting change.</p>
+    </section>
+  );
+}
+
+// ───────────────────────── Explore all tools ─────────────────────────
+const TOOLS: { href: string; label: string; sub: string; Icon: typeof Briefcase }[] = [
+  { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
+  { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
+  { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
+  { href: '/benefits', label: 'Benefits checkup', sub: 'What you qualify for', Icon: HandCoins },
+  { href: '/resources', label: 'Free help & hotlines', sub: 'Food, health, housing…', Icon: LifeBuoy },
+  { href: '/local-help', label: 'Local help', sub: 'Programs near you', Icon: MapPin },
+];
+
+function ToolsGrid() {
+  return (
+    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+      <h2 className="text-base font-bold text-navy-900">Explore your tools</h2>
+      <p className="mt-0.5 text-sm text-slate-600">Everything here is free. Jump to any of it any time.</p>
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        {TOOLS.map((t) => (
+          <Link key={t.href} href={t.href} className="group flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-sm">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100"><t.Icon className="h-4 w-4" /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-navy-900">{t.label}</span>
+              <span className="block text-[11px] text-slate-500">{t.sub}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }

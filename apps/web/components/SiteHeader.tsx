@@ -3,17 +3,18 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Search, UserCircle2, Command, HardHat, HeartHandshake, ClipboardList, Compass } from 'lucide-react';
+import { LayoutDashboard, Search, UserCircle2, Command, HardHat, HeartHandshake, ClipboardList, Compass, Rocket } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const NAV = [
-  { href: '/start',           label: 'Start here',      Icon: Compass },
-  { href: '/dashboard',       label: 'Dashboard',       Icon: LayoutDashboard },
-  { href: '/jobs',            label: 'Browse jobs',     Icon: Search },
-  { href: '/apprenticeships', label: 'Apprenticeships', Icon: HardHat },
-  { href: '/local-help',      label: 'Local help',      Icon: HeartHandshake },
-  { href: '/caseworker',      label: 'Caseworker',      Icon: ClipboardList },
-  { href: '/onboarding',      label: 'Profile',         Icon: UserCircle2 },
+  { href: '/start',           label: 'Start here',       Icon: Compass },
+  { href: '/dashboard',       label: 'Dashboard',        Icon: LayoutDashboard },
+  { href: '/jobs',            label: 'Browse jobs',      Icon: Search },
+  { href: '/apprenticeships', label: 'Apprenticeships',  Icon: HardHat },
+  { href: '/entrepreneurship', label: 'Be your own boss', Icon: Rocket },
+  { href: '/local-help',      label: 'Local help',       Icon: HeartHandshake },
+  { href: '/caseworker',      label: 'Caseworker',       Icon: ClipboardList },
+  { href: '/onboarding',      label: 'Profile',          Icon: UserCircle2 },
 ];
 
 /**

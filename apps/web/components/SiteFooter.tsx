@@ -28,14 +28,21 @@ export function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-6 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Achieve DXP. Workforce Navigator.</p>
-          <div className="flex items-center gap-4">
-            <Link href="/jobs"       className="hover:text-teal-700">Browse jobs</Link>
-            <Link href="/dashboard"  className="hover:text-teal-700">Dashboard</Link>
-            <Link href="/onboarding" className="hover:text-teal-700">Profile</Link>
-          </div>
-        </div>
+        <nav className="mt-8 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-slate-200 pt-6 text-xs text-slate-600 sm:grid-cols-4">
+          {[
+            { href: '/start', label: 'Start here' },
+            { href: '/jobs', label: 'Browse jobs' },
+            { href: '/apprenticeships', label: 'Apprenticeships' },
+            { href: '/entrepreneurship', label: 'Be your own boss' },
+            { href: '/resources', label: 'Free help & hotlines' },
+            { href: '/benefits', label: 'Benefits checkup' },
+            { href: '/local-help', label: 'Local help' },
+            { href: '/dashboard', label: 'Dashboard' },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="hover:text-teal-700">{l.label}</Link>
+          ))}
+        </nav>
+        <p className="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">© {new Date().getFullYear()} Achieve DXP. Workforce Navigator.</p>
       </div>
     </footer>
   );
