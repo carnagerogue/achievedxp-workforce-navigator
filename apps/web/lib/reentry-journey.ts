@@ -246,6 +246,13 @@ export const PHASES: JourneyPhase[] = [
         evidence: 'Schnepel 2017 (wages and recidivism); RAND education meta-analysis (43% lower odds of return).',
         action: route('Find a step up', '/apprenticeships'),
       },
+      {
+        id: 'self-employment',
+        title: 'Consider working for yourself',
+        why: 'Your own business never runs a background check on you. For many people with a record, self-employment is one of the most open doors there is.',
+        evidence: 'Self-employment is a recognized path around hiring discrimination; free mentoring (SCORE/SBDC) and 0% microloans (Kiva) lower the barrier.',
+        action: route('Explore being your own boss', '/entrepreneurship'),
+      },
     ],
   },
 ];

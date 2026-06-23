@@ -22,6 +22,7 @@ import {
   Compass,
   UserCircle2,
   ShieldCheck,
+  Rocket,
 } from 'lucide-react';
 import { decisionFor, type JobDto, type OffenseType, type PaginatedJobsDto, type CompatibilityRating, type ConvictionType } from '@dxp/shared';
 import { listJobs } from '../../lib/api';
@@ -329,6 +330,7 @@ function JobsPage() {
           <GuidedChip Icon={MapPin} label="Search near me" active={!remote && !!locationFilter.postalCode} onClick={() => { setRemote(false); setShowFilters(true); }} />
           <GuidedChip Icon={Radio} label="Work from anywhere" active={remote} onClick={() => setRemote((v) => !v)} />
           <GuidedChip Icon={HardHat} label="Find apprenticeships" active={apprenticeshipsOnly} onClick={() => setApprenticeshipsOnly((v) => !v)} />
+          <Link href="/entrepreneurship" className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700"><Rocket className="h-3.5 w-3.5" /> Be your own boss</Link>
           <GuidedChip Icon={ShieldCheck} label="Lower-barrier roles" active={hideClosedRecord} onClick={() => setHideClosedRecord((v) => !v)} />
           <GuidedChip Icon={Compass} label="Explore all jobs" active={false} onClick={() => {
             setQ(''); setIndustry(''); setLocationInput(''); setOffenseType(''); setHideClosedRecord(false);
