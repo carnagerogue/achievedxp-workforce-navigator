@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { GitCompare, X } from 'lucide-react';
 import { useCompareIds, clearCompare } from '../lib/personal-store';
 
@@ -12,7 +13,10 @@ import { useCompareIds, clearCompare } from '../lib/personal-store';
  */
 export function CompareBar() {
   const ids = useCompareIds();
-  if (ids.length === 0) return null;
+  const pathname = usePathname() ?? '';
+  // Hide on the compare page itself (redundant) and on a job detail, where it
+  // would overlap the mobile "Apply" bar.
+  if (ids.length === 0 || pathname === '/jobs/compare' || /^\/jobs\/[^/]+$/.test(pathname)) return null;
 
   return (
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 animate-slide-up">

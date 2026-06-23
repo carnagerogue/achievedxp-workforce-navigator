@@ -116,7 +116,17 @@ export default function JobDetailPage() {
 
   if (loading) return <DetailSkeleton />;
   if (error)   return <ErrorBox message={error} />;
-  if (!job)    return null;
+  if (!job) {
+    return (
+      <div className="mx-auto max-w-xl animate-fade-in rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-card">
+        <h1 className="text-xl font-semibold text-navy-900">This job isn’t available</h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-slate-600">It may have been filled or taken down. Plenty of others are waiting for you.</p>
+        <Link href="/jobs" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
+          ← Back to jobs
+        </Link>
+      </div>
+    );
+  }
 
   const location = [job.locationCity, job.locationRegion, job.locationPostalCode]
     .filter(Boolean)

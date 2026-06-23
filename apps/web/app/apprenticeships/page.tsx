@@ -80,11 +80,9 @@ export default function ApprenticeshipsPage() {
           </Link>
         </div>
 
-        {error && (
+        {error ? (
           <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</p>
-        )}
-
-        {loading ? (
+        ) : loading ? (
           <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
             {Array.from({ length: 5 }).map((_, i) => <JobRowSkeleton key={i} />)}
           </ul>

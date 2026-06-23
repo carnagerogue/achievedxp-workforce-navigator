@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   UserCircle2, MapPin, Scale, Wrench, Award, Factory, ArrowRight, ArrowLeft, Check, CheckCircle2,
@@ -249,9 +250,12 @@ export default function OnboardingPage() {
     <div className="mx-auto max-w-2xl animate-fade-in">
       {/* ─── Progress header ─── */}
       <div className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-7 shadow-card sm:p-8">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <UserCircle2 className="h-3.5 w-3.5" /> Profile setup · step {stepIdx + 1} of {STEPS.length}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
+            <UserCircle2 className="h-3.5 w-3.5" /> Profile setup · step {stepIdx + 1} of {STEPS.length}
+          </p>
+          <Link href="/" className="text-xs font-semibold text-slate-400 hover:text-slate-600">Exit</Link>
+        </div>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">
           {step.title}
         </h1>

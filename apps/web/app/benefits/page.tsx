@@ -123,9 +123,17 @@ export default function BenefitsPage() {
             <button onClick={reset} className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:underline"><RotateCcw className="h-3.5 w-3.5" /> Start over</button>
           </div>
 
-          <ul className="space-y-2.5">
-            {results.map((r) => <ResultCard key={r.id} r={r} />)}
-          </ul>
+          {results.length > 0 ? (
+            <ul className="space-y-2.5">
+              {results.map((r) => <ResultCard key={r.id} r={r} />)}
+            </ul>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-card">
+              <p className="text-sm font-semibold text-navy-900">Let’s find the right help another way</p>
+              <p className="mt-1 text-sm text-slate-600">Dial <a href="tel:211" className="font-semibold text-teal-700">211</a> for free, or browse local programs.</p>
+              <Link href="/resources?need=money" className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">See free help</Link>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-xs leading-relaxed text-slate-600">
             <p className="inline-flex items-center gap-1.5 font-semibold text-slate-700"><Info className="h-3.5 w-3.5" /> This is an estimate, not a decision.</p>

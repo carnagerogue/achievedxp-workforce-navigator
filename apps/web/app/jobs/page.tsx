@@ -675,9 +675,15 @@ function EmptyState({ hasFilters, location, onClear }: { hasFilters: boolean; lo
           </button>
         </>
       ) : (
-        <p className="mt-1 text-sm text-slate-600">
-          Try triggering <code className="rounded bg-slate-100 px-1 py-0.5">POST /ingestion/run</code> on the API to populate data.
-        </p>
+        <>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+            There are no jobs to show right now. Check back soon — or start with your plan and other ways to work.
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link href="/start" className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700">Start here</Link>
+            <Link href="/apprenticeships" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700">Apprenticeships</Link>
+          </div>
+        </>
       )}
     </div>
   );

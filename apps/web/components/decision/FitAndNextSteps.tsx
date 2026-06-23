@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, ChevronDown, Info, ListChecks,
+  GraduationCap, HardHat,
 } from 'lucide-react';
 import type { DecisionSupport, FieldConfidence } from '@dxp/shared';
 import { DecisionBadge } from './DecisionBadge';
@@ -49,6 +51,10 @@ export function FitAndNextSteps({
             <ArrowRight className="h-3.5 w-3.5" /> Recommended next action
           </p>
           <p className="mt-1.5 text-sm font-medium text-navy-900">{decision.nextAction}</p>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <Link href="/learn" className="inline-flex items-center gap-1 rounded-lg border border-teal-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-50"><GraduationCap className="h-3 w-3" /> Build the skills</Link>
+            <Link href="/apprenticeships" className="inline-flex items-center gap-1 rounded-lg border border-teal-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-50"><HardHat className="h-3 w-3" /> Apprenticeships</Link>
+          </div>
         </div>
       </div>
 
@@ -77,7 +83,7 @@ export function FitAndNextSteps({
         )}
       </div>
 
-      <p className="mt-3 text-[11px] italic text-slate-400">{decision.disclaimer}</p>
+      <p className="mt-3 text-xs italic text-slate-500">{decision.disclaimer}</p>
     </section>
   );
 }
