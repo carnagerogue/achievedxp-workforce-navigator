@@ -119,6 +119,13 @@ export const PHASES: JourneyPhase[] = [
         action: route('Find food & money help', '/resources?need=food'),
       },
       {
+        id: 'benefits',
+        title: 'See what benefits you qualify for',
+        why: 'You may be owed food assistance, health coverage, and help with bills. A 1-minute checkup shows what to apply for.',
+        evidence: 'USDA SNAP; HHS Medicaid; benefits cushion the early window when income is lowest (Urban Institute).',
+        action: route('Take the benefits checkup', '/benefits'),
+      },
+      {
         id: 'transport',
         title: 'Set up a way to get around',
         why: 'You need a reliable way to reach check-ins, appointments, and work.',

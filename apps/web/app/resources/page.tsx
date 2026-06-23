@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   LifeBuoy, Phone, MessageSquare, MapPin, FileText, Mail, ExternalLink, HeartHandshake,
-  Utensils, Home, Wallet, Scale, Briefcase, Baby, Wifi, Shield, HeartPulse, Search, Loader2, Globe,
+  Utensils, Home, Wallet, Scale, Briefcase, Baby, Wifi, Shield, HeartPulse, Search, Loader2, Globe, HandCoins, ArrowRight,
 } from 'lucide-react';
 import {
   NEED_META, CRISIS_LINES, RESOURCE_KIND_LABEL, resourcesFor,
@@ -101,6 +101,16 @@ export default function ResourcesPage() {
                 <div className="mt-3">
                   <LiveLocator title="Find stores that take SNAP / EBT — live" blurb="Grocery stores and markets near you that accept SNAP benefits." fetcher={(loc) => getLocator('snap', loc)} />
                 </div>
+              )}
+              {need === 'money' && (
+                <Link href="/benefits" className="mt-3 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50/40 p-3.5 transition hover:border-teal-400">
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-white"><HandCoins className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-navy-900">Not sure what you qualify for? Take the 1-minute checkup</span>
+                    <span className="block text-xs text-slate-600">Estimate SNAP, Medicaid, utility help, and more — free, private, no account.</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-teal-700" />
+                </Link>
               )}
               <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
                 {list.map((r) => <ResourceCard key={r.id} r={r} />)}
