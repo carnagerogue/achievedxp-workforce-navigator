@@ -233,6 +233,13 @@ export const PHASES: JourneyPhase[] = [
         action: route('Open My Plan', '/local-help'),
       },
       {
+        id: 'learn',
+        title: 'Build a skill or credential',
+        why: 'New skills open better-paying, steadier work — and people who keep learning are far less likely to go back. Most of it is free.',
+        evidence: 'RAND correctional-education meta-analysis: education is tied to ~43% lower odds of returning to prison.',
+        action: route('Learn new skills', '/learn'),
+      },
+      {
         id: 'future-self',
         title: 'Picture who you’re becoming',
         why: 'People who can see a positive future for themselves are far more likely to reach it. Name the goal you’re working toward.',

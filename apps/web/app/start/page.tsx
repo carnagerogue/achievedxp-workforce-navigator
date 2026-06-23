@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Compass, ShieldAlert, Check, ArrowRight, Phone, Users, Plus, Trash2,
   HeartHandshake, Sparkles, BookOpen, ChevronDown, LifeBuoy, Target, Star,
-  Briefcase, HardHat, Rocket, HandCoins, MapPin,
+  Briefcase, HardHat, Rocket, HandCoins, MapPin, GraduationCap,
 } from 'lucide-react';
 import {
   PHASES, phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow, EVIDENCE_BASE,
@@ -403,6 +403,7 @@ function FutureSelfSection({ value }: { value: string }) {
 const TOOLS: { href: string; label: string; sub: string; Icon: typeof Briefcase }[] = [
   { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
   { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
+  { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
   { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
   { href: '/benefits', label: 'Benefits checkup', sub: 'What you qualify for', Icon: HandCoins },
   { href: '/resources', label: 'Free help & hotlines', sub: 'Food, health, housing…', Icon: LifeBuoy },

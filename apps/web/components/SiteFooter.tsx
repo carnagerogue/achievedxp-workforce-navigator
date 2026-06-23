@@ -33,6 +33,7 @@ export function SiteFooter() {
             { href: '/start', label: 'Start here' },
             { href: '/jobs', label: 'Browse jobs' },
             { href: '/apprenticeships', label: 'Apprenticeships' },
+            { href: '/learn', label: 'Learn new skills' },
             { href: '/entrepreneurship', label: 'Be your own boss' },
             { href: '/resources', label: 'Free help & hotlines' },
             { href: '/benefits', label: 'Benefits checkup' },
