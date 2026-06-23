@@ -67,6 +67,13 @@ export default function LocalHelpPage() {
   const dLoc = useDebounce(location, 400);
   const checklist = useChecklist();
 
+  // Deep-link support: /local-help?tab=checklist opens the My Plan workspace.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t === 'ajc' || t === 'reentry' || t === 'community' || t === 'checklist') setTab(t);
+  }, []);
+
   return (
     <div className="animate-fade-in">
       <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">

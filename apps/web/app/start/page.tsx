@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Compass, ShieldAlert, Check, ArrowRight, Phone, Users, Plus, Trash2,
   HeartHandshake, Sparkles, BookOpen, ChevronDown, LifeBuoy, Target, Star,
-  Briefcase, HardHat, Rocket, HandCoins, MapPin, GraduationCap,
 } from 'lucide-react';
 import {
   PHASES, phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow, EVIDENCE_BASE,
@@ -18,15 +17,10 @@ import {
   useContacts, addContact, removeContact, markReachedOut, supportCount, staleSupportContacts,
   CONTACT_TAG_LABEL, type Contact, type ContactTag,
 } from '../../lib/support-network';
+import { PHASE_ACCENT, ActionButton, NextStepHero } from '../../components/journey/NextStepHero';
+import { ToolsGrid } from '../../components/ToolsGrid';
 
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-
-const PHASE_ACCENT: Record<string, string> = {
-  stabilize: 'from-rose-500 to-orange-500',
-  connect: 'from-violet-500 to-fuchsia-500',
-  earn: 'from-teal-500 to-cyan-500',
-  grow: 'from-emerald-500 to-teal-600',
-};
 
 export default function ReentryCompassPage() {
   const inputs = useReentryInputs();
@@ -71,7 +65,7 @@ export default function ReentryCompassPage() {
 
       {/* The one thing to do now */}
       {next ? (
-        <NextStepHero phase={next.phase} step={next.step} onDone={() => setStepDone(next.step.id, true)} />
+        <div className="mt-4"><NextStepHero phase={next.phase} step={next.step} onDone={() => setStepDone(next.step.id, true)} /></div>
       ) : (
         <section className="mt-4 rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-6 text-center shadow-card">
           <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-700"><Star className="h-6 w-6" /></span>
@@ -94,7 +88,7 @@ export default function ReentryCompassPage() {
       <FutureSelfSection value={futureSelf} />
 
       {/* Explore all tools */}
-      <ToolsGrid />
+      <div className="mt-4"><ToolsGrid /></div>
 
       {/* Why this plan */}
       <EvidencePanel />
@@ -159,47 +153,6 @@ function YesChip({ label, on, onToggle }: { label: string; on?: boolean; onToggl
       className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition ' + (on ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-600 ring-slate-300 hover:ring-teal-400')}>
       {on && <Check className="h-3 w-3" />} {label}
     </button>
-  );
-}
-
-// ───────────────────────── Next step hero ─────────────────────────
-function ActionButton({ action, primary }: { action: JourneyAction; primary?: boolean }) {
-  const cls = primary
-    ? 'inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700'
-    : 'inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700';
-  const Icon = action.kind === 'tel' ? Phone : ArrowRight;
-  if (action.kind === 'route') return <Link href={action.href} className={cls}>{action.label} <Icon className="h-4 w-4" /></Link>;
-  if (action.kind === 'tel') return <a href={action.href} className={cls}><Icon className="h-4 w-4" /> {action.label}</a>;
-  // in-page section scroll
-  return <a href={action.href} className={cls}>{action.label} <ArrowRight className="h-4 w-4" /></a>;
-}
-
-function NextStepHero({ phase, step, onDone }: { phase: JourneyPhase; step: JourneyStep; onDone: () => void }) {
-  const urgent = step.urgent;
-  return (
-    <section className={'mt-4 overflow-hidden rounded-2xl border shadow-card ' + (urgent ? 'border-rose-200' : 'border-slate-200')}>
-      <div className={'px-5 py-2 text-[11px] font-semibold uppercase tracking-wider text-white bg-gradient-to-r ' + PHASE_ACCENT[phase.key]}>
-        Do this next · {phase.title}
-      </div>
-      <div className="bg-white p-5">
-        <div className="flex items-start gap-3">
-          {urgent && <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700"><ShieldAlert className="h-5 w-5" /></span>}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-navy-900">{step.title}</h2>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">{step.why}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {step.action && <ActionButton action={step.action} primary />}
-              <button onClick={onDone} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-teal-400 hover:text-teal-700">
-                <Check className="h-4 w-4" /> Mark done
-              </button>
-            </div>
-            <p className="mt-3 inline-flex items-start gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-500">
-              <BookOpen className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" /> Why this matters: {step.evidence}
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -395,37 +348,6 @@ function FutureSelfSection({ value }: { value: string }) {
         className="mt-3 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
       <p className="mt-2 text-[11px] text-slate-400">Based on desistance research (Maruna, &ldquo;Making Good&rdquo;): a forward identity and hope drive lasting change.</p>
-    </section>
-  );
-}
-
-// ───────────────────────── Explore all tools ─────────────────────────
-const TOOLS: { href: string; label: string; sub: string; Icon: typeof Briefcase }[] = [
-  { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
-  { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
-  { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
-  { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
-  { href: '/benefits', label: 'Benefits checkup', sub: 'What you qualify for', Icon: HandCoins },
-  { href: '/resources', label: 'Free help & hotlines', sub: 'Food, health, housing…', Icon: LifeBuoy },
-  { href: '/local-help', label: 'Local help', sub: 'Programs near you', Icon: MapPin },
-];
-
-function ToolsGrid() {
-  return (
-    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-      <h2 className="text-base font-bold text-navy-900">Explore your tools</h2>
-      <p className="mt-0.5 text-sm text-slate-600">Everything here is free. Jump to any of it any time.</p>
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        {TOOLS.map((t) => (
-          <Link key={t.href} href={t.href} className="group flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 transition hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-sm">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100"><t.Icon className="h-4 w-4" /></span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-navy-900">{t.label}</span>
-              <span className="block text-[11px] text-slate-500">{t.sub}</span>
-            </span>
-          </Link>
-        ))}
-      </div>
     </section>
   );
 }
