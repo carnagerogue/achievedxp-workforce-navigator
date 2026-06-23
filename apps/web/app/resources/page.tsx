@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   LifeBuoy, Phone, MessageSquare, MapPin, FileText, Mail, ExternalLink, HeartHandshake,
@@ -24,6 +24,13 @@ const isInternal = (url?: string) => !!url && url.startsWith('/');
 export default function ResourcesPage() {
   const [active, setActive] = useState<ResourceNeed | 'all'>('all');
   const needs = active === 'all' ? NEED_ORDER : [active];
+
+  // Deep-link support: /resources?need=health pre-filters to that section.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const n = new URLSearchParams(window.location.search).get('need');
+    if (n && (NEED_ORDER as string[]).includes(n)) setActive(n as ResourceNeed);
+  }, []);
 
   return (
     <div className="animate-fade-in mx-auto max-w-4xl">

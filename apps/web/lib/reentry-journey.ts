@@ -93,7 +93,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Don’t run out of your medication',
         why: 'About half of people lose their prescriptions after release. Book a clinic visit before your release supply runs out.',
         evidence: 'JAMA Network Open, 2025 (medication continuity after release).',
-        action: route('Find a clinic', '/local-help'),
+        action: route('Find a clinic near you', '/resources?need=health'),
       },
       {
         id: 'id',
@@ -108,7 +108,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Have a safe place to sleep',
         why: 'Stable housing comes before a stable job. If tonight is uncertain, find shelter or transitional housing now.',
         evidence: 'Urban Institute; Metraux & Culhane (half of shelter entries happen within 30 days of release).',
-        action: route('Find housing help', '/local-help'),
+        action: route('Find housing help', '/resources?need=housing'),
         appliesIf: (i) => i.housingSecure !== true,
       },
       {
@@ -116,7 +116,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Cover food and cash this week',
         why: 'You may leave with almost nothing. Food assistance (SNAP), food banks, and emergency cash come first.',
         evidence: 'Prison Policy Initiative (gate money); CBPP (SNAP).',
-        action: route('Find food & money help', '/local-help'),
+        action: route('Find food & money help', '/resources?need=food'),
       },
       {
         id: 'transport',
@@ -178,7 +178,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Get a handle on what you owe',
         why: 'If you owe child support, payments can often be lowered to what you can actually afford. A realistic plan helps your family more than debt that can’t be paid.',
         evidence: 'National Institute of Justice, "Child Support and Reentry" (unpayable arrears raise re-offense risk).',
-        action: route('Find legal & money help', '/local-help'),
+        action: route('Find legal & money help', '/resources?need=family'),
         appliesIf: (i) => !!i.hasDependents,
       },
       {
