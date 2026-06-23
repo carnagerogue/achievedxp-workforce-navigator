@@ -10,7 +10,7 @@ import {
   NEED_META, CRISIS_LINES, RESOURCE_KIND_LABEL, resourcesFor,
   type ResourceNeed, type FreeResource,
 } from '../../lib/free-resources';
-import { getTreatmentCenters, type CommunityLiveResource } from '../../lib/api';
+import { getTreatmentCenters, getLocator, type CommunityLiveResource, type TreatmentResponse } from '../../lib/api';
 
 const NEED_ICON: Record<ResourceNeed, typeof Phone> = {
   crisis: HeartHandshake, health: HeartPulse, food: Utensils, housing: Home, money: Wallet,
@@ -84,7 +84,17 @@ export default function ResourcesPage() {
                   <p className="text-xs text-slate-500">{NEED_META[need].blurb}</p>
                 </div>
               </div>
-              {need === 'health' && <LiveTreatmentSearch />}
+              {need === 'health' && (
+                <div className="mt-3 space-y-3">
+                  <LiveLocator title="Find treatment near you — live" blurb="Real facilities from SAMHSA, including programs that offer medication for opioid use." fetcher={getTreatmentCenters} />
+                  <LiveLocator title="Find a free or low-cost clinic — live" blurb="HRSA-funded health centers that charge based on what you can afford — with or without insurance." fetcher={(loc) => getLocator('clinic', loc)} />
+                </div>
+              )}
+              {need === 'food' && (
+                <div className="mt-3">
+                  <LiveLocator title="Find stores that take SNAP / EBT — live" blurb="Grocery stores and markets near you that accept SNAP benefits." fetcher={(loc) => getLocator('snap', loc)} />
+                </div>
+              )}
               <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
                 {list.map((r) => <ResourceCard key={r.id} r={r} />)}
               </ul>
@@ -102,7 +112,7 @@ export default function ResourcesPage() {
   );
 }
 
-function LiveTreatmentSearch() {
+function LiveLocator({ title, blurb, fetcher }: { title: string; blurb: string; fetcher: (location: string) => Promise<TreatmentResponse> }) {
   const [zip, setZip] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CommunityLiveResource[] | null>(null);
@@ -113,7 +123,7 @@ function LiveTreatmentSearch() {
     if (!q) return;
     setLoading(true); setErr(false);
     try {
-      const d = await getTreatmentCenters(q);
+      const d = await fetcher(q);
       setResults(d.results);
     } catch {
       setErr(true); setResults([]);
@@ -123,9 +133,9 @@ function LiveTreatmentSearch() {
   };
 
   return (
-    <div className="mt-3 rounded-xl border border-teal-200 bg-teal-50/40 p-3.5">
-      <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy-900"><MapPin className="h-4 w-4 text-teal-600" /> Find treatment near you — live</p>
-      <p className="mt-0.5 text-xs text-slate-600">Real facilities from SAMHSA, including programs that offer medication for opioid use. Free, no account.</p>
+    <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-3.5">
+      <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy-900"><MapPin className="h-4 w-4 text-teal-600" /> {title}</p>
+      <p className="mt-0.5 text-xs text-slate-600">{blurb} Free, no account.</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <input
           value={zip}

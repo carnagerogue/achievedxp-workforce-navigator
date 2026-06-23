@@ -205,6 +205,10 @@ export interface TreatmentResponse {
 export const getTreatmentCenters = (location: string) =>
   request<TreatmentResponse>(`/treatment?location=${encodeURIComponent(location)}`);
 
+/** Live local locators (no key): kind = 'snap' | 'clinic'. */
+export const getLocator = (kind: 'snap' | 'clinic', location: string) =>
+  request<TreatmentResponse>(`/locator?kind=${kind}&location=${encodeURIComponent(location)}`);
+
 export const getCosWages = (onetCodeOrKeyword: string, location?: string) => {
   const q = `onet=${encodeURIComponent(onetCodeOrKeyword)}${location ? `&location=${encodeURIComponent(location)}` : ''}`;
   return request<unknown>(`/careeronestop/wages?${q}`);
