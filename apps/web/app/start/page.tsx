@@ -308,6 +308,9 @@ function CornerSection({ contacts }: { contacts: Contact[] }) {
         <HelpLink Icon={HeartHandshake} label="Talk to someone" sub="Call or text 988" href="tel:988" />
         <HelpLink Icon={Phone} label="SAMHSA helpline" sub="1-800-662-4357" href="tel:18006624357" />
       </div>
+      <Link href="/resources" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:underline">
+        Browse all free help &amp; hotlines <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
 
       {stale.length > 0 && support > 0 && (
         <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">

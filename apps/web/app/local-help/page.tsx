@@ -6,7 +6,7 @@ import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
   AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
   HeartPulse, Wallet, Baby, Shirt, GraduationCap, ListChecks, Plus, Check,
-  Printer, Trash2, Share2, FileDown, Sparkles, AlertTriangle, CalendarClock, Flame, Gauge,
+  Printer, Trash2, Share2, FileDown, Sparkles, AlertTriangle, CalendarClock, Flame, Gauge, ArrowRight,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -137,6 +137,20 @@ export default function LocalHelpPage() {
           </TabButton>
         </div>
       </header>
+
+      <Link
+        href="/resources"
+        className="group mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
+      >
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white"><LifeBuoy className="h-5 w-5" /></span>
+          <div>
+            <p className="text-sm font-bold text-navy-900">Free help &amp; hotlines — all in one place</p>
+            <p className="text-xs text-slate-600">Crisis lines, health, food, housing, legal, benefits — free, no account. Tap to call or find help near you.</p>
+          </div>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-teal-700 transition group-hover:translate-x-0.5">Open <ArrowRight className="h-4 w-4" /></span>
+      </Link>
 
       <div className="mt-6">
         {tab === 'ajc' && <AjcResults location={dLoc} radius={radius} />}
