@@ -168,7 +168,9 @@ export function classifyApprenticeship(input: ClassifyJobInput): ClassifiedField
 // ── Industry ──────────────────────────────────────────────────────────────
 const INDUSTRY_RULES: ReadonlyArray<[string, readonly string[]]> = [
   ['healthcare', ['nurse', 'cna', 'rn', 'lpn', 'medical', 'hospital', 'clinic', 'phlebotom', 'pharmacy', 'patient', 'caregiver']],
-  ['government', ['federal', 'gsa', 'va medical', 'state of ', 'county of ', 'civil service']],
+  // Avoid boilerplate traps: bare "federal" ("federal law/holidays/contractor")
+  // and "state of" ("state-of-the-art") falsely hit almost every description.
+  ['government', ['gsa', 'va medical', 'civil service', 'federal agency', 'federal government', 'municipal government']],
   ['transportation', ['cdl', 'truck driver', 'trucking', 'freight', 'delivery driver', 'logistics', 'shipping']],
   ['warehousing', ['warehouse', 'forklift', 'distribution center', 'order picking', 'packing', 'pallet']],
   ['construction', ['carpenter', 'electrician', 'plumber', 'concrete', 'mason', 'framer', 'roofing', 'hvac', 'journeyman']],
@@ -185,15 +187,36 @@ const INDUSTRY_RULES: ReadonlyArray<[string, readonly string[]]> = [
 ];
 const INDUSTRY_NAMES = new Set(INDUSTRY_RULES.map(([n]) => n));
 
+// Benefits boilerplate ("medical, dental, and vision insurance") appears in
+// almost every job description and would otherwise mislabel everything as
+// healthcare. Strip these words from the description-only fallback scan.
+const BENEFITS_BOILERPLATE = /\b(medical|dental|vision|pharmacy)\b/g;
+
+// Whole-word matchers per industry. Substring matching is wrong for short
+// tokens — e.g. "rn" would hit "learn"/"intern"/"return"/"modern" and mislabel
+// the role healthcare. Word boundaries fix that.
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const INDUSTRY_MATCHERS: ReadonlyArray<[string, RegExp]> = INDUSTRY_RULES.map(
+  ([name, kws]) => [name, new RegExp(`\\b(${kws.map((k) => escapeRe(k.trim())).join('|')})\\b`, 'i')] as [string, RegExp],
+);
+
 export function classifyIndustry(input: ClassifyJobInput): ClassifiedField<string | null> {
   const hint = (input.industryHint ?? '').trim().toLowerCase();
   if (hint && INDUSTRY_NAMES.has(hint)) {
     return { value: hint, confidence: 'verified', basis: 'source category' };
   }
-  const blob = `${input.title} ${input.description}`.toLowerCase();
-  for (const [name, kws] of INDUSTRY_RULES) {
-    const hit = kws.find((kw) => blob.includes(kw));
-    if (hit) return { value: name, confidence: 'inferred', basis: `keyword "${hit}"` };
+  // The title is the strongest, least-noisy signal — check it first.
+  const title = input.title ?? '';
+  for (const [name, re] of INDUSTRY_MATCHERS) {
+    const m = title.match(re);
+    if (m) return { value: name, confidence: 'inferred', basis: `title keyword "${m[1].toLowerCase()}"` };
+  }
+  // Fall back to the description, with benefits boilerplate removed so perks
+  // language doesn't mislabel the role.
+  const desc = (input.description ?? '').toLowerCase().replace(BENEFITS_BOILERPLATE, ' ');
+  for (const [name, re] of INDUSTRY_MATCHERS) {
+    const m = desc.match(re);
+    if (m) return { value: name, confidence: 'inferred', basis: `keyword "${m[1].toLowerCase()}"` };
   }
   if (hint) return { value: hint, confidence: 'uncertain', basis: 'unrecognized source category' };
   return { value: null, confidence: 'uncertain', basis: 'no industry signal' };

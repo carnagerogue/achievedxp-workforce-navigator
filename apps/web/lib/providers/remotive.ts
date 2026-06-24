@@ -27,10 +27,9 @@ export const remotiveProvider: JobProvider = {
   code: 'remotive',
   name: 'Remotive',
   enabled() {
-    // Remotive's free API has no auth. Default to disabled so a fresh
-    // deploy without intent doesn't suddenly start ingesting; flip with
-    // REMOTIVE_ENABLED=true.
-    return process.env.REMOTIVE_ENABLED === 'true';
+    // Remotive's free API has no auth and is free to use — on by default so
+    // the platform pulls real jobs out of the box. Disable with REMOTIVE_ENABLED=false.
+    return process.env.REMOTIVE_ENABLED !== 'false';
   },
   async fetch() {
     if (!this.enabled()) return [];

@@ -45,9 +45,8 @@ interface Employer {
 // ATSes. If a slug returns 404, the provider silently skips it.
 const DEFAULT_EMPLOYERS: Employer[] = [
   // ── Greenhouse — tech, logistics, food, mid-market ──
-  { ats: 'greenhouse', slug: 'doordash',          name: 'DoorDash' },
+  { ats: 'greenhouse', slug: 'sweetgreen',        name: 'Sweetgreen' },
   { ats: 'greenhouse', slug: 'instacart',         name: 'Instacart' },
-  { ats: 'greenhouse', slug: 'gopuff',            name: 'Gopuff' },
   { ats: 'greenhouse', slug: 'stitchfix',         name: 'Stitch Fix' },
   { ats: 'greenhouse', slug: 'pinterest',         name: 'Pinterest' },
   { ats: 'greenhouse', slug: 'reddit',            name: 'Reddit' },
@@ -66,18 +65,13 @@ const DEFAULT_EMPLOYERS: Employer[] = [
   { ats: 'greenhouse', slug: 'figma',             name: 'Figma' },
   { ats: 'greenhouse', slug: 'gitlab',            name: 'GitLab' },
   { ats: 'greenhouse', slug: 'dremio',            name: 'Dremio' },
-  { ats: 'greenhouse', slug: 'fanatics',          name: 'Fanatics' },
-  { ats: 'greenhouse', slug: 'glassdoor',         name: 'Glassdoor' },
-  { ats: 'greenhouse', slug: 'wayfair',           name: 'Wayfair' },
   { ats: 'greenhouse', slug: 'zillow',            name: 'Zillow' },
   { ats: 'greenhouse', slug: 'cloudflare',        name: 'Cloudflare' },
   { ats: 'greenhouse', slug: 'better',            name: 'Better.com' },
   { ats: 'greenhouse', slug: 'gusto',             name: 'Gusto' },
   { ats: 'greenhouse', slug: 'lyft',              name: 'Lyft' },
-  { ats: 'greenhouse', slug: 'careers',           name: 'Careers (multi-tenant)' },
 
   // ── Lever — typically tech / startup ──
-  { ats: 'lever', slug: 'netflix',                name: 'Netflix' },
   { ats: 'lever', slug: 'mixpanel',               name: 'Mixpanel' },
   { ats: 'lever', slug: 'segment',                name: 'Segment' },
   { ats: 'lever', slug: 'matterport',             name: 'Matterport' },
@@ -103,7 +97,9 @@ export const atsBoardsProvider: JobProvider = {
   code: 'ats_boards',
   name: 'ATS Boards',
   enabled() {
-    return process.env.ATS_BOARDS_ENABLED === 'true';
+    // Official public ATS job-board endpoints (no auth) — on by default so
+    // real employer postings flow out of the box. Disable with ATS_BOARDS_ENABLED=false.
+    return process.env.ATS_BOARDS_ENABLED !== 'false';
   },
   async fetch() {
     if (!this.enabled()) return [];
@@ -173,7 +169,7 @@ async function fetchGreenhouse(e: Employer): Promise<JobDto[]> {
   });
   if (!res.ok) return [];
   const data = (await res.json()) as { jobs?: GreenhouseJob[] };
-  const jobs = data.jobs ?? [];
+  const jobs = (data.jobs ?? []).filter((j) => isUsLocation(j.location?.name ?? j.offices?.[0]?.location));
   return jobs.map((j) => normalizeGreenhouse(j, e));
 }
 
@@ -223,7 +219,7 @@ async function fetchLever(e: Employer): Promise<JobDto[]> {
   });
   if (!res.ok) return [];
   const data = (await res.json()) as LeverPosting[] | { data?: LeverPosting[] };
-  const list = Array.isArray(data) ? data : (data.data ?? []);
+  const list = (Array.isArray(data) ? data : (data.data ?? [])).filter((p) => isUsLocation(p.categories?.location));
   return list.map((p) => normalizeLever(p, e));
 }
 
@@ -277,14 +273,14 @@ interface AshbyJob {
 }
 
 async function fetchAshby(e: Employer): Promise<JobDto[]> {
-  const url = `https://api.ashbyhq.com/posting-api/job-board/${e.slug}`;
+  const url = `https://api.ashbyhq.com/posting-api/job-board/${e.slug}?includeCompensation=true`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) return [];
   const data = (await res.json()) as { jobs?: AshbyJob[] };
-  return (data.jobs ?? []).map((j) => normalizeAshby(j, e));
+  return (data.jobs ?? []).filter((j) => isUsLocation(j.location)).map((j) => normalizeAshby(j, e));
 }
 
 function normalizeAshby(j: AshbyJob, e: Employer): JobDto {
@@ -322,6 +318,17 @@ function mapAshbyType(t: string | undefined): JobDto['employmentType'] {
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────
+
+// Global employers post worldwide on these boards; this is a US-focused
+// reentry tool, so drop clearly non-US roles. Empty/remote locations are kept
+// (often US-or-anywhere remote).
+const NON_US = /\b(canada|ontario|toronto|vancouver|montreal|québec|quebec|united kingdom|u\.k\.|\buk\b|england|scotland|wales|london|manchester|ireland|dublin|germany|berlin|munich|deutschland|france|paris|spain|madrid|barcelona|italy|rome|milan|netherlands|amsterdam|portugal|lisbon|poland|warsaw|sweden|stockholm|norway|denmark|finland|switzerland|austria|belgium|romania|hungary|czech|greece|turkey|israel|tel aviv|india|bangalore|bengaluru|hyderabad|mumbai|delhi|gurgaon|gurugram|pune|chennai|haryana|japan|tokyo|china|beijing|shanghai|shenzhen|hong kong|singapore|australia|sydney|melbourne|new zealand|mexico|brazil|são paulo|sao paulo|argentina|colombia|chile|philippines|manila|vietnam|hanoi|thailand|bangkok|indonesia|jakarta|taiwan|korea|seoul|uae|dubai|abu dhabi|saudi|egypt|nigeria|kenya|south africa|ukraine|lithuania|latvia|estonia|emea|apac|latam)\b/i;
+function isUsLocation(raw: string | null | undefined): boolean {
+  const s = (raw ?? '').trim();
+  if (!s) return true;
+  if (/remote|anywhere|worldwide|distributed|virtual/i.test(s)) return true;
+  return !NON_US.test(s);
+}
 
 function parseLocation(raw: string | null): { city: string | null; region: string | null } {
   if (!raw) return { city: null, region: null };

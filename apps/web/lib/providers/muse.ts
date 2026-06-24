@@ -32,9 +32,9 @@ export const museProvider: JobProvider = {
   code: 'muse',
   name: 'The Muse',
   enabled() {
-    // Free public API. Default off so it isn't called unless intent is
-    // explicit; flip with MUSE_ENABLED=true. (Same convention as Remotive.)
-    return process.env.MUSE_ENABLED === 'true';
+    // Free public API — on by default so the platform ships with live jobs.
+    // Disable with MUSE_ENABLED=false.
+    return process.env.MUSE_ENABLED !== 'false';
   },
   async fetch() {
     if (!this.enabled()) return [];

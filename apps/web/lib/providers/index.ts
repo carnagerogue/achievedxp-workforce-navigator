@@ -17,22 +17,29 @@ import { dedupKey, type JobProvider } from './types';
 import { usajobsProvider } from './usajobs';
 import { adzunaProvider } from './adzuna';
 import { remotiveProvider } from './remotive';
+import { remoteokProvider } from './remoteok';
+import { jobicyProvider } from './jobicy';
+import { himalayasProvider } from './himalayas';
 import { joobleProvider } from './jooble';
 import { museProvider } from './muse';
-import { ziprecruiterProvider } from './ziprecruiter';
-import { monsterProvider } from './monster';
 import { atsBoardsProvider } from './ats-boards';
 import { workdayProvider } from './workday';
 import { careerOneStopProvider } from './careeronestop';
 
+// NOTE on legality: Indeed, LinkedIn, Monster, ZipRecruiter, and Glassdoor are
+// intentionally NOT here. None offers a legal outbound job-search API anymore
+// (closed/partner-only) and their ToS prohibit scraping — the old monster.ts /
+// ziprecruiter.ts (RapidAPI scraper + dead endpoint) were removed. We only use
+// official APIs and public, no-auth ATS endpoints meant for syndication.
 const ALL_PROVIDERS: JobProvider[] = [
   usajobsProvider,
   adzunaProvider,
   remotiveProvider,
+  remoteokProvider,
+  jobicyProvider,
+  himalayasProvider,
   joobleProvider,
   museProvider,
-  ziprecruiterProvider,
-  monsterProvider,
   atsBoardsProvider,
   workdayProvider,
   careerOneStopProvider,
