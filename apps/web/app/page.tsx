@@ -8,160 +8,188 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Reveal } from '../components/Reveal';
+import { Marquee } from '../components/Marquee';
 import { PosterStats } from '../components/PosterStats';
 
 export default function LandingPage() {
   return (
     <div className="animate-fade-in">
-      {/* ── Act 1 · The statement ─────────────────────────────────────── */}
-      <section className="flex min-h-[78vh] flex-col items-center justify-center py-24 text-center sm:py-28">
-        <Reveal>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-            Achieve DXP · Workforce Navigator
-          </p>
-        </Reveal>
-        <Reveal delay={80}>
-          <h1 className="mt-6 text-6xl font-semibold leading-[0.98] tracking-display text-slate-900 sm:text-7xl lg:text-[6.5rem]">
-            One clear
-            <br />
-            next step.
+      {/* ── Act 1 · The billboard ─────────────────────────────────────── */}
+      <section className="full-bleed flex min-h-[86vh] flex-col justify-center bg-[#f7f9fa] px-5 pb-16 pt-20 sm:px-10">
+        <div className="mx-auto w-full max-w-[1400px]">
+          <Reveal>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
+              Achieve DXP · Workforce Navigator
+            </p>
+          </Reveal>
+          <h1 className="mt-6 font-extrabold uppercase leading-[0.82] tracking-[-0.03em]">
+            <Reveal delay={60}><span className="block text-[clamp(3.2rem,10.5vw,10rem)] text-slate-900">One clear</span></Reveal>
+            <Reveal delay={140}><span className="block text-[clamp(3.2rem,10.5vw,10rem)] text-slate-900">next<span className="text-teal-600">&nbsp;step.</span></span></Reveal>
           </h1>
-        </Reveal>
-        <Reveal delay={160}>
-          <p className="mx-auto mt-8 max-w-md text-lg leading-relaxed text-slate-500 sm:text-xl">
-            A guided path for life after release —
-            backed by real reentry research.
-          </p>
-        </Reveal>
-        <Reveal delay={240}>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              href="/dashboard"
-              className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-3.5 pl-7 pr-6 text-base font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
-            >
-              Start here
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              href="/jobs"
-              className="inline-flex items-center rounded-full px-6 py-3.5 text-base font-semibold text-slate-500 transition hover:text-slate-900"
-            >
-              Just browse jobs
-            </Link>
-          </div>
-        </Reveal>
-        <Reveal delay={320}>
-          <p className="mt-12 text-xs text-slate-400">Free. No account. Everything stays on your device.</p>
-        </Reveal>
+          <Reveal delay={240}>
+            <div className="mt-10 flex flex-wrap items-end justify-between gap-8">
+              <p className="max-w-md text-lg leading-snug text-slate-500 sm:text-xl">
+                A guided path for life after release —
+                backed by real reentry research.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/dashboard"
+                  className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-4 pl-8 pr-7 text-base font-bold text-white transition hover:bg-teal-700 active:scale-[0.98]"
+                >
+                  Start here
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href="/jobs"
+                  className="inline-flex items-center rounded-full px-6 py-4 text-base font-bold text-slate-500 transition hover:text-slate-900"
+                >
+                  Just browse jobs
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
-      {/* ── Act 2 · The poster ────────────────────────────────────────── */}
-      <section className="full-bleed bg-teal-900 py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-6">
+      {/* ── Act 2 · The ticker ────────────────────────────────────────── */}
+      <div className="full-bleed -rotate-1 border-y-4 border-slate-900 bg-slate-900 py-4">
+        <Marquee duration={26}>
+          <TickerRun />
+        </Marquee>
+      </div>
+
+      {/* ── Act 3 · The board ─────────────────────────────────────────── */}
+      <section className="full-bleed bg-teal-700 py-24 sm:py-28">
+        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
           <Reveal>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-teal-300/70">Right now</p>
+            <p className="mb-10 text-xs font-bold uppercase tracking-[0.3em] text-teal-200">Right now</p>
           </Reveal>
-          <Reveal delay={120} className="mt-10">
+          <Reveal delay={100}>
             <PosterStats />
           </Reveal>
         </div>
       </section>
 
-      {/* ── Act 3 · Three steps ───────────────────────────────────────── */}
-      <section className="mx-auto max-w-3xl py-24 sm:py-32">
-        <Reveal>
-          <h2 className="text-center text-4xl font-semibold tracking-display text-slate-900 sm:text-5xl">
-            Three steps.
-            <span className="text-slate-400"> No black box.</span>
-          </h2>
-        </Reveal>
-        <ol className="mt-20 space-y-20">
-          <EditorialStep n="01" title="Start with your compass." body="A few quick questions, and the one step that matters most right now — in the order reentry research says works." />
-          <EditorialStep n="02" title="Build your plan as you go." body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here feeds it." />
-          <EditorialStep n="03" title="Find work that says yes." body="Every posting scored against your background — Strong, Possible, or Challenging, with the reasons in plain English." />
-        </ol>
-      </section>
-
-      {/* ── Act 4 · The product ───────────────────────────────────────── */}
-      <section className="full-bleed bg-white py-24 sm:py-32">
-        <div className="mx-auto max-w-6xl px-6">
+      {/* ── Act 4 · Three steps, chart style ──────────────────────────── */}
+      <section className="full-bleed bg-[#f7f9fa] py-24 sm:py-32">
+        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
           <Reveal>
-            <h2 className="mx-auto max-w-2xl text-center text-4xl font-semibold tracking-display text-slate-900 sm:text-5xl">
-              Every ranking,
-              <span className="text-slate-400"> explained.</span>
+            <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em]">
+              <span className="block text-[clamp(2.6rem,7vw,6.5rem)] text-slate-900">Three steps.</span>
+              <span className="block text-[clamp(2.6rem,7vw,6.5rem)] text-slate-300">No black box.</span>
             </h2>
           </Reveal>
-          <Reveal delay={140}>
-            <div className="mx-auto mt-16 max-w-xl">
-              <HeroPreview />
-            </div>
-          </Reveal>
-          <Reveal delay={200}>
-            <p className="mx-auto mt-10 max-w-md text-center text-sm leading-relaxed text-slate-400">
-              Deterministic scoring — conviction-to-duty relevance, hard barriers, employer
-              posture — with every component visible. A caseworker can reproduce any score by hand.
-            </p>
-          </Reveal>
+          <ol className="mt-16 border-t-4 border-slate-900">
+            <ChartStep n="01" title="Start with your compass" body="A few quick questions, and the one step that matters most right now — in the order reentry research says works." />
+            <ChartStep n="02" title="Build your plan as you go" body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here feeds it." />
+            <ChartStep n="03" title="Find work that says yes" body="Every posting scored against your background — Strong, Possible, or Challenging, with the reasons in plain English." />
+          </ol>
         </div>
       </section>
 
-      {/* ── Act 5 · Principles ────────────────────────────────────────── */}
-      <section className="mx-auto max-w-2xl py-24 text-center sm:py-32">
-        <Principle title="Your data stays yours." body="Background details never reach employers. Your plan lives on your device." />
-        <Principle title="Dignity, throughout." body="Neutral language everywhere — in what you see, and in the code itself." />
-        <Principle title="Built with caseworkers." body="Share your plan when you choose. Revoke it when you choose." />
+      {/* ── Act 5 · The product ───────────────────────────────────────── */}
+      <section className="full-bleed overflow-hidden bg-white py-24 sm:py-32">
+        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
+          <div className="grid items-center gap-14 lg:grid-cols-2">
+            <Reveal>
+              <div>
+                <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em]">
+                  <span className="block text-[clamp(2.6rem,6.5vw,6rem)] text-slate-900">Every ranking,</span>
+                  <span className="block text-[clamp(2.6rem,6.5vw,6rem)] text-teal-600">explained.</span>
+                </h2>
+                <p className="mt-8 max-w-md text-lg leading-relaxed text-slate-500">
+                  Deterministic scoring — conviction-to-duty relevance, hard barriers, employer
+                  posture — with every component visible. A caseworker can reproduce any score by hand.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={140}>
+              <div className="relative mx-auto max-w-xl rotate-2 transition-transform duration-500 hover:rotate-0">
+                <span className="absolute -top-5 right-6 z-10 -rotate-6 rounded-full bg-sunset-500 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-white">
+                  Plain English
+                </span>
+                <HeroPreview />
+              </div>
+            </Reveal>
+          </div>
+        </div>
       </section>
 
-      {/* ── Act 6 · Begin ─────────────────────────────────────────────── */}
-      <section className="full-bleed bg-navy-900 py-28 sm:py-36">
-        <div className="mx-auto max-w-6xl px-6 text-center">
+      {/* ── Act 6 · Principles ────────────────────────────────────────── */}
+      <section className="full-bleed bg-[#f7f9fa] py-24 sm:py-28">
+        <div className="mx-auto max-w-[1400px] border-t-4 border-slate-900 px-5 sm:px-10">
+          <BigPrinciple title="Your data stays yours." body="Background details never reach employers. Your plan lives on your device." />
+          <BigPrinciple title="Dignity, throughout." body="Neutral language everywhere — in what you see, and in the code itself." />
+          <BigPrinciple title="Built with caseworkers." body="Share your plan when you choose. Revoke it when you choose." />
+        </div>
+      </section>
+
+      {/* ── Act 7 · Begin ─────────────────────────────────────────────── */}
+      <section className="full-bleed bg-slate-950 pb-10 pt-28 sm:pt-36">
+        <div className="mx-auto max-w-[1400px] px-5 text-center sm:px-10">
           <Reveal>
-            <h2 className="text-5xl font-semibold tracking-display text-white sm:text-6xl">Begin today.</h2>
+            <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em] text-[clamp(3rem,10vw,9rem)] text-white">
+              Begin<span className="text-teal-500"> today.</span>
+            </h2>
           </Reveal>
-          <Reveal delay={120}>
-            <p className="mx-auto mt-5 max-w-sm text-base text-slate-300">
-              From day one — one step at a time.
-            </p>
-          </Reveal>
-          <Reveal delay={200}>
+          <Reveal delay={140}>
             <Link
               href="/dashboard"
-              className="group mt-10 inline-flex items-center gap-2 rounded-full bg-white py-3.5 pl-7 pr-6 text-base font-semibold text-navy-900 transition hover:bg-teal-50 active:scale-[0.98]"
+              className="group mt-12 inline-flex items-center gap-2 rounded-full bg-white py-4 pl-8 pr-7 text-base font-bold text-slate-950 transition hover:bg-teal-50 active:scale-[0.98]"
             >
               Start here
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </Reveal>
+        </div>
+        <div className="mt-24 border-t border-white/10 py-4">
+          <Marquee duration={30}>
+            <TickerRun light />
+          </Marquee>
         </div>
       </section>
     </div>
   );
 }
 
-function EditorialStep({ n, title, body }: { n: string; title: string; body: string }) {
+const TICKER = ['Real jobs', 'Real research', 'No black box', 'Your data stays yours', 'One step at a time', 'Free, always'];
+
+function TickerRun({ light = false }: { light?: boolean }) {
   return (
-    <li>
-      <Reveal className="grid grid-cols-[auto_1fr] items-start gap-6 sm:gap-10">
-        <span aria-hidden="true" className="text-6xl font-semibold leading-none tracking-display text-slate-200 tabular-nums sm:text-7xl">{n}</span>
-        <div className="pt-1.5 sm:pt-3">
-          <h3 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[28px]">{title}</h3>
-          <p className="mt-2 max-w-md text-base leading-relaxed text-slate-500">{body}</p>
+    <>
+      {TICKER.map((t) => (
+        <span key={t} className="inline-flex items-center">
+          <span className={'px-6 text-lg font-extrabold uppercase tracking-[0.1em] ' + (light ? 'text-white/70' : 'text-white')}>{t}</span>
+          <span className={'text-lg ' + (light ? 'text-teal-500' : 'text-sunset-400')} aria-hidden="true">✦</span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+function ChartStep({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <li className="border-b-2 border-slate-900/15">
+      <Reveal className="grid grid-cols-[auto_1fr] items-center gap-6 py-10 sm:grid-cols-[1fr_2fr] sm:gap-10 sm:py-12">
+        <span aria-hidden="true" className="text-[clamp(4rem,9vw,8rem)] font-extrabold leading-[0.85] tracking-[-0.04em] text-teal-600 tabular-nums">{n}</span>
+        <div>
+          <h3 className="text-2xl font-extrabold uppercase tracking-tight text-slate-900 sm:text-3xl">{title}</h3>
+          <p className="mt-2 max-w-lg text-base leading-relaxed text-slate-500 sm:text-lg">{body}</p>
         </div>
       </Reveal>
     </li>
   );
 }
 
-function Principle({ title, body }: { title: string; body: string }) {
+function BigPrinciple({ title, body }: { title: string; body: string }) {
   return (
-    <Reveal className="py-10 sm:py-12">
-      <h3 className="text-3xl font-semibold tracking-display text-slate-900 sm:text-4xl">{title}</h3>
-      <p className="mx-auto mt-3 max-w-sm text-base leading-relaxed text-slate-500">{body}</p>
+    <Reveal className="border-b-2 border-slate-900/15 py-12 sm:py-14">
+      <h3 className="text-[clamp(2rem,5vw,4rem)] font-extrabold uppercase leading-[0.9] tracking-[-0.02em] text-slate-900">{title}</h3>
+      <p className="mt-4 max-w-md text-base leading-relaxed text-slate-500 sm:text-lg">{body}</p>
     </Reveal>
   );
 }
-
-// ───────── pieces ─────────
 
 /**
  * Static preview of a job-card with the new compatibility engine UI.
