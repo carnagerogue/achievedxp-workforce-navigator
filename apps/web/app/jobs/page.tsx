@@ -671,7 +671,7 @@ function EmptyState({ hasFilters, location, onClear }: { hasFilters: boolean; lo
         <>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
             {location
-              ? <>We may not yet have postings in <strong>"{location}"</strong>. Our providers ingest by keyword, so some metro areas aren't represented yet. Try a nearby ZIP, a state, or clearing the location filter.</>
+              ? <>We may not yet have postings in <strong>&ldquo;{location}&rdquo;</strong>. Our providers ingest by keyword, so some metro areas aren&apos;t represented yet. Try a nearby ZIP, a state, or clearing the location filter.</>
               : <>Try removing a filter or broadening your search.</>}
           </p>
           <button

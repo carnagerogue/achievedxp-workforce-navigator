@@ -461,7 +461,7 @@ function ReentryResults({ location, radius }: { location: string; radius: number
         </p>
         <p className="mx-auto mt-3 max-w-md text-xs text-slate-500">
           Most American Job Centers can refer you to local reentry partners even if they
-          aren't listed here. Switch to the <strong>American Job Centers</strong> tab and call your closest one.
+          aren&apos;t listed here. Switch to the <strong>American Job Centers</strong> tab and call your closest one.
         </p>
       </div>
     );
@@ -657,7 +657,7 @@ function ListSkeleton() {
 function ErrorPanel({ message }: { message: string }) {
   return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
-      <p className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4" /> Couldn't load resources</p>
+      <p className="flex items-center gap-2 font-semibold"><AlertCircle className="h-4 w-4" /> Couldn&apos;t load resources</p>
       <p className="mt-1">{message}</p>
     </div>
   );

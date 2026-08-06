@@ -300,7 +300,7 @@ function Results({
             <div>
               <h2 className="flex items-center gap-2 text-lg font-semibold text-navy-900">
                 <Target className="h-5 w-5 text-teal-600" />
-                Careers you'd likely thrive in
+                Careers you&apos;d likely thrive in
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Curated from O*NET — ranked by Holland-code fit. Each card shows what it pays,

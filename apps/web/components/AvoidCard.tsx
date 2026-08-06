@@ -31,7 +31,7 @@ export function AvoidCard({ item }: { item: AvoidJobDto }) {
 
       <div className="mt-4 rounded-xl border border-rose-200/80 bg-white/80 p-3">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">
-          Why we're flagging it
+          Why we&apos;re flagging it
         </p>
         <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-700">
           {reasons.map((r, i) => <li key={i}>{r}</li>)}

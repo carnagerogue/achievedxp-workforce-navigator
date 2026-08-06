@@ -5,10 +5,8 @@ const nextConfig = {
   // standalone produces a self-contained .next/standalone tree we can copy
   // into a slim runtime image — far smaller than shipping all node_modules.
   output: 'standalone',
-  // Type errors now fail the build (tsc is clean; CI also runs tsc --noEmit).
-  // ESLint stays ignored during builds because the app has no ESLint config
-  // yet — `next lint` prompts to create one and can't run non-interactively.
-  eslint: { ignoreDuringBuilds: true },
+  // Both gates are live: type errors fail the build (tsc also runs in CI),
+  // and ESLint (next/core-web-vitals via .eslintrc.json) fails it too.
 };
 
 export default nextConfig;

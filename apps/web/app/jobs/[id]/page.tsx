@@ -425,7 +425,7 @@ function DetailSkeleton() {
 function ErrorBox({ message }: { message: string }) {
   return (
     <div className="mx-auto max-w-xl rounded-2xl border border-rose-200 bg-rose-50 p-6 shadow-card">
-      <h2 className="text-lg font-semibold text-rose-900">Couldn't load this job</h2>
+      <h2 className="text-lg font-semibold text-rose-900">Couldn&apos;t load this job</h2>
       <p className="mt-1 text-sm text-rose-800">{message}</p>
       <Link
         href="/jobs"

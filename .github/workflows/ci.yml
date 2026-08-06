@@ -28,6 +28,9 @@ jobs:
         working-directory: apps/web
         run: pnpm exec tsc --noEmit
 
+      - name: Lint web
+        run: pnpm --filter web lint
+
       - name: Shared engine tests
         run: pnpm --filter @dxp/shared test
 
