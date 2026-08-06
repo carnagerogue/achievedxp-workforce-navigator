@@ -47,30 +47,25 @@ export function FocusHero({ entry }: { entry: FocusEntry | null }) {
     : null;
 
   return (
-    <section className={'overflow-hidden rounded-2xl border shadow-card ' + (urgent ? 'border-rose-200' : 'border-amber-200')}>
-      <div className={'px-5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white ' + (urgent ? 'bg-gradient-to-r from-rose-600 to-rose-500' : 'bg-gradient-to-r from-amber-500 to-amber-400')}>
-        {urgent ? 'Do this first — it can’t wait' : 'Do this next — coming up'}
-      </div>
-      <div className={'p-5 ' + (urgent ? 'bg-rose-50/50' : 'bg-amber-50/40')}>
-        <div className="flex items-start gap-3">
-          <span className={'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ' + (urgent ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')}>
-            {urgent ? <AlertTriangle className="h-5 w-5" /> : <CalendarClock className="h-5 w-5" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-navy-900">{entry.title}</h2>
-            {entry.sub && <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{entry.sub}</p>}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {markMet ? (
-                <button onClick={markMet} className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
-                  <Check className="h-4 w-4" /> Mark it met
-                </button>
-              ) : entry.href ? (
-                <Link href={entry.href} className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
-                  Take care of it <ArrowRight className="h-4 w-4" />
-                </Link>
-              ) : null}
-            </div>
-          </div>
+    <section className="overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white shadow-card">
+      <div aria-hidden="true" className={'h-1 ' + (urgent ? 'bg-rose-500' : 'bg-amber-400')} />
+      <div className="p-6 sm:p-7">
+        <p className={'flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] ' + (urgent ? 'text-rose-600' : 'text-amber-600')}>
+          {urgent ? <AlertTriangle className="h-3.5 w-3.5" /> : <CalendarClock className="h-3.5 w-3.5" />}
+          {urgent ? 'Do this first — it can’t wait' : 'Do this next — coming up'}
+        </p>
+        <h2 className="mt-2.5 text-xl font-semibold tracking-tight text-slate-900 sm:text-[22px]">{entry.title}</h2>
+        {entry.sub && <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-slate-500">{entry.sub}</p>}
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          {markMet ? (
+            <button onClick={markMet} className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700">
+              <Check className="h-4 w-4" /> Mark it met
+            </button>
+          ) : entry.href ? (
+            <Link href={entry.href} className="group inline-flex items-center gap-1.5 rounded-full bg-teal-600 py-2.5 pl-5 pr-4 text-sm font-semibold text-white transition hover:bg-teal-700">
+              Take care of it <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
+          ) : null}
         </div>
       </div>
     </section>

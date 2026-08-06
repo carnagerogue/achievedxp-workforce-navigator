@@ -17,39 +17,35 @@ export default function LandingPage() {
   return (
     <div className="animate-fade-in">
       {/* ─────────── Hero ─────────── */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white bg-hero-radial shadow-card">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white bg-hero-radial shadow-card">
         <div className="grid gap-10 p-8 sm:p-14 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-              <Sparkles className="h-3.5 w-3.5" /> Achieve DXP · Workforce Navigator
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-700">
+              Workforce Navigator
             </span>
-            <h1 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight text-navy-900 sm:text-5xl lg:text-[3.25rem]">
-              Real-world jobs, matched to you —
-              <span className="block bg-gradient-to-r from-teal-600 via-teal-500 to-sunset-500 bg-clip-text text-transparent">
-                with the full picture.
-              </span>
+            <h1 className="mt-4 text-4xl font-semibold leading-[1.04] tracking-display text-slate-900 sm:text-5xl lg:text-[3.4rem]">
+              One clear next step.
+              <span className="block text-slate-400">From day one.</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              A guided path for life after release — one clear next step at a time, backed by real
-              reentry research. Build your plan, stay ahead of supervision dates, and when you&apos;re
-              ready, see real jobs scored against your background with every ranking explained in
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-500 sm:text-[17px]">
+              A guided path for life after release, backed by real reentry research.
+              Build your plan, stay ahead of supervision dates — and when you&apos;re ready,
+              see real jobs scored against your background, every ranking explained in
               plain English.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/dashboard"
-                className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover"
+                className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-3 pl-6 pr-5 text-[15px] font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
               >
-                <Compass className="h-4 w-4" />
-                Start here — one step at a time
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                Start here
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/jobs"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 backdrop-blur transition hover:border-slate-400 hover:bg-white"
+                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[15px] font-semibold text-slate-600 transition hover:bg-slate-900/[0.04] hover:text-slate-900"
               >
-                <Briefcase className="h-4 w-4" />
                 Just browse jobs
               </Link>
             </div>
