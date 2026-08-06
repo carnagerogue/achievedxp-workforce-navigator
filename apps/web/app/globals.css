@@ -20,6 +20,13 @@ body {
   font-feature-settings: 'cv11', 'ss01', 'ss03';
   /* OpenType: tabular numbers in dashboards, contextual alternates */
   text-rendering: optimizeLegibility;
+  /* .full-bleed uses viewport-width breakouts; clip the scrollbar sliver. */
+  overflow-x: clip;
+}
+
+/* Escape the centered content column for edge-to-edge poster sections. */
+.full-bleed {
+  margin-inline: calc(50% - 50vw);
 }
 
 /* Selection color matches brand teal */
