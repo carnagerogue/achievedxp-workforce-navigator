@@ -6,17 +6,22 @@ import type { Config } from 'tailwindcss';
 //   - `sunset` — the orange-to-red swoosh under the arrow (accents / CTAs)
 //
 // "brand" stays an alias of teal so existing utility classes keep working.
+//
+// Design-system note: the teal scale is deliberately deep and low-chroma —
+// one confident accent against a near-monochrome ink/paper base. 600 is the
+// filled-control color (white text on it passes WCAG AA at every size);
+// 500 is reserved for progress fills and focus rings, never for text.
 const teal = {
-  50:  '#eefbfa',
-  100: '#d4f4f1',
-  200: '#a9e9e3',
-  300: '#76d6ce',
-  400: '#41bdb4',
-  500: '#1ea69c',
-  600: '#0f8a82',
-  700: '#0d6e68',
-  800: '#0d5954',
-  900: '#0c4945',
+  50:  '#f0faf9',
+  100: '#d7f1ee',
+  200: '#ade2dd',
+  300: '#79cbc4',
+  400: '#43ada5',
+  500: '#17948a',
+  600: '#0c7069',
+  700: '#0a5b55',
+  800: '#0b4a46',
+  900: '#0b3d3a',
 };
 
 const navy = {
@@ -83,12 +88,22 @@ const config: Config = {
         },
       },
       boxShadow: {
-        card: '0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06)',
-        'card-hover': '0 8px 24px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.06)',
+        // Depth is nearly invisible at rest — hairline borders do the work.
+        card: '0 1px 2px rgba(2, 6, 23, 0.03), 0 1px 3px rgba(2, 6, 23, 0.04)',
+        'card-hover': '0 2px 6px rgba(2, 6, 23, 0.04), 0 12px 32px rgba(2, 6, 23, 0.07)',
+        // Floating chrome (menus, palette, dialogs) gets real elevation.
+        pop: '0 4px 12px rgba(2, 6, 23, 0.06), 0 24px 64px rgba(2, 6, 23, 0.14)',
+      },
+      letterSpacing: {
+        display: '-0.03em',
+      },
+      transitionTimingFunction: {
+        swift: 'cubic-bezier(0.2, 0, 0, 1)',
       },
       backgroundImage: {
+        // One quiet wash of brand color, top-left only. No competing hues.
         'hero-radial':
-          'radial-gradient(1200px 600px at 30% -10%, rgba(30,166,156,0.12), transparent), radial-gradient(800px 400px at 90% 10%, rgba(245,91,29,0.10), transparent)',
+          'radial-gradient(1100px 520px at 20% -12%, rgba(12,112,105,0.07), transparent 65%)',
       },
     },
   },

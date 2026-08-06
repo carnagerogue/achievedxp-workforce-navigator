@@ -29,12 +29,18 @@ export function LiveStats() {
   }, []);
 
   return (
-    <dl className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-slate-200 pt-6 text-sm">
-      <Stat value={sources != null ? `${sources}+` : '…'} label="live job sources" />
+    <dl className="mt-10 flex max-w-lg items-center gap-7 border-t border-slate-900/[0.07] pt-6 sm:gap-9">
+      <Stat value={sources != null ? `${sources}+` : '…'} label="live sources" />
+      <Divider />
       <Stat value={active != null ? formatActive(active) : '…'} label="active postings" />
+      <Divider />
       <Stat value="100%" label="explainable" />
     </dl>
   );
+}
+
+function Divider() {
+  return <div aria-hidden="true" className="h-8 w-px bg-slate-900/[0.07]" />;
 }
 
 /** Round large numbers to a clean tagline-ready form. */
@@ -49,8 +55,8 @@ function formatActive(n: number): string {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <dt className="text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">{value}</dt>
-      <dd className="mt-1 text-xs uppercase tracking-wide text-slate-500">{label}</dd>
+      <dt className="text-xl font-semibold tracking-tight text-slate-900 tabular-nums sm:text-2xl">{value}</dt>
+      <dd className="mt-0.5 text-[11px] font-medium text-slate-400">{label}</dd>
     </div>
   );
 }
