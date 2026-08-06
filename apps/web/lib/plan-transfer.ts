@@ -11,7 +11,7 @@ import {
   newParticipantId, newTaskId,
   type Participant, type Task, type TaskCategory, type Barrier, type SupervisionKind,
 } from './caseworker-store';
-import type { ConvictionType, EducationLevel } from '@dxp/shared';
+import type { ConvictionType, EducationLevel, UserContextMode } from '@dxp/shared';
 import {
   assessReadiness, participantToReadinessInput, selfToReadinessInput,
   type ReadinessAnswers,
@@ -19,6 +19,12 @@ import {
 import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './supervision';
 
 export interface PortableItem {
+  /**
+   * Original item/task id (v2). Deterministic prefixes (match:/train:/barrier:/
+   * dol-ajc:/readiness:) travel with the plan so a re-import reuses the same id
+   * and reconcileGeneratedTasks() stays idempotent instead of duplicating.
+   */
+  id?: string;
   name: string;
   type?: string;
   category?: string;
@@ -29,6 +35,8 @@ export interface PortableItem {
   cityState?: string;
   phone?: string;
   url?: string;
+  /** Deep-link back to the task's origin (v2) — mirrors Task.ref. */
+  ref?: { jobId?: string; url?: string; stepId?: string };
   domain?: import('./plan-model').PlanDomain;
 }
 
@@ -38,10 +46,21 @@ export interface PortableProfile {
   education?: EducationLevel;
   certifications?: string[];
   barriers?: Barrier[];
+  /** ZIP (v2). */
+  location?: string;
+  /** v2. */
+  skills?: string[];
+  /** v2. */
+  yearsSinceRelease?: number | null;
+  /** v2. */
+  contextMode?: UserContextMode;
+  /** Caseworker notes (v2) — so a round-trip doesn't overwrite them. */
+  notes?: string;
 }
 
 export interface PortablePlan {
-  v: 1;
+  /** 2 on export; v1 payloads (missing v2 fields) are still accepted on read. */
+  v: 1 | 2;
   kind: 'reentry-plan';
   exportedAt: string;
   person: { name: string; goals: string };
@@ -111,10 +130,10 @@ export function checklistToPortable(
 ): PortablePlan {
   const readinessScore = assessReadiness(selfToReadinessInput({ careerGoal: goals }), readiness).score;
   return {
-    v: 1, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
+    v: 2, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
     person: { name, goals },
     items: items.map((i) => ({
-      name: i.name, type: i.type, category: i.category, status: i.status,
+      id: i.id, name: i.name, type: i.type, category: i.category, status: i.status,
       targetDate: i.targetDate, notes: i.notes,
       address: i.address, cityState: i.cityState, phone: i.phone, url: i.url, domain: i.domain,
     })),
@@ -128,9 +147,12 @@ export function checklistToPortable(
 
 export function portableToChecklist(p: PortablePlan): ChecklistItem[] {
   return p.items.map((it, idx) => ({
-    id: `import:${idx}:${(it.name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
+    // Reuse the carried id (v2) so deterministic ids survive the round trip
+    // and 'merge' imports don't duplicate; mint one only for v1 payloads.
+    id: it.id || `import:${idx}:${(it.name || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}`,
     name: it.name, type: it.type || 'Support service', category: it.category,
-    address: it.address, cityState: it.cityState, phone: it.phone, url: it.url, domain: it.domain,
+    address: it.address, cityState: it.cityState, phone: it.phone,
+    url: it.url ?? it.ref?.url, domain: it.domain,
     status: it.status || 'planned', targetDate: it.targetDate, notes: it.notes,
     addedAt: Date.now() + idx,
     completedAt: it.status === 'completed' ? Date.now() : undefined,
@@ -148,15 +170,17 @@ const CATEGORY_FROM_TYPE = (s?: string): TaskCategory => {
 export function participantToPortable(p: Participant): PortablePlan {
   const readinessScore = assessReadiness(participantToReadinessInput(p), p.readiness ?? {}).score;
   return {
-    v: 1, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
+    v: 2, kind: 'reentry-plan', exportedAt: new Date().toISOString(),
     person: { name: p.name, goals: p.careerGoal },
     items: (p.tasks ?? []).map((t) => ({
-      name: t.title, type: t.category, category: t.category, status: t.status,
-      targetDate: t.dueDate, notes: t.notes, url: t.ref?.url, domain: t.domain,
+      id: t.id, name: t.title, type: t.category, category: t.category, status: t.status,
+      targetDate: t.dueDate, notes: t.notes, url: t.ref?.url, ref: t.ref, domain: t.domain,
     })),
     profile: {
       conviction: p.conviction, supervision: p.supervision, education: p.education,
       certifications: p.certifications, barriers: p.barriers,
+      location: p.location, skills: p.skills, yearsSinceRelease: p.yearsSinceRelease,
+      contextMode: p.contextMode, notes: p.notes,
     },
     readiness: p.readiness,
     readinessScore,
@@ -173,7 +197,9 @@ export function participantToPortable(p: Participant): PortablePlan {
 export function portableToParticipant(p: PortablePlan): Participant {
   const now = Date.now();
   const tasks: Task[] = p.items.map((it) => ({
-    id: newTaskId(),
+    // Reuse the carried id (v2) so deterministic ids (match:/train:/…) survive
+    // and reconcileGeneratedTasks() won't re-add them; mint one only for v1.
+    id: it.id || newTaskId(),
     title: it.name,
     status: it.status || 'planned',
     category: CATEGORY_FROM_TYPE(it.type || it.category),
@@ -181,7 +207,7 @@ export function portableToParticipant(p: PortablePlan): Participant {
     dueDate: it.targetDate,
     notes: it.notes,
     domain: it.domain,
-    ref: it.url ? { url: it.url } : undefined,
+    ref: it.ref ?? (it.url ? { url: it.url } : undefined),
     createdAt: now,
     completedAt: it.status === 'completed' ? now : undefined,
   }));
@@ -196,22 +222,27 @@ export function portableToParticipant(p: PortablePlan): Participant {
     ?? (sup.supervisionType === 'parole' ? 'parole'
       : sup.supervisionType === 'probation' ? 'probation'
       : 'none');
+  const VALID_MODES: UserContextMode[] = [
+    'currently_incarcerated', 'preparing_for_release', 'recently_released', 'in_the_community', 'on_supervision',
+  ];
+  const contextMode: UserContextMode =
+    VALID_MODES.includes(prof.contextMode as UserContextMode) ? (prof.contextMode as UserContextMode) : 'recently_released';
   return {
     id: newParticipantId(),
     name: p.person.name || 'Imported participant',
     conviction: prof.conviction ?? 'other',
-    contextMode: 'recently_released',
+    contextMode,
     supervision: supervisionKind,
     officerName: sup.officerName,
     nextReportDate: sup.nextReportDate,
-    yearsSinceRelease: null,
+    yearsSinceRelease: prof.yearsSinceRelease ?? null,
     education: prof.education ?? 'unknown',
-    skills: [],
+    skills: prof.skills ?? [],
     certifications: prof.certifications ?? [],
-    location: '',
+    location: prof.location ?? '',
     careerGoal: p.person.goals || '',
     barriers: prof.barriers ?? [],
-    notes: 'Imported from a participant-built plan.',
+    notes: prof.notes ?? 'Imported from a participant-built plan.',
     tasks,
     readiness: p.readiness,
     conditions: p.conditions,

@@ -5,11 +5,8 @@ const nextConfig = {
   // standalone produces a self-contained .next/standalone tree we can copy
   // into a slim runtime image — far smaller than shipping all node_modules.
   output: 'standalone',
-  // Type checking + linting run locally / in CI; pnpm strict-peer mode
-  // sometimes hides transitive @types in the prod image. Don't gate the
-  // image build on those.
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
+  // Both gates are live: type errors fail the build (tsc also runs in CI),
+  // and ESLint (next/core-web-vitals via .eslintrc.json) fails it too.
 };
 
 export default nextConfig;

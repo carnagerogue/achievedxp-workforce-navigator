@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Settings2, TrendingUp, AlertTriangle, Trophy, RefreshCw, Bookmark, ClipboardList, History,
-  Brain, ArrowRight, HeartHandshake, Compass, Gauge, ListChecks, ShieldCheck, ShieldAlert,
-  Briefcase, Users, Sparkles, Star, LifeBuoy, Phone, SearchCheck, CalendarClock,
+  Brain, ArrowRight, Compass, Gauge, ListChecks, ShieldCheck, ShieldAlert,
+  Briefcase, Users, Sparkles, SearchCheck, CalendarClock,
 } from 'lucide-react';
 import type { MatchesResponseDto } from '@dxp/shared';
 import { getMatches, getAssessmentResult, type AssessmentResultDto } from '../../lib/api';
@@ -20,36 +20,74 @@ import { InsightsPanel } from '../../components/InsightsPanel';
 import { SaveJobButton } from '../../components/SaveJobButton';
 import { TodayFocus } from '../../components/TodayFocus';
 import { ToolsGrid } from '../../components/ToolsGrid';
-import { NextStepHero } from '../../components/journey/NextStepHero';
+import { FocusHero } from '../../components/journey/FocusHero';
+import {
+  CompassSection, CornerSection, FutureSelfSection, EvidencePanel,
+} from '../../components/journey/CompassSections';
 import { ApplicationStatusPicker, statusLabel } from '../../components/ApplicationStatusPicker';
 import { Avatar } from '../../components/common/Avatar';
 import { ProgressRing } from '../../components/common/ProgressRing';
 import { useSavedJobIds, useRecentJobIds, useApplications } from '../../lib/personal-store';
-import { setStepDone } from '../../lib/reentry-store';
+import { useReentryInputs, useCompletedSteps, useFutureSelf, setReentryInputs } from '../../lib/reentry-store';
+import { getLocalProfile } from '../../lib/local-profile';
+import { useContacts } from '../../lib/support-network';
+import {
+  useChecklist, useCheckins, useConditions, useFees, useSupervisionInfo,
+} from '../../lib/checklist-store';
+import {
+  phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow,
+} from '../../lib/reentry-journey';
+import { buildFocusQueue, focusCounts } from '../../lib/focus';
 
-export default function DashboardPage() {
+/**
+ * HOME — the one guided surface. The old /start (Reentry Compass) and
+ * /dashboard were two competing homes with two competing "next step"
+ * engines; this page is their merge. Everything hangs off a single
+ * prioritized focus queue (lib/focus.ts): the hero shows the one thing to
+ * do now, "staying on track" shows what's behind it, and the compass,
+ * plan, matches, and support sections follow in journey order.
+ */
+export default function HomePage() {
   const p = useNavigatorProfile();
+  const inputs = useReentryInputs();
+  const completedArr = useCompletedSteps();
+  const contacts = useContacts();
+  const futureSelf = useFutureSelf();
+  const items = useChecklist();
+  const checkins = useCheckins();
+  const conditions = useConditions();
+  const fees = useFees();
+  const supervision = useSupervisionInfo();
+
   const [greet, setGreet] = useState('Welcome');
   useEffect(() => {
     const h = new Date().getHours();
     setGreet(h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
   }, []);
 
-  // Brand-new user with nothing yet — calm, encouraging start.
-  if (!p.hasAnyData) {
-    return (
-      <div className="mx-auto max-w-xl animate-fade-in rounded-3xl border border-slate-200 bg-white bg-hero-radial p-10 text-center shadow-card">
-        <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-600 text-white"><Compass className="h-6 w-6" /></span>
-        <h1 className="mt-4 text-2xl font-bold text-navy-900">Let’s get started</h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-slate-600">Your dashboard fills in as you go. The best first move is your reentry compass — one step at a time.</p>
-        <Link href="/start" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
-          Start your compass <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
-    );
-  }
+  // Never ask twice: if onboarding already captured supervision status and the
+  // compass context hasn't been answered, seed it once from the profile.
+  useEffect(() => {
+    const prof = getLocalProfile();
+    if (prof?.onParoleOrProbation != null && inputs.onSupervision === undefined) {
+      setReentryInputs({ onSupervision: prof.onParoleOrProbation });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const { overdue, soon } = p.attention;
+  const completed = new Set(completedArr);
+  const progress = phaseProgress(inputs, completed);
+  const activeKey = activePhaseKey(inputs, completed);
+  const overall = overallProgress(inputs, completed);
+  const critical = inCriticalWindow(inputs);
+  const journeyNext = nextStep(inputs, completed);
+
+  const queue = buildFocusQueue({ supervision, conditions, fees, items, checkins, journeyNext });
+  const { overdue, soon } = focusCounts(queue);
+  const hero = queue[0] ?? null;
+  const rest = queue.slice(1);
+
+  const fresh = !p.hasAnyData;
   const heroTone = overdue > 0 ? 'from-rose-50 to-white' : soon > 0 ? 'from-amber-50 to-white' : 'from-teal-50 to-white';
 
   return (
@@ -61,14 +99,16 @@ export default function DashboardPage() {
             <Avatar name={p.displayName || 'You'} size={56} />
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">{greet}{p.firstName ? `, ${p.firstName}` : ''}.</h1>
-              {p.futureSelf
+              {fresh
+                ? <p className="mt-0.5 text-sm text-slate-600">You don&apos;t have to figure it all out at once — we&apos;ll go one step at a time.</p>
+                : p.futureSelf
                 ? <p className="mt-0.5 text-sm text-slate-600">Working toward: <span className="font-medium text-navy-900">{p.futureSelf}</span></p>
                 : p.careerGoal
                 ? <p className="mt-0.5 text-sm text-slate-600">Goal: <span className="font-medium text-navy-900">{p.careerGoal}</span></p>
-                : <p className="mt-0.5 text-sm text-slate-600">Here’s where you stand today.</p>}
+                : <p className="mt-0.5 text-sm text-slate-600">Here&apos;s where you stand today.</p>}
             </div>
           </div>
-          {p.overall.score != null && (
+          {!fresh && p.overall.score != null && (
             <div className="text-center">
               <ProgressRing pct={p.overall.score} size={84} stroke={7} />
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{p.overall.band}</p>
@@ -87,60 +127,60 @@ export default function DashboardPage() {
             </a>
           ) : (
             <span className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-teal-100 px-3.5 py-1.5 text-xs font-bold text-teal-700 ring-1 ring-inset ring-teal-200">
-              <ShieldCheck className="h-3.5 w-3.5" /> You’re on track
+              <ShieldCheck className="h-3.5 w-3.5" /> You&apos;re on track
             </span>
           )}
-          {p.inCriticalWindow && (
-            <Link href="/start" className="inline-flex min-h-[36px] items-center gap-1 rounded-full bg-white/70 px-3.5 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-teal-700">
-              Your first months — we’ve got the order figured out
-            </Link>
+          {critical && (
+            <a href="#compass" className="inline-flex min-h-[36px] items-center gap-1 rounded-full bg-white/70 px-3.5 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:text-teal-700">
+              Your first months — we&apos;ve got the order figured out
+            </a>
           )}
           <Link href="/onboarding" className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white/70 px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-white">
-            <Settings2 className="h-3.5 w-3.5" /> Edit profile
+            <Settings2 className="h-3.5 w-3.5" /> {fresh ? 'Set up job matching' : 'Edit profile'}
           </Link>
         </div>
       </section>
 
-      {/* ─── Do this next ─── */}
-      {p.journey.next ? (
-        <NextStepHero phase={p.journey.next.phase} step={p.journey.next.step} onDone={() => setStepDone(p.journey.next!.step.id, true)} />
-      ) : (
-        <section className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-5 text-center shadow-card">
-          <span className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-700"><Star className="h-5 w-5" /></span>
-          <p className="mt-2 text-sm font-bold text-navy-900">You’ve worked every step on your compass.</p>
-          <p className="mt-0.5 text-sm text-slate-600">Keep your plan moving and your job steady.</p>
+      {/* ─── The one thing to do now ─── */}
+      <FocusHero entry={hero} />
+
+      {/* ─── Everything else on the clock ─── */}
+      {rest.length > 0 && <div id="today" className="scroll-mt-20"><TodayFocus entries={rest} totals={{ overdue, soon }} /></div>}
+
+      {/* ─── The compass: phases + current steps + context ─── */}
+      <CompassSection
+        inputs={inputs} completed={completed} critical={critical} activeKey={activeKey}
+        progress={progress} overallDone={overall.done} overallTotal={overall.total} overallPct={overall.pct}
+      />
+
+      {/* ─── Status tiles — glance + navigate ─── */}
+      {!fresh && (
+        <section>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">How you&apos;re doing</h2>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            <StatusTile href="#compass" Icon={Compass} label="Reentry compass" ring={p.journey.pct} state={p.journey.phaseTitle} tone="ok" />
+            {p.readiness.engaged ? (
+              <StatusTile href="/plan" Icon={Gauge} label="Readiness" ring={p.readiness.score} state={p.readiness.band}
+                tone={p.readiness.score >= 65 ? 'ok' : 'attention'} />
+            ) : (
+              <StatusTile href="/plan" Icon={Gauge} label="Readiness" state="Set up" tone="setup" />
+            )}
+            <StatusTile href="/plan" Icon={ListChecks} label="My plan"
+              state={p.plan.total > 0 ? `${p.plan.done}/${p.plan.total} done` : 'Set up'} tone={p.plan.total === 0 ? 'setup' : 'ok'} />
+            {p.onSupervision && (
+              <StatusTile href="/plan" Icon={p.compliance.tone === 'at_risk' ? ShieldAlert : ShieldCheck} label="Staying on track"
+                state={p.compliance.label} tone={p.compliance.tone} />
+            )}
+            <StatusTile href="/jobs" Icon={Briefcase} label="Job hunt"
+              state={p.jobs.applied > 0 ? `${p.jobs.applied} applied` : 'Start'} tone={p.jobs.applied === 0 ? 'setup' : 'ok'} />
+            <StatusTile href="#corner" Icon={Users} label="Your corner"
+              state={p.corner.support > 0 ? `${p.corner.support} ${p.corner.support === 1 ? 'person' : 'people'}` : 'Add someone'} tone={p.corner.support === 0 ? 'setup' : 'ok'} />
+          </div>
         </section>
       )}
 
-      {/* ─── Staying on track (deadlines) ─── */}
-      <div id="today" className="scroll-mt-20"><TodayFocus /></div>
-
-      {/* ─── Status tiles — glance + navigate ─── */}
-      <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">How you’re doing</h2>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          <StatusTile href="/start" Icon={Compass} label="Reentry compass" ring={p.journey.pct} state={p.journey.phaseTitle} tone="ok" />
-          {p.readiness.engaged ? (
-            <StatusTile href="/local-help?tab=checklist" Icon={Gauge} label="Readiness" ring={p.readiness.score} state={p.readiness.band}
-              tone={p.readiness.score >= 65 ? 'ok' : 'attention'} />
-          ) : (
-            <StatusTile href="/local-help?tab=checklist" Icon={Gauge} label="Readiness" state="Set up" tone="setup" />
-          )}
-          <StatusTile href="/local-help?tab=checklist" Icon={ListChecks} label="My plan"
-            state={p.plan.total > 0 ? `${p.plan.done}/${p.plan.total} done` : 'Set up'} tone={p.plan.total === 0 ? 'setup' : 'ok'} />
-          {p.onSupervision && (
-            <StatusTile href="/local-help?tab=checklist" Icon={p.compliance.tone === 'at_risk' ? ShieldAlert : ShieldCheck} label="Staying on track"
-              state={p.compliance.label} tone={p.compliance.tone} />
-          )}
-          <StatusTile href="/jobs" Icon={Briefcase} label="Job hunt"
-            state={p.jobs.applied > 0 ? `${p.jobs.applied} applied` : 'Start'} tone={p.jobs.applied === 0 ? 'setup' : 'ok'} />
-          <StatusTile href="/start#corner" Icon={Users} label="Your corner"
-            state={p.corner.support > 0 ? `${p.corner.support} ${p.corner.support === 1 ? 'person' : 'people'}` : 'Add someone'} tone={p.corner.support === 0 ? 'setup' : 'ok'} />
-        </div>
-      </section>
-
       {/* ─── Wins ─── */}
-      {(p.wins.steps + p.wins.planDone + p.wins.checkins + p.wins.applied) > 0 && (
+      {!fresh && (p.wins.steps + p.wins.planDone + p.wins.checkins + p.wins.applied) > 0 && (
         <section className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4">
           <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700"><Trophy className="h-3.5 w-3.5" /> Your wins</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -153,7 +193,7 @@ export default function DashboardPage() {
       )}
 
       {/* ─── Biggest gap ─── */}
-      {p.readiness.gaps.length > 0 && (
+      {!fresh && p.readiness.gaps.length > 0 && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <h2 className="inline-flex items-center gap-2 text-base font-bold text-navy-900"><Sparkles className="h-4 w-4 text-teal-600" /> Close your biggest gap</h2>
           <p className="mt-0.5 text-sm text-slate-600">The areas that would move your readiness most right now.</p>
@@ -170,31 +210,22 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ─── Your corner + lifelines ─── */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="inline-flex items-center gap-2 text-base font-bold text-navy-900"><Users className="h-4 w-4 text-teal-600" /> Your corner</h2>
-          <Link href="/start#corner" className="text-xs font-semibold text-teal-700 hover:underline">
-            {p.corner.support > 0 ? `${p.corner.support} in your corner — manage` : 'Add someone'}
-          </Link>
-        </div>
-        {p.corner.stale > 0 && p.corner.support > 0 && (
-          <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
-            <HeartHandshake className="h-3.5 w-3.5" /> It’s been a while — reach out to {p.corner.staleNames.join(' or ')} today.
-          </p>
-        )}
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <HelpLink Icon={LifeBuoy} label="Find local help" sub="Call 211" href="tel:211" />
-          <HelpLink Icon={HeartHandshake} label="Talk to someone" sub="Call or text 988" href="tel:988" />
-          <HelpLink Icon={Phone} label="SAMHSA helpline" sub="1-800-662-4357" href="tel:18006624357" />
-        </div>
-      </section>
+      {/* ─── Your corner (full management) ─── */}
+      <CornerSection contacts={contacts} />
 
       {/* ─── Work search (scored matches are progressive enhancement) ─── */}
-      <WorkSearch profile={p} />
+      {!fresh && <WorkSearch profile={p} />}
+
+      {/* ─── Who you're becoming ─── */}
+      <FutureSelfSection value={futureSelf} />
 
       {/* ─── Explore your tools ─── */}
       <ToolsGrid />
+
+      {/* ─── The receipts ─── */}
+      <EvidencePanel />
+
+      <p className="mb-2 mt-2 text-center text-[11px] text-slate-400">Private to this device. You decide what to share.</p>
     </div>
   );
 }
@@ -224,18 +255,6 @@ function WinChip({ n, label }: { n: number; label: string }) {
     <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-teal-200">
       <span className="text-sm font-bold">{n}</span> {label}
     </span>
-  );
-}
-
-function HelpLink({ Icon, label, sub, href }: { Icon: typeof Phone; label: string; sub: string; href: string }) {
-  return (
-    <a href={href} className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-teal-400 hover:shadow-sm">
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700"><Icon className="h-4 w-4" /></span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-navy-900">{label}</span>
-        <span className="block text-[11px] text-slate-500">{sub}</span>
-      </span>
-    </a>
   );
 }
 
@@ -310,7 +329,7 @@ function WorkSearch({ profile }: { profile: NavigatorProfile }) {
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><SearchCheck className="h-5 w-5" /></span>
             <div>
               <p className="text-base font-semibold text-navy-900">See jobs scored for you</p>
-              <p className="text-xs text-slate-600">Build a quick match profile and we’ll rank real jobs against your background — explained in plain English.</p>
+              <p className="text-xs text-slate-600">Build a quick match profile and we&apos;ll rank real jobs against your background — explained in plain English.</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -322,7 +341,7 @@ function WorkSearch({ profile }: { profile: NavigatorProfile }) {
         <div className="grid gap-4 md:grid-cols-2">{Array.from({ length: 4 }).map((_, i) => <JobCardSkeleton key={i} />)}</div>
       ) : error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
-          <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" /> Couldn’t load your matches</p>
+          <p className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" /> Couldn&apos;t load your matches</p>
           <div className="mt-3 flex gap-2">
             <button onClick={() => window.location.reload()} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"><RefreshCw className="h-3.5 w-3.5" /> Retry</button>
             <button onClick={() => { clearUserId(); window.location.href = '/onboarding'; }} className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100">Start over</button>
@@ -343,7 +362,7 @@ function WorkSearch({ profile }: { profile: NavigatorProfile }) {
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white"><Brain className="h-5 w-5" /></span>
                 <span>
                   <span className="block text-sm font-semibold text-navy-900">Discover careers that fit you (5 min)</span>
-                  <span className="block text-xs text-slate-600">A DOL interest profiler — nudges your matches toward what you’d enjoy.</span>
+                  <span className="block text-xs text-slate-600">A DOL interest profiler — nudges your matches toward what you&apos;d enjoy.</span>
                 </span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-teal-700" />
@@ -361,7 +380,7 @@ function WorkSearch({ profile }: { profile: NavigatorProfile }) {
             </Section>
           )}
           {matches.avoid.length > 0 && (
-            <Section title="Higher-barrier roles — here’s why" count={matches.counts.avoid} tone="rose" description="A legal restriction would likely block you right now. We show the reason so you can decide.">
+            <Section title="Higher-barrier roles — here&rsquo;s why" count={matches.counts.avoid} tone="rose" description="A legal restriction would likely block you right now. We show the reason so you can decide.">
               <div className="grid gap-4 md:grid-cols-2">{matches.avoid.map((m) => <AvoidCard key={m.jobId + m.reasons.join('|')} item={m} />)}</div>
             </Section>
           )}

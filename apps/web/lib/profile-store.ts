@@ -1,12 +1,21 @@
 /**
- * In-memory profile store for the in-app mock backend.
+ * Profile store for the in-app backend under /api/v1/*.
  *
- * The deployed web service runs without the NestJS API + Postgres, so the
- * `/api/v1/*` route handlers fall back to this module the same way the
- * assessment results do (an in-process Map). It persists for the lifetime
- * of the server instance — long enough for a demo session — and resets on
- * redeploy. When NEXT_PUBLIC_API_URL points at a real backend, none of this
- * is used.
+ * Reads/writes go through the storage layer's in-process memory backend
+ * (lib/storage/memory) so the synchronous getProfile/saveProfile signatures
+ * used across the app keep working. Durable persistence is layered on top by
+ * the server-only async API in lib/storage: the profile route handler calls
+ * `putDoc(PROFILE_COLLECTION, …)` (memory + Postgres when DATABASE_URL is
+ * set), and server-data's match/insight pipeline reads through
+ * `getDoc(PROFILE_COLLECTION, …)` (memory first, then Postgres on a miss).
+ * Without DATABASE_URL everything stays in-process exactly as before —
+ * state lasts for the lifetime of the server instance and resets on
+ * redeploy. See docs/web-persistence.md.
+ *
+ * IMPORTANT: client pages import this module for its pure helpers
+ * (candidateProfilesFromStored / convictionTypesFor / types), so it must
+ * never import lib/storage's index or postgres modules — only the
+ * client-safe memory backend. That is what keeps `pg` out of client bundles.
  *
  * The important job here is translating the onboarding payload into the
  * `CandidateProfile` shape the @dxp/shared compatibility engine consumes,
@@ -15,6 +24,7 @@
  */
 import type { CandidateProfile, SupervisionStatus } from '@dxp/shared';
 import { convictionForOffenseType } from '@dxp/shared';
+import { memGetDoc, memPutDoc } from './storage/memory';
 
 export interface StoredConviction {
   category?: 'FELONY' | 'MISDEMEANOR' | 'INFRACTION';
@@ -46,24 +56,27 @@ export interface StoredProfile {
   convictions?: StoredConviction[];
 }
 
-/**
- * Pin the Map to globalThis so it's a true singleton across every API route
- * handler. Next bundles route handlers separately (especially in dev), so a
- * plain module-level `const` can yield a different Map per route — which would
- * make the profile written by POST /profile invisible to GET /matches. The
- * global-singleton pattern is the same one used for the Prisma client.
- */
-const globalForProfiles = globalThis as unknown as { __dxpProfiles?: Map<string, StoredProfile> };
-const PROFILES: Map<string, StoredProfile> = globalForProfiles.__dxpProfiles ?? new Map();
-globalForProfiles.__dxpProfiles = PROFILES;
+/** Storage-layer collection that holds stored profiles (see lib/storage). */
+export const PROFILE_COLLECTION = 'profiles';
 
+/**
+ * Synchronous, memory-only write. Callers that need durability (the profile
+ * route handler) follow up with `putDoc(PROFILE_COLLECTION, …)` from
+ * lib/storage — which writes this same memory store plus Postgres — so sync
+ * readers always see the write immediately either way.
+ */
 export function saveProfile(profile: StoredProfile): StoredProfile {
-  PROFILES.set(profile.userId, profile);
+  memPutDoc(PROFILE_COLLECTION, profile.userId, profile);
   return profile;
 }
 
+/**
+ * Synchronous, memory-only read. Server code that must survive a restart
+ * reads through lib/storage's `getDoc(PROFILE_COLLECTION, …)` instead, which
+ * checks this same memory store first and falls back to Postgres on a miss.
+ */
 export function getProfile(userId: string): StoredProfile | null {
-  return PROFILES.get(userId) ?? null;
+  return memGetDoc<StoredProfile>(PROFILE_COLLECTION, userId);
 }
 
 function supervisionFor(c: StoredConviction): SupervisionStatus {

@@ -126,9 +126,12 @@ export function useNavigatorProfile(): NavigatorProfile {
   const nextDueDate = openDated[0]?.targetDate;
 
   // ── Supervision / compliance ──
+  // Every store that can know about supervision counts — including the match
+  // profile from onboarding, so a question answered once is never re-asked.
   const onSupervision =
     (supervision.supervisionType != null && supervision.supervisionType !== 'none') ||
-    conditions.length > 0 || fees.length > 0 || reentryInputs.onSupervision === true;
+    conditions.length > 0 || fees.length > 0 || reentryInputs.onSupervision === true ||
+    profile?.onParoleOrProbation === true;
   const compliance = complianceFromConditions(conditions);
   const reportDue = reportDueState(supervision.nextReportDate);
   const ft = feesTotals(fees);
@@ -183,7 +186,7 @@ export function useNavigatorProfile(): NavigatorProfile {
     journey: { pct: journeyProg.pct, done: journeyProg.done, total: journeyProg.total, phaseKey, phaseTitle, next },
     readiness: {
       score: readiness.score, band: BAND_LABEL[readiness.band], engaged: readinessEngaged,
-      gaps: readiness.gaps.slice(0, 3).map((g) => ({ label: g.gap?.label ?? g.label, url: g.gap?.url ?? '/local-help' })),
+      gaps: readiness.gaps.slice(0, 3).map((g) => ({ label: g.gap?.label ?? g.label, url: g.gap?.url ?? '/plan' })),
     },
     plan: { total: planTotal, done: planDone, pct: planTotal ? Math.round((planDone / planTotal) * 100) : 0, open: planTotal - planDone, nextDueDate },
     compliance, reportDue, reportDate: supervision.nextReportDate,

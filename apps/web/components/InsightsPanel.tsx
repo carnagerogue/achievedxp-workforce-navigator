@@ -46,7 +46,7 @@ export function InsightsPanel({ userId }: { userId: string }) {
   if (error) {
     return (
       <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        Couldn't load insights: {error}
+        Couldn&apos;t load insights: {error}
       </p>
     );
   }

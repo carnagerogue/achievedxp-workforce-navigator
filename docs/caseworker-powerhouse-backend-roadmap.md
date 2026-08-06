@@ -1,3 +1,5 @@
+> **Status update (repo consolidation):** the NestJS `apps/api` referenced below was removed from the repo in this change — it lives in git history (commit `6553630` and earlier). The server-backed phases described here now target the Next.js app's own backend (`apps/web/app/api/v1` + the new storage layer).
+
 # Caseworker Powerhouse — backend / auth roadmap (future)
 
 **Status:** roadmap · prerequisite for any multi-user / real-PII deployment

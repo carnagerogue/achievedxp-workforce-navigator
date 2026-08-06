@@ -156,12 +156,19 @@ function JobsPage() {
 
   // Load the saved profile so browse scores with the user's real background
   // (the same shared scorer the dashboard uses) — not conviction-only. Default
-  // the conviction filter from their record when the URL doesn't set one.
+  // the conviction filter from their record when the URL doesn't set one, and
+  // seed the location filter from their saved city/region the same way.
   useEffect(() => {
     const p = getLocalProfile();
     setLocalProfile(p);
     const fromProfile = p?.convictions?.[0]?.offenseType;
     if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
+    if (!sp?.get('region')) {
+      const loc = p?.locationCity && p?.locationRegion
+        ? `${p.locationCity}, ${p.locationRegion}`
+        : p?.locationRegion ?? p?.locationPostalCode ?? '';
+      if (loc) setLocationInput((cur) => (cur === '' ? loc : cur));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -664,7 +671,7 @@ function EmptyState({ hasFilters, location, onClear }: { hasFilters: boolean; lo
         <>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
             {location
-              ? <>We may not yet have postings in <strong>"{location}"</strong>. Our providers ingest by keyword, so some metro areas aren't represented yet. Try a nearby ZIP, a state, or clearing the location filter.</>
+              ? <>We may not yet have postings in <strong>&ldquo;{location}&rdquo;</strong>. Our providers ingest by keyword, so some metro areas aren&apos;t represented yet. Try a nearby ZIP, a state, or clearing the location filter.</>
               : <>Try removing a filter or broadening your search.</>}
           </p>
           <button
@@ -680,7 +687,7 @@ function EmptyState({ hasFilters, location, onClear }: { hasFilters: boolean; lo
             There are no jobs to show right now. Check back soon — or start with your plan and other ways to work.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link href="/start" className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700">Start here</Link>
+            <Link href="/dashboard" className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700">Start here</Link>
             <Link href="/apprenticeships" className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700">Apprenticeships</Link>
           </div>
         </>

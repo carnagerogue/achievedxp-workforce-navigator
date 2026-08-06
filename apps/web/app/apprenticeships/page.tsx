@@ -114,7 +114,7 @@ export default function ApprenticeshipsPage() {
         <p className="mt-1 text-sm text-slate-600">
           Pre-apprenticeship programs build foundational skills (OSHA 10, basic math, tool
           proficiency) and hand off into registered apprenticeships. Ask your caseworker about
-          local options — they're often free and open to people with records.
+          local options — they&apos;re often free and open to people with records.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <ResourceChip label="Apprenticeship.gov" href="https://www.apprenticeship.gov/" />

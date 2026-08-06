@@ -30,32 +30,27 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              We aggregate postings from USAJobs, Adzuna, Remotive, and Jooble — and score every
-              role against your profile and your conviction history. You see strong, possible,
-              and challenging matches, with every ranking explained in plain English.
+              A guided path for life after release — one clear next step at a time, backed by real
+              reentry research. Build your plan, stay ahead of supervision dates, and when you&apos;re
+              ready, see real jobs scored against your background with every ranking explained in
+              plain English.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/start"
+                href="/dashboard"
                 className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover"
               >
                 <Compass className="h-4 w-4" />
-                Just got out? Start here
+                Start here — one step at a time
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link
-                href="/onboarding"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 backdrop-blur transition hover:border-slate-400 hover:bg-white"
-              >
-                Build my profile
               </Link>
               <Link
                 href="/jobs"
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-slate-700 backdrop-blur transition hover:border-slate-400 hover:bg-white"
               >
                 <Briefcase className="h-4 w-4" />
-                Browse all jobs
+                Just browse jobs
               </Link>
             </div>
 
@@ -107,9 +102,9 @@ export default function LandingPage() {
         </div>
 
         <ol className="mt-8 grid gap-6 sm:grid-cols-3">
-          <Step n={1} title="Build your profile" body="Location, skills, certifications, and (optionally) a structured conviction history so we apply the right filters." />
-          <Step n={2} title="We score every posting" body="Two engines: a personalization scorer for your overall fit, and a conviction-aware compatibility engine that re-ranks roles against your specific history. Both deterministic, both auditable." />
-          <Step n={3} title="Apply with context" body="Strong / Possible / Challenging Match chips, full audit trails, recommended next steps, and caseworker notes. No black box." />
+          <Step n={1} title="Start with your compass" body="Answer a few quick questions and we surface the one step that matters most right now — in the order reentry research says works. Everything stays on your device." />
+          <Step n={2} title="Build your plan as you go" body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here — benefits, training, local help — feeds it." />
+          <Step n={3} title="Find work that says yes" body="When you're ready, every posting is scored against your background — Strong / Possible / Challenging, with the reasons in plain English. No black box." />
         </ol>
       </section>
 
@@ -117,23 +112,23 @@ export default function LandingPage() {
       <section className="relative mt-12 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-10 text-white shadow-card sm:p-14">
         <div className="absolute inset-0 bg-[radial-gradient(600px_300px_at_10%_20%,rgba(30,166,156,0.30),transparent)] opacity-90" />
         <div className="relative">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Ready to see your matches?</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">One clear next step, from day one.</h2>
           <p className="mt-2 max-w-xl text-teal-100/90">
-            Takes about two minutes. No resume upload required. Nothing from your profile is ever
+            Free, no account needed, and everything stays on your device. Nothing you enter is ever
             shared with employers.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/onboarding"
+              href="/dashboard"
               className="group inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-navy-900 shadow-sm transition hover:bg-teal-50"
             >
-              Get started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              <Compass className="h-4 w-4" /> Start here <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/jobs"
               className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/5 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10"
             >
-              <Briefcase className="h-4 w-4" /> Explore the catalog
+              <Briefcase className="h-4 w-4" /> Just browse jobs
             </Link>
           </div>
         </div>

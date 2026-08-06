@@ -1,19 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Briefcase, HardHat, GraduationCap, Rocket, HandCoins, LifeBuoy, MapPin } from 'lucide-react';
+import { Briefcase, HardHat, GraduationCap, Rocket, HandCoins, LifeBuoy, MapPin, Brain, MessageSquareQuote } from 'lucide-react';
 
 const TOOLS: { href: string; label: string; sub: string; Icon: typeof Briefcase }[] = [
   { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
   { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
+  { href: '/assessment', label: 'Career quiz', sub: 'What fits you (5 min)', Icon: Brain },
+  { href: '/background-statement', label: 'Tell your story', sub: 'Talking about your record', Icon: MessageSquareQuote },
   { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
   { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
   { href: '/benefits', label: 'Benefits checkup', sub: 'What you qualify for', Icon: HandCoins },
   { href: '/resources', label: 'Free help & hotlines', sub: 'Food, health, housing…', Icon: LifeBuoy },
-  { href: '/local-help', label: 'Local help', sub: 'Programs near you', Icon: MapPin },
+  { href: '/local-help', label: 'Local help', sub: 'Job centers near you', Icon: MapPin },
 ];
 
-/** "Explore your tools" launcher grid — shared by the dashboard and /start. */
+/** "Explore your tools" launcher grid — the home page's complete tool inventory. */
 export function ToolsGrid() {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">

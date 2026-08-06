@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { mockLicenses } from '../../../../../lib/mock-data';
+import { mockLicenses } from '../../../../../lib/server-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

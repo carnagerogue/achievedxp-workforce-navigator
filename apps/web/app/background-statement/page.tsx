@@ -1,16 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { FileText, Copy, Check, ArrowLeft, Info } from 'lucide-react';
 import {
   generateAllVersions,
   BACKGROUND_EXPLANATION_DISCLAIMER,
+  convictionForOffenseType,
   type BackgroundExplanationVersion,
   type ConvictionType,
   CONVICTION_LABELS,
   CONVICTION_TYPE_ORDER,
 } from '@dxp/shared';
+import { getLocalProfile } from '../../lib/local-profile';
+import { AddToPlanButton } from '../../components/AddToPlanButton';
 
 /**
  * "Prepare Background Explanation" tool — generates four version drafts
@@ -35,6 +38,23 @@ export default function BackgroundStatementPage() {
   const [achInput, setAchInput] = useState('');
   const [activeTab, setActiveTab] = useState<BackgroundExplanationVersion>('short_application');
   const [copied, setCopied] = useState<BackgroundExplanationVersion | null>(null);
+
+  // Never ask twice: onboarding already captured conviction, release year, and
+  // supervision — seed the untouched fields from the saved profile. The user
+  // can still change anything.
+  useEffect(() => {
+    const p = getLocalProfile();
+    const c = p?.convictions?.[0];
+    if (!c) return;
+    const ct = convictionForOffenseType(c.offenseType);
+    if (ct) setConviction((cur) => (cur === '' ? ct : cur));
+    if (c.releaseYear) {
+      const yrs = Math.max(0, new Date().getFullYear() - c.releaseYear);
+      setYearsSinceRelease((cur) => (cur === '' ? yrs : cur));
+    }
+    if (c.onParole) setSupervision((cur) => (cur === 'none' ? 'parole' : cur));
+    else if (c.onProbation) setSupervision((cur) => (cur === 'none' ? 'probation' : cur));
+  }, []);
 
   const achievements = useMemo(
     () => achInput.split(/[,\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 4),
@@ -198,6 +218,18 @@ export default function BackgroundStatementPage() {
               </div>
             </div>
           )}
+
+          {/* Feed the plan: practicing the story is a real, trackable step */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-200 bg-teal-50/40 p-3.5">
+            <p className="text-xs text-slate-700"><span className="font-semibold text-navy-900">Practice makes it natural.</span> Say it out loud a few times before your next interview.</p>
+            <AddToPlanButton item={{
+              id: 'background-statement-practice',
+              name: 'Practice my background statement out loud',
+              type: 'Job readiness',
+              category: 'Work readiness',
+              url: '/background-statement',
+            }} />
+          </div>
 
           {/* Disclaimer */}
           <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">

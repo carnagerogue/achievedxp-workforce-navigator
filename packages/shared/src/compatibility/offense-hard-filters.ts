@@ -12,7 +12,7 @@
  * It exists as a single source of truth so three consumers stay in sync:
  *   1. The NestJS API RuleScorer hard filters (apps/api/.../rule.scorer.ts)
  *   2. The NestJS API browse-by-offense Prisma filter (offense-filters.ts)
- *   3. The deployed web app's in-app mock backend (apps/web/lib/mock-data.ts)
+ *   3. The deployed web app's in-app backend (apps/web/lib/server-data.ts)
  *
  * Previously (1) and (2) carried their own copy that only covered 4 of the
  * 10 conviction types, and (3) had no offense filtering at all — so the

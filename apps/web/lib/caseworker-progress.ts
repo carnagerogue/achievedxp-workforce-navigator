@@ -2,69 +2,48 @@
  * Pure, React-free selectors over a Participant's task list. These power the
  * command-center columns ("who needs attention today", momentum, progress
  * rings) and the workspace header. No DOM, no localStorage — unit-testable.
+ *
+ * Thin adapter over progress-core.ts (shared with plan-progress.ts): a Task
+ * already matches the core entity shape (title/dueDate/completedAt), so the
+ * task selectors delegate straight through; only the supervision-specific
+ * signals (conditions, fees, needs-attention) live here.
  */
 import type { Participant, Task } from './caseworker-store';
 import { complianceFromConditions, feeIsBehind } from './supervision';
+import {
+  openOf, completedOf, progressPct as corePct, overdueOf, dueSoonOf, nextDueOf,
+  momentum as coreMomentum, type Momentum,
+} from './progress-core';
 
-const DAY = 24 * 60 * 60 * 1000;
-
-/** Start-of-day epoch for a yyyy-mm-dd string, treated in local time. */
-function dueEpoch(due: string): number {
-  const [y, m, d] = due.split('-').map(Number);
-  if (!y || !m || !d) return NaN;
-  return new Date(y, m - 1, d).getTime();
-}
+export type { Momentum };
 
 export function openTasks(p: Participant): Task[] {
-  return (p.tasks ?? []).filter((t) => t.status !== 'completed');
+  return openOf(p.tasks ?? []);
 }
 
 export function completedTasks(p: Participant): Task[] {
-  return (p.tasks ?? []).filter((t) => t.status === 'completed');
+  return completedOf(p.tasks ?? []);
 }
 
 /** 0–100, completed / total. 0 when there are no tasks. */
 export function progressPct(p: Participant): number {
-  const all = p.tasks ?? [];
-  if (all.length === 0) return 0;
-  return Math.round((completedTasks(p).length / all.length) * 100);
+  return corePct(p.tasks ?? []);
 }
 
 /** Open tasks whose due date is before today. */
 export function overdueTasks(p: Participant, now: number = Date.now()): Task[] {
-  const today = new Date(now); today.setHours(0, 0, 0, 0);
-  const cutoff = today.getTime();
-  return openTasks(p)
-    .filter((t) => t.dueDate && !Number.isNaN(dueEpoch(t.dueDate)) && dueEpoch(t.dueDate) < cutoff)
-    .sort((a, b) => dueEpoch(a.dueDate!) - dueEpoch(b.dueDate!));
+  return overdueOf(p.tasks ?? [], now);
 }
 
 /** Open tasks due within the next `days` (inclusive of today), not yet overdue. */
 export function dueSoonTasks(p: Participant, days = 3, now: number = Date.now()): Task[] {
-  const today = new Date(now); today.setHours(0, 0, 0, 0);
-  const start = today.getTime();
-  const end = start + days * DAY;
-  return openTasks(p)
-    .filter((t) => {
-      if (!t.dueDate) return false;
-      const e = dueEpoch(t.dueDate);
-      return !Number.isNaN(e) && e >= start && e <= end;
-    })
-    .sort((a, b) => dueEpoch(a.dueDate!) - dueEpoch(b.dueDate!));
+  return dueSoonOf(p.tasks ?? [], days, now);
 }
 
 /** Soonest-due open task (overdue counts), else the oldest open task. */
 export function nextDueTask(p: Participant): Task | null {
-  const open = openTasks(p);
-  if (open.length === 0) return null;
-  const dated = open.filter((t) => t.dueDate && !Number.isNaN(dueEpoch(t.dueDate)));
-  if (dated.length) {
-    return dated.reduce((a, b) => (dueEpoch(a.dueDate!) <= dueEpoch(b.dueDate!) ? a : b));
-  }
-  return open.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b));
+  return nextDueOf(p.tasks ?? []);
 }
-
-export type Momentum = 'stalled' | 'steady' | 'rising';
 
 /**
  * Trailing-window read on whether work is moving. Compares completions in the
@@ -72,14 +51,7 @@ export type Momentum = 'stalled' | 'steady' | 'rising';
  * none with open work → stalled.
  */
 export function momentum(p: Participant, windowDays = 14, now: number = Date.now()): Momentum {
-  const tasks = p.tasks ?? [];
-  if (tasks.length === 0) return 'steady';
-  const win = windowDays * DAY;
-  const recent = tasks.filter((t) => t.completedAt && now - t.completedAt <= win).length;
-  const prior = tasks.filter((t) => t.completedAt && now - t.completedAt > win && now - t.completedAt <= 2 * win).length;
-  if (recent > prior && recent > 0) return 'rising';
-  if (recent > 0) return 'steady';
-  return openTasks(p).length > 0 ? 'stalled' : 'steady';
+  return coreMomentum(p.tasks ?? [], windowDays, now);
 }
 
 /** Most recent signal of activity — max of updatedAt and any completedAt. */
@@ -88,7 +60,6 @@ export function lastActivityAt(p: Participant): number {
   return Math.max(p.updatedAt || 0, ...(completions.length ? completions : [0]));
 }
 
-/** True if this person should bubble to the top of "needs attention today". */
 /** Overdue supervision conditions — a technical-violation risk. */
 export function overdueConditionCount(p: Participant): number {
   return complianceFromConditions(p.conditions ?? []).overdue;
@@ -99,6 +70,7 @@ export function behindFeeCount(p: Participant, now: number = Date.now()): number
   return (p.fees ?? []).filter((o) => feeIsBehind(o, now)).length;
 }
 
+/** True if this person should bubble to the top of "needs attention today". */
 export function needsAttention(p: Participant, now: number = Date.now()): boolean {
   return (
     overdueConditionCount(p) > 0 ||

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AddToPlanButton } from '../../components/AddToPlanButton';
 import {
   GraduationCap, ExternalLink, Sparkles, BookOpen, Award, Wrench, Lightbulb, ArrowRight,
 } from 'lucide-react';
@@ -99,9 +100,18 @@ function LearnCard({ r }: { r: LearnResource }) {
         <p className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-200">Built for second chances</p>
       )}
       <p className="mt-1.5 text-[10px] text-slate-400">{r.source}</p>
-      <a href={r.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
-        Open <ExternalLink className="h-3 w-3" />
-      </a>
+      <div className="mt-2 flex flex-wrap items-center gap-2.5">
+        <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
+          Open <ExternalLink className="h-3 w-3" />
+        </a>
+        <AddToPlanButton item={{
+          id: `learn-${r.id}`,
+          name: `Start: ${r.name}`,
+          type: 'Training',
+          category: 'Skills & training',
+          url: r.url,
+        }} />
+      </div>
     </li>
   );
 }

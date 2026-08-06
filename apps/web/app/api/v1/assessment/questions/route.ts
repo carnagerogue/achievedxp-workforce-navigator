@@ -3,7 +3,7 @@ import {
   ASSESSMENT_QUESTIONS,
   ASSESSMENT_DIMENSIONS,
   ASSESSMENT_SCALE,
-} from '../../../../../lib/mock-data';
+} from '../../../../../lib/server-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
