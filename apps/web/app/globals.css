@@ -29,6 +29,15 @@ body {
   margin-inline: calc(50% - 50vw);
 }
 
+/* Ticker band track — content is duplicated, so -50% loops seamlessly. */
+.marquee-track {
+  animation: marqueeSlide linear infinite;
+  will-change: transform;
+}
+@keyframes marqueeSlide {
+  to { transform: translateX(-50%); }
+}
+
 /* Selection color matches brand teal */
 ::selection {
   background: rgba(23, 148, 138, 0.18);
