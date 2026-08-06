@@ -1,171 +1,167 @@
 import Link from 'next/link';
 import {
   ArrowRight,
-  Sparkles,
-  ShieldCheck,
-  GraduationCap,
   MapPin,
   Briefcase,
   Building2,
   CheckCircle2,
   AlertTriangle,
-  Compass,
 } from 'lucide-react';
-import { LiveStats } from '../components/LiveStats';
+import { Reveal } from '../components/Reveal';
+import { PosterStats } from '../components/PosterStats';
 
 export default function LandingPage() {
   return (
     <div className="animate-fade-in">
-      {/* ─────────── Hero ─────────── */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white bg-hero-radial shadow-card">
-        <div className="grid gap-10 p-8 sm:p-14 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-700">
-              Workforce Navigator
-            </span>
-            <h1 className="mt-4 text-4xl font-semibold leading-[1.04] tracking-display text-slate-900 sm:text-5xl lg:text-[3.4rem]">
-              One clear next step.
-              <span className="block text-slate-400">From day one.</span>
-            </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-500 sm:text-[17px]">
-              A guided path for life after release, backed by real reentry research.
-              Build your plan, stay ahead of supervision dates — and when you&apos;re ready,
-              see real jobs scored against your background, every ranking explained in
-              plain English.
-            </p>
-
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link
-                href="/dashboard"
-                className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-3 pl-6 pr-5 text-[15px] font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
-              >
-                Start here
-                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Link>
-              <Link
-                href="/jobs"
-                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-[15px] font-semibold text-slate-600 transition hover:bg-slate-900/[0.04] hover:text-slate-900"
-              >
-                Just browse jobs
-              </Link>
-            </div>
-
-            <LiveStats />
-          </div>
-
-          {/* Hero preview — stylized dashboard mockup */}
-          <div className="relative hidden lg:block">
-            <HeroPreview />
-          </div>
-        </div>
-      </section>
-
-      {/* ─────────── Value props ─────────── */}
-      <section className="mt-12 grid gap-5 sm:grid-cols-3">
-        <Feature
-          Icon={ShieldCheck}
-          eyebrow="Conviction-aware"
-          title="Compatibility, not stigma"
-          body="Pick a conviction type and every job is rescored against the specific duties of the role. You get a Strong / Possible / Challenging Match chip with a full audit trail and caseworker-friendly notes."
-          tone="sunset"
-        />
-        <Feature
-          Icon={Sparkles}
-          eyebrow="Scoring"
-          title="Transparent by design"
-          body="Industry fit, skills, certifications, experience, location, risk — every component shown as a chip. No hidden logic. Same rules for everyone."
-          tone="teal"
-        />
-        <Feature
-          Icon={GraduationCap}
-          eyebrow="Growth"
-          title="Plan-aligned"
-          body="Live Department of Labor data: nearby American Job Centers, reentry programs, BLS wages, state licensing rules, and apprenticeship offices."
-          tone="navy"
-        />
-      </section>
-
-      {/* ─────────── How it works ─────────── */}
-      <section className="mt-12 rounded-3xl border border-slate-200 bg-white p-8 shadow-card sm:p-10">
-        <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700">Process</p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">
-            How it works
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Three deliberate steps. No questionnaires that go nowhere, no opaque rankings.
+      {/* ── Act 1 · The statement ─────────────────────────────────────── */}
+      <section className="flex min-h-[78vh] flex-col items-center justify-center py-24 text-center sm:py-28">
+        <Reveal>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+            Achieve DXP · Workforce Navigator
           </p>
-        </div>
-
-        <ol className="mt-8 grid gap-6 sm:grid-cols-3">
-          <Step n={1} title="Start with your compass" body="Answer a few quick questions and we surface the one step that matters most right now — in the order reentry research says works. Everything stays on your device." />
-          <Step n={2} title="Build your plan as you go" body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here — benefits, training, local help — feeds it." />
-          <Step n={3} title="Find work that says yes" body="When you're ready, every posting is scored against your background — Strong / Possible / Challenging, with the reasons in plain English. No black box." />
-        </ol>
-      </section>
-
-      {/* ─────────── CTA band ─────────── */}
-      <section className="relative mt-12 overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-10 text-white shadow-card sm:p-14">
-        <div className="absolute inset-0 bg-[radial-gradient(600px_300px_at_10%_20%,rgba(30,166,156,0.30),transparent)] opacity-90" />
-        <div className="relative">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">One clear next step, from day one.</h2>
-          <p className="mt-2 max-w-xl text-teal-100/90">
-            Free, no account needed, and everything stays on your device. Nothing you enter is ever
-            shared with employers.
+        </Reveal>
+        <Reveal delay={80}>
+          <h1 className="mt-6 text-6xl font-semibold leading-[0.98] tracking-display text-slate-900 sm:text-7xl lg:text-[6.5rem]">
+            One clear
+            <br />
+            next step.
+          </h1>
+        </Reveal>
+        <Reveal delay={160}>
+          <p className="mx-auto mt-8 max-w-md text-lg leading-relaxed text-slate-500 sm:text-xl">
+            A guided path for life after release —
+            backed by real reentry research.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+        </Reveal>
+        <Reveal delay={240}>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
             <Link
               href="/dashboard"
-              className="group inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-navy-900 shadow-sm transition hover:bg-teal-50"
+              className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-3.5 pl-7 pr-6 text-base font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]"
             >
-              <Compass className="h-4 w-4" /> Start here <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              Start here
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
             <Link
               href="/jobs"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/5 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10"
+              className="inline-flex items-center rounded-full px-6 py-3.5 text-base font-semibold text-slate-500 transition hover:text-slate-900"
             >
-              <Briefcase className="h-4 w-4" /> Just browse jobs
+              Just browse jobs
             </Link>
           </div>
+        </Reveal>
+        <Reveal delay={320}>
+          <p className="mt-12 text-xs text-slate-400">Free. No account. Everything stays on your device.</p>
+        </Reveal>
+      </section>
+
+      {/* ── Act 2 · The poster ────────────────────────────────────────── */}
+      <section className="full-bleed bg-teal-900 py-24 sm:py-32">
+        <div className="mx-auto max-w-6xl px-6">
+          <Reveal>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-teal-300/70">Right now</p>
+          </Reveal>
+          <Reveal delay={120} className="mt-10">
+            <PosterStats />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── Act 3 · Three steps ───────────────────────────────────────── */}
+      <section className="mx-auto max-w-3xl py-24 sm:py-32">
+        <Reveal>
+          <h2 className="text-center text-4xl font-semibold tracking-display text-slate-900 sm:text-5xl">
+            Three steps.
+            <span className="text-slate-400"> No black box.</span>
+          </h2>
+        </Reveal>
+        <ol className="mt-20 space-y-20">
+          <EditorialStep n="01" title="Start with your compass." body="A few quick questions, and the one step that matters most right now — in the order reentry research says works." />
+          <EditorialStep n="02" title="Build your plan as you go." body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here feeds it." />
+          <EditorialStep n="03" title="Find work that says yes." body="Every posting scored against your background — Strong, Possible, or Challenging, with the reasons in plain English." />
+        </ol>
+      </section>
+
+      {/* ── Act 4 · The product ───────────────────────────────────────── */}
+      <section className="full-bleed bg-white py-24 sm:py-32">
+        <div className="mx-auto max-w-6xl px-6">
+          <Reveal>
+            <h2 className="mx-auto max-w-2xl text-center text-4xl font-semibold tracking-display text-slate-900 sm:text-5xl">
+              Every ranking,
+              <span className="text-slate-400"> explained.</span>
+            </h2>
+          </Reveal>
+          <Reveal delay={140}>
+            <div className="mx-auto mt-16 max-w-xl">
+              <HeroPreview />
+            </div>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="mx-auto mt-10 max-w-md text-center text-sm leading-relaxed text-slate-400">
+              Deterministic scoring — conviction-to-duty relevance, hard barriers, employer
+              posture — with every component visible. A caseworker can reproduce any score by hand.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── Act 5 · Principles ────────────────────────────────────────── */}
+      <section className="mx-auto max-w-2xl py-24 text-center sm:py-32">
+        <Principle title="Your data stays yours." body="Background details never reach employers. Your plan lives on your device." />
+        <Principle title="Dignity, throughout." body="Neutral language everywhere — in what you see, and in the code itself." />
+        <Principle title="Built with caseworkers." body="Share your plan when you choose. Revoke it when you choose." />
+      </section>
+
+      {/* ── Act 6 · Begin ─────────────────────────────────────────────── */}
+      <section className="full-bleed bg-navy-900 py-28 sm:py-36">
+        <div className="mx-auto max-w-6xl px-6 text-center">
+          <Reveal>
+            <h2 className="text-5xl font-semibold tracking-display text-white sm:text-6xl">Begin today.</h2>
+          </Reveal>
+          <Reveal delay={120}>
+            <p className="mx-auto mt-5 max-w-sm text-base text-slate-300">
+              From day one — one step at a time.
+            </p>
+          </Reveal>
+          <Reveal delay={200}>
+            <Link
+              href="/dashboard"
+              className="group mt-10 inline-flex items-center gap-2 rounded-full bg-white py-3.5 pl-7 pr-6 text-base font-semibold text-navy-900 transition hover:bg-teal-50 active:scale-[0.98]"
+            >
+              Start here
+              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Link>
+          </Reveal>
         </div>
       </section>
     </div>
+  );
+}
+
+function EditorialStep({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <li>
+      <Reveal className="grid grid-cols-[auto_1fr] items-start gap-6 sm:gap-10">
+        <span aria-hidden="true" className="text-6xl font-semibold leading-none tracking-display text-slate-200 tabular-nums sm:text-7xl">{n}</span>
+        <div className="pt-1.5 sm:pt-3">
+          <h3 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[28px]">{title}</h3>
+          <p className="mt-2 max-w-md text-base leading-relaxed text-slate-500">{body}</p>
+        </div>
+      </Reveal>
+    </li>
+  );
+}
+
+function Principle({ title, body }: { title: string; body: string }) {
+  return (
+    <Reveal className="py-10 sm:py-12">
+      <h3 className="text-3xl font-semibold tracking-display text-slate-900 sm:text-4xl">{title}</h3>
+      <p className="mx-auto mt-3 max-w-sm text-base leading-relaxed text-slate-500">{body}</p>
+    </Reveal>
   );
 }
 
 // ───────── pieces ─────────
-
-type LucideIcon = typeof Sparkles;
-function Feature({
-  Icon, eyebrow, title, body, tone,
-}: { Icon: LucideIcon; eyebrow: string; title: string; body: string; tone: 'teal' | 'sunset' | 'navy' }) {
-  const iconCls =
-    tone === 'teal'   ? 'bg-teal-50   text-teal-700' :
-    tone === 'sunset' ? 'bg-sunset-50 text-sunset-700' :
-                        'bg-navy-50   text-navy-700';
-  return (
-    <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
-      <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${iconCls}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{eyebrow}</p>
-      <h3 className="mt-1 text-lg font-semibold text-navy-900">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
-    </div>
-  );
-}
-
-function Step({ n, title, body }: { n: number; title: string; body: string }) {
-  return (
-    <li className="relative rounded-2xl border border-slate-200 bg-slate-50/60 p-6 transition hover:border-teal-200 hover:bg-white">
-      <span className="absolute -top-3.5 left-5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-700 text-xs font-bold text-white shadow-sm ring-4 ring-white">
-        {n}
-      </span>
-      <h3 className="mt-2 text-base font-semibold text-navy-900">{title}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{body}</p>
-    </li>
-  );
-}
 
 /**
  * Static preview of a job-card with the new compatibility engine UI.
@@ -239,7 +235,7 @@ function HeroPreview() {
   );
 }
 
-function MiniCard({ Icon, iconCls, label, value }: { Icon: LucideIcon; iconCls: string; label: string; value: string }) {
+function MiniCard({ Icon, iconCls, label, value }: { Icon: typeof CheckCircle2; iconCls: string; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-card">
       <div className="flex items-center gap-2">
