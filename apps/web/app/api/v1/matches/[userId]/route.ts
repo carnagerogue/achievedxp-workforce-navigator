@@ -7,5 +7,5 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
   const limit = Number(req.nextUrl.searchParams.get('limit') ?? '20') || 20;
   const { jobs } = await getJobPool();
-  return NextResponse.json(matchesFor(params.userId, limit, jobs));
+  return NextResponse.json(await matchesFor(params.userId, limit, jobs));
 }

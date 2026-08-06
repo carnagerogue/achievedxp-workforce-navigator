@@ -30,15 +30,18 @@ export function SiteFooter() {
         </div>
         <nav className="mt-8 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-slate-200 pt-6 text-xs text-slate-600 sm:grid-cols-4">
           {[
-            { href: '/start', label: 'Start here' },
-            { href: '/jobs', label: 'Browse jobs' },
+            { href: '/dashboard', label: 'Home — your next step' },
+            { href: '/plan', label: 'My plan' },
+            { href: '/jobs', label: 'Find a job' },
             { href: '/apprenticeships', label: 'Apprenticeships' },
+            { href: '/assessment', label: 'Career quiz' },
+            { href: '/background-statement', label: 'Tell your story' },
             { href: '/learn', label: 'Learn new skills' },
             { href: '/entrepreneurship', label: 'Be your own boss' },
             { href: '/resources', label: 'Free help & hotlines' },
             { href: '/benefits', label: 'Benefits checkup' },
             { href: '/local-help', label: 'Local help' },
-            { href: '/dashboard', label: 'Dashboard' },
+            { href: '/caseworker', label: 'For caseworkers' },
           ].map((l) => (
             <Link key={l.href} href={l.href} className="hover:text-teal-700">{l.label}</Link>
           ))}

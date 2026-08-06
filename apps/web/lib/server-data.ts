@@ -6,9 +6,10 @@
  * live-path code: the job pool (live provider fetch via lib/providers with a
  * bundled 40-posting fallback), filtering, stats, the match/insight pipeline
  * (which delegates all scoring to lib/job-scoring's scoreJobUnified), and the
- * RIASEC assessment. State is in-process only — profiles and assessment
- * results reset on redeploy (see profile-store.ts for the rationale and the
- * plan to move to real persistence).
+ * RIASEC assessment. Profiles and assessment results go through the storage
+ * layer (lib/storage): in-process memory by default, memory + Postgres when
+ * DATABASE_URL is set — so they survive redeploys once the Railway Postgres
+ * is attached (see docs/web-persistence.md).
  *
  * The handlers under app/api/v1 read from these helpers; nothing else in the
  * app should import this file directly.
@@ -28,11 +29,12 @@ import type {
 import { isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
 import { classifyJob, normalizeLocation, isApprenticeshipType } from '@dxp/shared';
 import {
-  getProfile,
+  PROFILE_COLLECTION,
   candidateProfilesFromStored,
   convictionTypesFor,
   type StoredProfile,
 } from './profile-store';
+import { getDoc, putDoc } from './storage';
 import {
   scoreJobUnified,
   jobScoreContext,
@@ -913,8 +915,24 @@ function scoreInputsFor(profile: StoredProfile | null): ScoreInputs {
   };
 }
 
-export function matchesFor(userId: string, limit: number, source: JobDto[] = JOBS): MatchesResponseDto {
-  const inputs = scoreInputsFor(getProfile(userId));
+/**
+ * Async because the profile read may fall through to Postgres after a
+ * restart. Memory is checked first, so a profile saved in this process is
+ * seen immediately (the score-agreement test relies on that). Callers that
+ * already loaded the profile can pass it as `preloadedProfile` (null = known
+ * absent) to skip the lookup.
+ */
+export async function matchesFor(
+  userId: string,
+  limit: number,
+  source: JobDto[] = JOBS,
+  preloadedProfile?: StoredProfile | null,
+): Promise<MatchesResponseDto> {
+  const profile =
+    preloadedProfile !== undefined
+      ? preloadedProfile
+      : await getDoc<StoredProfile>(PROFILE_COLLECTION, userId);
+  const inputs = scoreInputsFor(profile);
 
   const scored = source
     .map((job) => ({ u: scoreJobUnified(inputs, job), job }))
@@ -984,10 +1002,10 @@ const prettyCode = (code: string) =>
  * would move up a tier. Ranked by unlocks (cross the medium line) weighted
  * over promotions (cross into top). Replaces the previously hardcoded list.
  */
-export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsResponseDto {
-  const profile = getProfile(userId);
+export async function insightsFor(userId: string, source: JobDto[] = JOBS): Promise<InsightsResponseDto> {
+  const profile = await getDoc<StoredProfile>(PROFILE_COLLECTION, userId);
   const inputs = scoreInputsFor(profile);
-  const baseline = matchesFor(userId, source.length, source);
+  const baseline = await matchesFor(userId, source.length, source, profile);
   const tierOf = (score: number): 0 | 1 | 2 => (score >= 70 ? 2 : score >= 40 ? 1 : 0);
 
   // Precompute the conviction context per job ONCE. Adding a credential
@@ -1119,15 +1137,14 @@ export const ASSESSMENT_SCALE = [
   { value: 5, label: 'Strongly agree' },
 ];
 
-// Singleton across route handlers (see profile-store.ts for rationale).
-// Typed off the pure builder (which never touches this map) to avoid a
-// circular type reference.
-const globalForAssessment = globalThis as unknown as {
-  __dxpAssessment?: Map<string, ReturnType<typeof buildAssessmentResult>>;
-};
-const ASSESSMENT_RESULTS =
-  globalForAssessment.__dxpAssessment ?? new Map<string, ReturnType<typeof buildAssessmentResult>>();
-globalForAssessment.__dxpAssessment = ASSESSMENT_RESULTS;
+/**
+ * Assessment results live in the storage layer's 'assessments' collection:
+ * in-process memory by default (the old globalThis-Map behavior), plus
+ * Postgres when DATABASE_URL is set (see lib/storage).
+ */
+const ASSESSMENT_COLLECTION = 'assessments';
+
+export type AssessmentResult = ReturnType<typeof buildAssessmentResult>;
 
 function buildAssessmentResult(userId: string, answers: Record<number, number>) {
   const scores: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
@@ -1223,15 +1240,21 @@ function buildAssessmentResult(userId: string, answers: Record<number, number>) 
   return result;
 }
 
-/** Score an assessment and persist the result to the in-process store. */
-export function scoreAssessment(userId: string, answers: Record<number, number>) {
+/**
+ * Score an assessment and persist the result — memory always (synchronously,
+ * before the returned promise settles), Postgres too when configured.
+ */
+export async function scoreAssessment(
+  userId: string,
+  answers: Record<number, number>,
+): Promise<AssessmentResult> {
   const result = buildAssessmentResult(userId, answers);
-  ASSESSMENT_RESULTS.set(userId, result);
+  await putDoc(ASSESSMENT_COLLECTION, userId, result);
   return result;
 }
 
-export function getAssessmentResultFor(userId: string) {
-  return ASSESSMENT_RESULTS.get(userId) ?? null;
+export async function getAssessmentResultFor(userId: string): Promise<AssessmentResult | null> {
+  return getDoc<AssessmentResult>(ASSESSMENT_COLLECTION, userId);
 }
 
 // ────────────────────────────────────────────────────────────────────

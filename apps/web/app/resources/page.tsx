@@ -12,6 +12,7 @@ import {
   type ResourceNeed, type FreeResource,
 } from '../../lib/free-resources';
 import { getTreatmentCenters, getLocator, type CommunityLiveResource, type TreatmentResponse } from '../../lib/api';
+import { AddToPlanButton } from '../../components/AddToPlanButton';
 
 const NEED_ICON: Record<ResourceNeed, typeof Phone> = {
   crisis: HeartHandshake, health: HeartPulse, food: Utensils, housing: Home, money: Wallet,
@@ -124,7 +125,7 @@ export default function ResourcesPage() {
       <footer className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-xs text-slate-600">
         These are public, free resources from federal agencies and trusted national nonprofits. We don&apos;t share your
         information with them — you reach out directly. Looking for a guided plan?{' '}
-        <Link href="/start" className="font-semibold text-teal-700 hover:underline">Start with your reentry compass</Link>.
+        <Link href="/dashboard" className="font-semibold text-teal-700 hover:underline">Start with your reentry compass</Link>.
       </footer>
     </div>
   );
@@ -248,6 +249,16 @@ function ResourceCard({ r }: { r: FreeResource }) {
           <span className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600">
             <MessageSquare className="h-3 w-3" /> {r.text}
           </span>
+        )}
+        {r.kind !== 'hotline' && r.kind !== 'text' && (
+          <AddToPlanButton compact item={{
+            id: `resource-${r.id}`,
+            name: r.name,
+            type: 'Support service',
+            category: NEED_META[r.need].label,
+            url: r.url,
+            phone: r.phone,
+          }} />
         )}
       </div>
     </li>

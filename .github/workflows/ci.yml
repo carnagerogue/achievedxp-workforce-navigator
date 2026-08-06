@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    name: Type-check, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # package.json pins "packageManager": "pnpm@9.x" — corepack activates it.
+      - name: Enable corepack (pnpm 9)
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check web (tsc --noEmit)
+        working-directory: apps/web
+        run: pnpm exec tsc --noEmit
+
+      - name: Shared engine tests
+        run: pnpm --filter @dxp/shared test
+
+      - name: Web tests
+        run: pnpm --filter web test
+
+      - name: Web production build
+        run: pnpm --filter web build

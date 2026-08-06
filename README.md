@@ -4,7 +4,7 @@ A production-grade job aggregation and matching platform built specifically for 
 
 The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)**, serving real postings fetched live from up to 11 job sources, plus Department of Labor data feeds powering occupation, wage, training, and reentry-program lookups.
 
-> **Architecture status (read this first):** the deployed product is the **Next.js web app alone**. Its `/api/v1/*` route handlers are the production backend: jobs are fetched live from the providers in `apps/web/lib/providers/` (10-minute in-process cache, bundled 40-posting fallback), all match scoring goes through `apps/web/lib/job-scoring.ts`, and profiles/assessments live in in-process memory that **resets on redeploy**. The NestJS API in `apps/api/` (Prisma + Postgres + the ingestion pipeline) is **not currently in the request path** — it's an earlier backend kept as the starting point for the planned server-backed phase (see `docs/connected-backend-scope.md`). Sections below that describe `apps/api` describe that future path, not today's deployment.
+> **Architecture status (read this first):** the deployed product is the **Next.js web app alone**. Its `/api/v1/*` route handlers are the production backend: jobs are fetched live from the providers in `apps/web/lib/providers/` (10-minute in-process cache, bundled 40-posting fallback), all match scoring goes through `apps/web/lib/job-scoring.ts`, and profiles/assessments live in in-process memory that **resets on redeploy**. The earlier NestJS API (`apps/api/`, Prisma + Postgres + its ingestion pipeline) was never in the request path and has been **removed from the repo** — it lives in git history (commit `6553630` and earlier). The planned server-backed phase (see `docs/connected-backend-scope.md`) now targets the web app's own backend (`apps/web/app/api/v1` + the new storage layer). Sections below that mention the NestJS path describe that removed code, not today's deployment.
 
 ---
 
@@ -28,8 +28,7 @@ This platform inverts both:
 | Surface | URL |
 |---|---|
 | Web app | https://web-production-059d02.up.railway.app |
-| API | https://api-production-6ccf.up.railway.app/api/v1 |
-| API docs (Swagger) | https://api-production-6ccf.up.railway.app/api/docs |
+| API (retired NestJS service — its source is now in git history only) | https://api-production-6ccf.up.railway.app/api/v1 |
 | GitHub | https://github.com/carnagerogue/achievedxp-workforce-navigator |
 
 ---
@@ -39,10 +38,6 @@ This platform inverts both:
 ```
 workforce-navigator/
 ├── apps/
-│   ├── api/                         NestJS 10 API — NOT deployed (future server-backed phase)
-│   │   ├── prisma/                  schema + migrations + seed
-│   │   └── src/                     assessment / careeronestop / classification /
-│   │                                ingestion / jobs / matches / profiles / scoring
 │   └── web/                         Next.js 14 App Router — THE deployed product
 │       ├── app/                     Page routes (start, dashboard, jobs, caseworker, …)
 │       ├── app/api/v1/              The production backend (route handlers)
@@ -61,7 +56,6 @@ workforce-navigator/
 │       │   │   ├── explanations.ts  Summary / risk factors / chance improvers
 │       │   │   └── __tests__/       21 acceptance tests
 │       │   └── index.ts             Shared DTOs (JobDto, ConvictionDto, etc.)
-├── docker/                          Local Postgres + Redis compose (NestJS path only)
 ├── docs/                            Backend / auth / connected-platform roadmaps
 └── package.json                     pnpm workspace root
 ```
@@ -75,10 +69,9 @@ workforce-navigator/
 | Web (app + its `/api/v1/*` backend) | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide icons | ✅ — this is the whole live product |
 | Shared | `@dxp/shared` workspace package — DTOs + the compatibility engine (pure TS, runs server-side and in the browser) | ✅ |
 | Tests | Jest (`packages/shared` engine suite + `apps/web` score-agreement suite) | ✅ |
-| API | NestJS 10, TypeScript 5 (strict), Prisma 5 | ❌ — future server-backed phase |
-| Database | PostgreSQL 16 | ❌ — used only by the NestJS path |
-| Cache | Redis 7 | ❌ — provisioned, unused |
 | Hosting | Railway | Web service only is user-facing |
+
+*(The NestJS 10 + Prisma + PostgreSQL + Redis stack was removed from the repo in the consolidation — git history, commit `6553630` and earlier. The server-backed phase adds persistence to the web app's own backend instead.)*
 
 ---
 
@@ -93,7 +86,7 @@ Everything the user sees goes through **one scorer**: `scoreJobUnified` in `apps
 
 Weights: with a conviction on file, compatibility dominates (**0.65 / 0.35**); without one, fit dominates (0.4 / 0.6). Categorical barriers — federal/security-clearance employers, "clean record required" postings, offense × industry legal bars — cap the score (≤ 30 / ≤ 25) and force the job into the **Avoid** bucket with a specific reason attached.
 
-*(The earlier server-side six-component `RuleScorer` in `apps/api/src/scoring/` belongs to the not-currently-deployed NestJS path.)*
+*(The earlier server-side six-component `RuleScorer` belonged to the removed NestJS path — `apps/api/src/scoring/` in git history.)*
 
 ### The conviction-aware compatibility engine
 
@@ -152,7 +145,7 @@ The deployed job pool comes from `apps/web/lib/providers/` — fetched live serv
 | **CareerOneStop jobs** | User ID + token | needs keys |
 | **Workday boards** | None | opt-in (`WORKDAY_ENABLED=true`) |
 
-Adding a new source = one module in `apps/web/lib/providers/` + registration in `providers/index.ts`. *(The NestJS ingestion pipeline in `apps/api/src/ingestion/` is the older Postgres-backed version of this layer and only has 5 of these sources — it is not what feeds the live site.)*
+Adding a new source = one module in `apps/web/lib/providers/` + registration in `providers/index.ts`. *(The NestJS ingestion pipeline — `apps/api/src/ingestion/` in git history — was the older Postgres-backed version of this layer with only 5 of these sources; it never fed the live site and was removed with the rest of `apps/api`.)*
 
 ### Classification + dedup
 
@@ -172,7 +165,7 @@ Deduplication uses a `(title, company, locationCity, locationRegion)` hash so th
 
 ## CareerOneStop integration (27 endpoints)
 
-The U.S. Department of Labor's **CareerOneStop** API gives us authoritative reentry, wage, training, and licensing data. We wrap every public endpoint listed at https://www.careeronestop.org/Developers/WebAPI/technical-information.aspx:
+The U.S. Department of Labor's **CareerOneStop** API gives us authoritative reentry, wage, training, and licensing data. The full 27-endpoint wrapper below shipped with the removed NestJS path (git history); the live site wraps the subset it uses in `apps/web/lib/careeronestop.ts`, exposed as thin routes under `apps/web/app/api/v1/careeronestop/` (centers, reentry, apprenticeships, wages, licenses, certifications). The catalog is kept as the reference for what the DOL API offers (https://www.careeronestop.org/Developers/WebAPI/technical-information.aspx):
 
 **Local help**
 - `GET /careeronestop/centers` — American Job Centers near a ZIP
@@ -222,7 +215,7 @@ All cached server-side with endpoint-specific TTLs (6 hours for AJCs/reentry, 24
 
 ## Database schema
 
-8 core tables (Postgres + Prisma). Highlights:
+8 core tables (Postgres + Prisma) — this schema shipped with the removed NestJS path (git history, commit `6553630`) and remains the reference design for the server-backed phase. Highlights:
 
 | Table | Purpose |
 |---|---|
@@ -245,7 +238,6 @@ The `OffenseType` enum uses **`REGISTRY_RELATED`** — never the older stigmatiz
 
 - Node.js 20+
 - pnpm 9+ (`npm i -g pnpm`)
-- Docker + Docker Compose
 
 ### Setup
 
@@ -256,46 +248,25 @@ cd achievedxp-workforce-navigator
 pnpm install
 
 # 2. Configure environment
-cp .env.example .env
 cp apps/web/.env.local.example apps/web/.env.local
-# Edit .env to add your API keys (USAJOBS, ADZUNA, JOOBLE, COS_*)
+# Add provider API keys (USAJOBS, ADZUNA, JOOBLE, COS_*) — optional; the
+# six no-auth providers work with no keys at all
 
-# 3. Start Postgres + Redis
-pnpm docker:up
-
-# 4. Migrate + seed
-pnpm db:migrate
-pnpm db:seed
-
-# 5. Run the API and web in two terminals
-pnpm dev          # API at http://localhost:3001
-pnpm dev:web      # Web at http://localhost:3000
+# 3. Run the web app
+pnpm dev          # Web at http://localhost:3000
 ```
 
 ### Useful scripts
 
 ```bash
-pnpm dev                          # API in watch mode
-pnpm dev:web                      # Next.js dev server
-pnpm build                        # Production build
-pnpm db:migrate                   # Apply pending migrations
-pnpm db:seed                      # Seed JobSource / skills / certifications
-pnpm docker:up                    # Postgres + Redis containers
-pnpm docker:down                  # Stop containers
+pnpm dev                          # Next.js dev server (http://localhost:3000)
+pnpm build                        # Production build (web)
+pnpm test                         # Shared engine suite + web score-agreement suite
+pnpm lint                         # Web lint
 pnpm --filter @dxp/shared test    # Run compatibility-engine tests (21 cases)
-pnpm --filter api build           # Build just the API
+pnpm --filter web test            # Run just the web suite
 pnpm --filter web build           # Build just the web app
 ```
-
-### Triggering ingestion locally
-
-```bash
-# Once the API is running:
-curl -X POST http://localhost:3001/api/v1/ingestion/run
-# Returns per-provider counts: { source, fetched, inserted, duplicates, failed }
-```
-
-`INGEST_RUN_ON_BOOT=true` in `.env` makes the API run a single ingestion at startup — handy for fresh DBs.
 
 ---
 
@@ -304,10 +275,8 @@ curl -X POST http://localhost:3001/api/v1/ingestion/run
 See `.env.example` for the full list. Critical ones:
 
 ```bash
-# Postgres / Redis (Docker Compose defaults shown)
-DATABASE_URL=postgresql://dxp:dxp_dev_password@localhost:5432/workforce_navigator
-REDIS_HOST=localhost
-REDIS_PORT=6379
+# Site gate — REQUIRED on the deployment (the gate fails closed with 503 without it)
+SITE_PASSWORD=...
 
 # USAJobs — register at developer.usajobs.gov
 USAJOBS_ENABLED=true
@@ -335,10 +304,9 @@ COS_TOKEN=...
 
 ## API reference
 
-A few representative endpoints. Full Swagger UI at https://api-production-6ccf.up.railway.app/api/docs.
+A few representative endpoints, all served by the web app's own route handlers under `apps/web/app/api/v1/`. (The retired NestJS service's Swagger UI documented the removed backend, not these routes.)
 
 ```
-GET  /api/v1/health                                  → { status, db, uptimeSeconds }
 GET  /api/v1/jobs?postalCode=43215&radiusMiles=50    → paginated jobs
 GET  /api/v1/jobs/stats                              → totals + breakdowns by source/industry/region
 GET  /api/v1/jobs/:id                                → single job
@@ -352,13 +320,9 @@ GET  /api/v1/matches/:userId/insights                → which certs/skills unlo
 
 GET  /api/v1/careeronestop/centers?location=43215    → 16 OhioMeansJobs centers
 GET  /api/v1/careeronestop/wages?onet=53-3032.00     → BLS percentiles for Heavy Truck Drivers
-GET  /api/v1/careeronestop/occupation?onet=...       → full O*NET profile
-
-POST /api/v1/ingestion/run                           → trigger immediate ingest
-POST /api/v1/classify/backfill                       → re-classify every existing job
 ```
 
-The list-jobs endpoint accepts `offenseType=DRUG_POSSESSION|...|REGISTRY_RELATED|...` to apply server-side hard filters. The legacy value `SEX_OFFENSE` is rejected with HTTP 400.
+The list-jobs endpoint accepts `offenseType=DRUG_POSSESSION|...|REGISTRY_RELATED|...` to apply server-side hard filters. The legacy value `SEX_OFFENSE` is mapped to `registry_related` internally and never surfaced.
 
 ---
 
@@ -404,7 +368,7 @@ Required env on the Web service:
 - `SITE_PASSWORD` — the gate **fails closed (503) without it**; there is no committed fallback. Rotate any value that was ever committed to this repo.
 - Optional provider keys (`ADZUNA_*`, `JOOBLE_API_KEY`, `USAJOBS_*`, `COS_*`) — without them the site still serves jobs from the six no-auth providers.
 
-The other services in the Railway project (**API** from `apps/api/`, **Postgres**, **Redis**) belong to the not-yet-active server-backed phase and can be paused without affecting the site.
+The other services in the Railway project (**API**, **Postgres**, **Redis**) ran the NestJS path that has since been removed from the repo (git history, commit `6553630` and earlier); they can be paused or deleted without affecting the site.
 
 To redeploy:
 
@@ -444,7 +408,7 @@ Every rule fires through the audit trail — flip on / off without changing the 
 |---|---|---|
 | Server-side persistence | **None in the deployed app** | Profiles + assessment results live in in-process Maps and reset on redeploy; everything else is browser localStorage. The planned fix is the server-backed phase in `docs/connected-backend-scope.md`. |
 | Site gate | Shared password, fail-closed | `SITE_PASSWORD` must be set on the deployment (no committed fallback). Rotate any previously-committed value — old values live on in git history. |
-| Two backends in the repo | `apps/api` is out of the request path | Decide its fate explicitly: delete, or make it the persistence layer and remove the duplicated web-side logic. Until then, edit the web paths listed under Extension points. |
+| Two backends in the repo | **Resolved — `apps/api` deleted** | The NestJS backend was removed in the consolidation (git history, commit `6553630` and earlier). The web app's `/api/v1` route handlers + the new storage layer are the single backend going forward. |
 | State fair-chance law table | Static (5 states "strong", 12 "some") | Expand with codified Fair Chance Acts, licensing-board disqualification lists, expungement timing by state |
 | Employer outcome feedback | Not yet wired | Future: feed application outcomes back to refine `employerFairChancePosture` per employer |
 | CareerOneStop NLX `/jobs` | Returns 404 from upstream for some queries | URL template uncertain; supplementary to the live providers |

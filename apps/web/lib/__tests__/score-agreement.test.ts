@@ -70,10 +70,13 @@ function inputsFor(profile: StoredProfile | null): ScoreInputs {
 }
 
 describe('server/client score agreement', () => {
-  it('matchesFor buckets and scores match scoreJobUnified exactly', () => {
+  it('matchesFor buckets and scores match scoreJobUnified exactly', async () => {
     saveProfile(PROFILE);
     const inputs = inputsFor(PROFILE);
-    const res = matchesFor(PROFILE.userId, POOL.length, POOL);
+    // saveProfile writes the in-process memory store synchronously, and
+    // matchesFor's profile read checks memory first — so the awaited call
+    // sees the profile without any database in play.
+    const res = await matchesFor(PROFILE.userId, POOL.length, POOL);
 
     const unified = new Map(POOL.map((j) => [j.id, scoreJobUnified(inputs, j)]));
 
@@ -94,9 +97,9 @@ describe('server/client score agreement', () => {
     expect(new Set(seen).size).toBe(POOL.length);
   });
 
-  it('categorical barriers land in avoid with a reason, for a person with a record', () => {
+  it('categorical barriers land in avoid with a reason, for a person with a record', async () => {
     saveProfile(PROFILE);
-    const res = matchesFor(PROFILE.userId, POOL.length, POOL);
+    const res = await matchesFor(PROFILE.userId, POOL.length, POOL);
     const avoidIds = new Set(res.avoid.map((m) => m.jobId));
     expect(avoidIds.has('clean-record')).toBe(true);
     expect(avoidIds.has('federal')).toBe(true);

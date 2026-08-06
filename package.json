@@ -4,15 +4,10 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "pnpm --filter api start:dev",
-    "dev:web": "pnpm --filter web dev",
-    "build": "pnpm --filter api build",
-    "db:migrate": "pnpm --filter api prisma:migrate",
-    "db:generate": "pnpm --filter api prisma:generate",
-    "db:seed": "pnpm --filter api prisma:seed",
-    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker compose -f docker/docker-compose.yml down",
-    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f"
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "pnpm --filter @dxp/shared test && pnpm --filter web test",
+    "lint": "pnpm --filter web lint"
   },
   "engines": {
     "node": ">=20.0.0",

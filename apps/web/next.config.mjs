@@ -5,10 +5,9 @@ const nextConfig = {
   // standalone produces a self-contained .next/standalone tree we can copy
   // into a slim runtime image — far smaller than shipping all node_modules.
   output: 'standalone',
-  // Type checking + linting run locally / in CI; pnpm strict-peer mode
-  // sometimes hides transitive @types in the prod image. Don't gate the
-  // image build on those.
-  typescript: { ignoreBuildErrors: true },
+  // Type errors now fail the build (tsc is clean; CI also runs tsc --noEmit).
+  // ESLint stays ignored during builds because the app has no ESLint config
+  // yet — `next lint` prompts to create one and can't run non-interactively.
   eslint: { ignoreDuringBuilds: true },
 };
 

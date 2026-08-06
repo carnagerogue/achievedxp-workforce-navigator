@@ -1,3 +1,5 @@
+> **Status update (repo consolidation):** the NestJS `apps/api` referenced below was removed from the repo in this change — it lives in git history (commit `6553630` and earlier). The server-backed phases described here now target the Next.js app's own backend (`apps/web/app/api/v1` + the new storage layer).
+
 # Connected Backend Scope — accounts, the person↔officer bridge, and SMS reminders
 
 **Status:** scope · **Companion docs:** [`caseworker-auth-plan.md`](./caseworker-auth-plan.md), [`caseworker-powerhouse-backend-roadmap.md`](./caseworker-powerhouse-backend-roadmap.md)

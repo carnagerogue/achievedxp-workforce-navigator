@@ -1,19 +1,26 @@
 /**
  * Pure, React-free selectors over a personal reentry plan (ChecklistItem[]).
  * Powers the My-Plan dashboard: progress, overdue/upcoming, momentum, and a
- * self-directed "next step" nudge. Mirrors caseworker-progress.ts but for the
- * individual's own plan.
+ * self-directed "next step" nudge.
+ *
+ * Thin adapter over progress-core.ts (shared with caseworker-progress.ts):
+ * maps ChecklistItem's name/targetDate onto the core entity shape; all the
+ * date/momentum math lives in the core.
  */
 import type { ChecklistItem, ChecklistStatus } from './checklist-store';
+import {
+  progressPct as corePct, overdueOf, dueSoonOf, momentum as coreMomentum,
+  type Momentum, type ProgressEntity,
+} from './progress-core';
 
-const DAY = 24 * 60 * 60 * 1000;
+export type { Momentum };
 
-function dueEpoch(due?: string): number {
-  if (!due) return NaN;
-  const [y, m, d] = due.split('-').map(Number);
-  if (!y || !m || !d) return NaN;
-  return new Date(y, m - 1, d).getTime();
-}
+type Wrapped = ProgressEntity & { item: ChecklistItem };
+const wrap = (i: ChecklistItem): Wrapped => ({
+  status: i.status, dueDate: i.targetDate, completedAt: i.completedAt,
+  title: i.name, createdAt: i.addedAt, item: i,
+});
+const unwrap = (ws: Wrapped[]): ChecklistItem[] => ws.map((w) => w.item);
 
 export const countByStatus = (items: ChecklistItem[]) =>
   items.reduce(
@@ -25,36 +32,19 @@ export const openItems = (items: ChecklistItem[]) => items.filter((i) => i.statu
 export const completedItems = (items: ChecklistItem[]) => items.filter((i) => i.status === 'completed');
 
 export function progressPct(items: ChecklistItem[]): number {
-  if (items.length === 0) return 0;
-  return Math.round((completedItems(items).length / items.length) * 100);
+  return corePct(items.map(wrap));
 }
 
 export function overdueItems(items: ChecklistItem[], now: number = Date.now()): ChecklistItem[] {
-  const t = new Date(now); t.setHours(0, 0, 0, 0);
-  const cutoff = t.getTime();
-  return openItems(items)
-    .filter((i) => !Number.isNaN(dueEpoch(i.targetDate)) && dueEpoch(i.targetDate) < cutoff)
-    .sort((a, b) => dueEpoch(a.targetDate) - dueEpoch(b.targetDate));
+  return unwrap(overdueOf(items.map(wrap), now));
 }
 
 export function dueSoonItems(items: ChecklistItem[], days = 7, now: number = Date.now()): ChecklistItem[] {
-  const t = new Date(now); t.setHours(0, 0, 0, 0);
-  const start = t.getTime();
-  const end = start + days * DAY;
-  return openItems(items)
-    .filter((i) => { const e = dueEpoch(i.targetDate); return !Number.isNaN(e) && e >= start && e <= end; })
-    .sort((a, b) => dueEpoch(a.targetDate) - dueEpoch(b.targetDate));
+  return unwrap(dueSoonOf(items.map(wrap), days, now));
 }
 
-export type Momentum = 'stalled' | 'steady' | 'rising';
 export function momentum(items: ChecklistItem[], windowDays = 14, now: number = Date.now()): Momentum {
-  if (items.length === 0) return 'steady';
-  const win = windowDays * DAY;
-  const recent = items.filter((i) => i.completedAt && now - i.completedAt <= win).length;
-  const prior = items.filter((i) => i.completedAt && now - i.completedAt > win && now - i.completedAt <= 2 * win).length;
-  if (recent > prior && recent > 0) return 'rising';
-  if (recent > 0) return 'steady';
-  return openItems(items).length > 0 ? 'stalled' : 'steady';
+  return coreMomentum(items.map(wrap), windowDays, now);
 }
 
 export interface NextStep { label: string; reason: string; severity: 'urgent' | 'suggested' }

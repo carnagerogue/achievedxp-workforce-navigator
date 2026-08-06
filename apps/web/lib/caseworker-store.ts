@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import type { ConvictionType, UserContextMode, EducationLevel } from '@dxp/shared';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 import type { SupervisionCondition, FeeObligation } from './supervision';
+import type { PlanStepStatus } from './plan-model';
 
 /**
  * Caseload store — saved participants for Caseworker Mode, localStorage-backed
@@ -33,7 +34,8 @@ export const BARRIER_LABELS: Record<Barrier, string> = {
 // mirrors checklist-store (planned → contacted → scheduled → completed) so the
 // whole app speaks one language for "where is this in the pipeline."
 
-export type TaskStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
+/** Alias of the canonical 4-step status vocabulary in plan-model.ts. */
+export type TaskStatus = PlanStepStatus;
 export type TaskCategory =
   | 'application' | 'training' | 'document' | 'barrier' | 'appointment' | 'other';
 /** Provenance — which part of the cockpit generated this task. */

@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './supervision';
+import type { PlanStepStatus } from './plan-model';
 
 /**
  * Reentry action plan — localStorage-backed, same subscribe/notify pattern as
@@ -16,7 +17,8 @@ import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './sup
  * the person's name and overall goals, and prints to a clean progress report.
  */
 
-export type ChecklistStatus = 'planned' | 'contacted' | 'scheduled' | 'completed';
+/** Alias of the canonical 4-step status vocabulary in plan-model.ts. */
+export type ChecklistStatus = PlanStepStatus;
 
 export interface ChecklistItem {
   /** Stable unique id — prefixed by source so AJC/reentry/service ids never collide. */

@@ -4,8 +4,8 @@ import { getAssessmentResultFor, scoreAssessment } from '../../../../../lib/serv
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export function GET(_req: NextRequest, { params }: { params: { userId: string } }) {
-  return NextResponse.json(getAssessmentResultFor(params.userId));
+export async function GET(_req: NextRequest, { params }: { params: { userId: string } }) {
+  return NextResponse.json(await getAssessmentResultFor(params.userId));
 }
 
 export async function POST(req: NextRequest, { params }: { params: { userId: string } }) {
@@ -18,5 +18,5 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
       if (Number.isFinite(id) && Number.isFinite(val)) answers[id] = val;
     }
   }
-  return NextResponse.json(scoreAssessment(params.userId, answers));
+  return NextResponse.json(await scoreAssessment(params.userId, answers));
 }

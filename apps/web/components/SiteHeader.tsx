@@ -6,24 +6,30 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Search, UserCircle2, Command, HardHat, HeartHandshake, ClipboardList,
   Compass, Rocket, GraduationCap, LifeBuoy, HandCoins, MapPin, Briefcase, Menu, X, ChevronDown,
+  ListChecks, Brain, MessageSquareQuote,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type Item = { href: string; label: string; sub: string; Icon: typeof Compass };
 
-// Always-visible primary links (desktop). Everything else lives in Explore.
+// Always-visible primary links (desktop) — the product's spine, in journey
+// order: your guided home, your working plan, then the job hunt.
 const PRIMARY: Item[] = [
-  { href: '/start', label: 'Start here', sub: 'Your reentry compass', Icon: Compass },
+  { href: '/dashboard', label: 'Home', sub: 'Your next step', Icon: Compass },
+  { href: '/plan', label: 'My plan', sub: 'Steps & check-ins', Icon: ListChecks },
   { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
 ];
 
-// The full, categorized menu — labeled and grouped so anything is one tap away.
+// The full, categorized menu — the ONE complete inventory of the product
+// (the footer and ⌘K palette mirror it), grouped so anything is one tap away.
 const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: 'Find work',
     items: [
       { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
       { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
+      { href: '/assessment', label: 'Career quiz', sub: 'What fits you (5 min)', Icon: Brain },
+      { href: '/background-statement', label: 'Tell your story', sub: 'Talking about your record', Icon: MessageSquareQuote },
       { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
       { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
     ],
@@ -33,14 +39,15 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: '/resources', label: 'Free help & hotlines', sub: 'Food, health, housing…', Icon: LifeBuoy },
       { href: '/benefits', label: 'Benefits checkup', sub: 'What you qualify for', Icon: HandCoins },
-      { href: '/local-help', label: 'Local help', sub: 'Programs near you', Icon: MapPin },
+      { href: '/local-help', label: 'Local help', sub: 'Job centers near you', Icon: MapPin },
     ],
   },
   {
-    title: 'Your account',
+    title: 'Your journey',
     items: [
-      { href: '/dashboard', label: 'Dashboard', sub: 'Your matches', Icon: LayoutDashboard },
-      { href: '/onboarding', label: 'Profile', sub: 'Edit your info', Icon: UserCircle2 },
+      { href: '/dashboard', label: 'Home', sub: 'Next step & compass', Icon: LayoutDashboard },
+      { href: '/plan', label: 'My plan', sub: 'Steps, readiness, supervision', Icon: ListChecks },
+      { href: '/onboarding', label: 'Match profile', sub: 'Improve your job matches', Icon: UserCircle2 },
     ],
   },
   {
@@ -140,11 +147,11 @@ export function SiteHeader() {
           <button className="fixed inset-0 z-20 cursor-default bg-navy-900/10" aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} />
           <div ref={menuRef} className="absolute inset-x-3 top-full z-30 mt-1 sm:inset-x-auto sm:right-6 sm:mt-2 sm:w-[680px]">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card-hover">
-              {/* Featured: Start here */}
-              <Link href="/start" className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-br from-teal-50 to-white px-4 py-3 transition hover:bg-teal-50">
+              {/* Featured: the guided home */}
+              <Link href="/dashboard" className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-br from-teal-50 to-white px-4 py-3 transition hover:bg-teal-50">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white"><Compass className="h-5 w-5" /></span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-bold text-navy-900">Start here — your reentry compass</span>
+                  <span className="block text-sm font-bold text-navy-900">Your next step — the reentry compass</span>
                   <span className="block text-xs text-slate-600">One step at a time, in the order that works.</span>
                 </span>
               </Link>

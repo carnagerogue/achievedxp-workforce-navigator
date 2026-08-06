@@ -140,7 +140,7 @@ const DOMAINS: DomainDef[] = [
   {
     key: 'support_network', label: 'Support network', weight: 4,
     whatReady: 'Has people or a group they can rely on for support.',
-    gap: { label: 'Strengthen support network', taskTitle: 'Identify a mentor or support group', category: 'family', url: '/start#corner' },
+    gap: { label: 'Strengthen support network', taskTitle: 'Identify a mentor or support group', category: 'family', url: '/dashboard#corner' },
     suggest: () => 'in_progress',
   },
 ];

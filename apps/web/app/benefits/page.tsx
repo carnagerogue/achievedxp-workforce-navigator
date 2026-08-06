@@ -9,6 +9,7 @@ import {
   screenBenefits, pctOfFpl, FPL_YEAR, LIKELIHOOD_META,
   type BenefitInput, type BenefitResult,
 } from '../../lib/benefits';
+import { AddToPlanButton } from '../../components/AddToPlanButton';
 
 const TONE_CARD: Record<string, string> = {
   good: 'border-teal-200 bg-teal-50/50',
@@ -190,9 +191,18 @@ function ResultCard({ r }: { r: BenefitResult }) {
           <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-teal-600" /> {r.reentryNote}
         </p>
       )}
-      <a href={r.apply.url} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
-        {r.apply.label} <ExternalLink className="h-3 w-3" />
-      </a>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+        <a href={r.apply.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
+          {r.apply.label} <ExternalLink className="h-3 w-3" />
+        </a>
+        <AddToPlanButton item={{
+          id: `benefit-${r.id}`,
+          name: `Apply for ${r.name}`,
+          type: 'Benefit application',
+          category: 'Money & benefits',
+          url: r.apply.url,
+        }} />
+      </div>
     </li>
   );
 }

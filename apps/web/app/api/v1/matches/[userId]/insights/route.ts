@@ -6,5 +6,5 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(_req: Request, { params }: { params: { userId: string } }) {
   const { jobs } = await getJobPool();
-  return NextResponse.json(insightsFor(params.userId, jobs));
+  return NextResponse.json(await insightsFor(params.userId, jobs));
 }
