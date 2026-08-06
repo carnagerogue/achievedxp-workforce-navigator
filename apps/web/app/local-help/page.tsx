@@ -19,6 +19,7 @@ import {
 } from '../../lib/api';
 import { Skeleton } from '../../components/Skeleton';
 import { useDebounce } from '../../lib/use-debounce';
+import { getLocalProfile } from '../../lib/local-profile';
 import {
   useChecklist, useOwnerName, usePlanGoals, isInChecklist, toggleChecklist, removeFromChecklist,
   setChecklistStatus, setChecklistNotes, setChecklistTargetDate, setOwnerName, setPlanGoals,
@@ -62,16 +63,22 @@ import { deriveStepDomain, type PlanModel, type PlanActions, type PlanStep } fro
  */
 export default function LocalHelpPage() {
   const [tab, setTab] = useState<'ajc' | 'reentry' | 'community' | 'checklist'>('ajc');
-  const [location, setLocation] = useState('44113');
+  const [location, setLocation] = useState('');
   const [radius, setRadius] = useState(50);
   const dLoc = useDebounce(location, 400);
   const checklist = useChecklist();
 
   // Deep-link support: /local-help?tab=checklist opens the My Plan workspace.
+  // Location seeds from the saved profile so nobody is shown another city's
+  // results or asked for a ZIP the app already knows.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const t = new URLSearchParams(window.location.search).get('tab');
     if (t === 'ajc' || t === 'reentry' || t === 'community' || t === 'checklist') setTab(t);
+    const p = getLocalProfile();
+    const seeded = p?.locationPostalCode
+      || (p?.locationCity && p?.locationRegion ? `${p.locationCity}, ${p.locationRegion}` : '');
+    if (seeded) setLocation((cur) => (cur === '' ? seeded : cur));
   }, []);
 
   return (
@@ -775,6 +782,7 @@ function AjcResults({ location, radius }: { location: string; radius: number }) 
       .finally(() => setLoading(false));
   }, [location, radius]);
 
+  if (!location) return <OfficialFinderPanel message="Enter your ZIP code or city above to find free help near you." />;
   if (loading) return <ListSkeleton />;
   if (error)   return <ErrorPanel message={error} />;
 
@@ -832,6 +840,7 @@ function ReentryResults({ location, radius }: { location: string; radius: number
       .finally(() => setLoading(false));
   }, [location, radius]);
 
+  if (!location) return <OfficialFinderPanel message="Enter your ZIP code or city above to find reentry programs near you." />;
   if (loading) return <ListSkeleton />;
   if (error)   return <ErrorPanel message={error} />;
 

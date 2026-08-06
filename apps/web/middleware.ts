@@ -9,8 +9,10 @@ import { NextResponse, type NextRequest } from 'next/server';
  *
  * Mechanics:
  *   - SITE_PASSWORD env var holds the shared secret (Railway-side only).
- *     Default falls back to "Nucleos123" if unset, so the gate is always
- *     active in production unless explicitly disabled with SITE_GATE=off.
+ *     There is deliberately NO fallback: this repo is public, so a default
+ *     committed here would be equivalent to no gate. If the env var is
+ *     unset the gate fails closed (503) until it's configured, unless the
+ *     gate is explicitly disabled with SITE_GATE=off.
  *   - On successful POST to /api/access, the route handler sets a cookie
  *     `dxp_gate` whose value is the SHA-256 hex of the password.
  *   - Each request, this middleware re-derives the expected hash and
@@ -67,9 +69,15 @@ export async function middleware(req: NextRequest) {
   if (ALLOWLIST_EXACT.has(pathname)) return NextResponse.next();
   if (ALLOWLIST_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
-  // The gate. Default password if env unset — keeps the gate active so a
-  // misconfigured deploy doesn't accidentally publish the whole site.
-  const password = process.env.SITE_PASSWORD || 'Nucleos123';
+  // The gate. No committed fallback (the repo is public — a default here is
+  // a published password). Unset env = fail closed until it's configured.
+  const password = process.env.SITE_PASSWORD;
+  if (!password) {
+    return new NextResponse(
+      'This site is gated but no SITE_PASSWORD is configured. Set SITE_PASSWORD on the deployment, or SITE_GATE=off to disable the gate.',
+      { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } },
+    );
+  }
   const expected = await sha256Hex(password);
   const cookie = req.cookies.get(COOKIE)?.value ?? '';
 

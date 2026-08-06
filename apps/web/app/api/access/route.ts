@@ -3,10 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 /**
  * Password-gate validation endpoint.
  *
- * Accepts POST { password: string }. If it matches SITE_PASSWORD (or
- * the default "Nucleos123" when unset), sets the `dxp_gate` cookie to
- * the SHA-256 hex of the password and returns 200. The middleware
- * re-derives the same hash on every request to authorize.
+ * Accepts POST { password: string }. If it matches SITE_PASSWORD, sets the
+ * `dxp_gate` cookie to the SHA-256 hex of the password and returns 200. The
+ * middleware re-derives the same hash on every request to authorize.
+ *
+ * There is deliberately NO fallback password: this repository is public, so
+ * any default committed here is equivalent to no gate at all. If
+ * SITE_PASSWORD is unset the endpoint fails closed with 503 — set the env
+ * var on the deployment (or SITE_GATE=off to disable the gate entirely).
  *
  * Cookie is HttpOnly (no JS access), Secure (HTTPS-only), SameSite=Lax
  * (allows top-level GET nav including the post-success redirect),
@@ -47,7 +51,13 @@ export async function POST(req: NextRequest) {
   }
 
   const provided = typeof body.password === 'string' ? body.password : '';
-  const expected = process.env.SITE_PASSWORD || 'Nucleos123';
+  const expected = process.env.SITE_PASSWORD;
+  if (!expected) {
+    return NextResponse.json(
+      { error: 'Access is not configured. The site operator must set SITE_PASSWORD.' },
+      { status: 503 },
+    );
+  }
 
   if (!constantTimeEqual(provided, expected)) {
     return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });

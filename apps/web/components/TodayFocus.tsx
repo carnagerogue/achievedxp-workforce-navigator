@@ -72,10 +72,10 @@ export function TodayFocus() {
   // ── Supervision report deadline ──
   const rds = reportDueState(supervision.nextReportDate);
   if (rds === 'overdue') {
-    focus.push({ id: 'report', tone: 'overdue', Icon: CalendarClock, href: '/local-help',
+    focus.push({ id: 'report', tone: 'overdue', Icon: CalendarClock, href: '/local-help?tab=checklist',
       text: 'Report to your officer is overdue', sub: `Was due ${fmtDate(supervision.nextReportDate)} — contact them today.` });
   } else if (rds === 'due_soon') {
-    focus.push({ id: 'report', tone: 'soon', Icon: CalendarClock, href: '/local-help',
+    focus.push({ id: 'report', tone: 'soon', Icon: CalendarClock, href: '/local-help?tab=checklist',
       text: `Report to your officer by ${fmtDate(supervision.nextReportDate)}`, sub: 'Don’t miss it — a missed report is a violation.' });
   }
 
@@ -96,7 +96,7 @@ export function TodayFocus() {
   // ── Fees behind ──
   for (const o of fees) {
     if (feeIsBehind(o)) {
-      focus.push({ id: `fee-${o.id}`, tone: 'overdue', Icon: Wallet, href: '/local-help',
+      focus.push({ id: `fee-${o.id}`, tone: 'overdue', Icon: Wallet, href: '/local-help?tab=checklist',
         text: `Payment behind: ${o.label}`, sub: `${fmtMoney(feeBalance(o))} owed${o.dueDate ? ` · was due ${fmtDate(o.dueDate)}` : ''}` });
     }
   }
@@ -107,10 +107,10 @@ export function TodayFocus() {
     const d = daysAway(it.targetDate);
     if (Number.isNaN(d)) continue;
     if (d < 0) {
-      focus.push({ id: `step-${it.id}`, tone: 'overdue', Icon: ListChecks, href: '/local-help',
+      focus.push({ id: `step-${it.id}`, tone: 'overdue', Icon: ListChecks, href: '/local-help?tab=checklist',
         text: `Overdue step: ${it.name}`, sub: `Was set for ${fmtDate(it.targetDate)}` });
     } else if (d <= 7) {
-      focus.push({ id: `step-${it.id}`, tone: 'soon', Icon: ListChecks, href: '/local-help',
+      focus.push({ id: `step-${it.id}`, tone: 'soon', Icon: ListChecks, href: '/local-help?tab=checklist',
         text: `This week: ${it.name}`, sub: `By ${fmtDate(it.targetDate)}` });
     }
   }
@@ -119,7 +119,7 @@ export function TodayFocus() {
   const lastCheckin = checkins[0]?.date;
   const checkinStale = !lastCheckin || daysAway(lastCheckin) <= -7;
   if (checkinStale && focus.filter((f) => f.tone === 'overdue').length === 0) {
-    focus.push({ id: 'checkin', tone: 'go', Icon: HeartPulse, href: '/local-help',
+    focus.push({ id: 'checkin', tone: 'go', Icon: HeartPulse, href: '/local-help?tab=checklist',
       text: 'Log this week’s check-in', sub: 'A quick note keeps your momentum — and shows effort over time.' });
   }
 

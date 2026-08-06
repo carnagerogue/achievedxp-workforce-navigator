@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAssessmentResultFor, scoreAssessment } from '../../../../../lib/mock-data';
+import { getAssessmentResultFor, scoreAssessment } from '../../../../../lib/server-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

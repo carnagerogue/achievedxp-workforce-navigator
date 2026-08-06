@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { jobsStats, getJobPool } from '../../../../../lib/mock-data';
+import { jobsStats, getJobPool } from '../../../../../lib/server-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

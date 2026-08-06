@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getLocalProfile } from '../../lib/local-profile';
 import Link from 'next/link';
 import {
   LifeBuoy, Phone, MessageSquare, MapPin, FileText, Mail, ExternalLink, HeartHandshake,
@@ -134,6 +135,13 @@ function LiveLocator({ title, blurb, fetcher }: { title: string; blurb: string; 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CommunityLiveResource[] | null>(null);
   const [err, setErr] = useState(false);
+
+  // Prefill from the saved profile so the user isn't asked for a ZIP the app
+  // already knows. They can still type over it.
+  useEffect(() => {
+    const p = getLocalProfile();
+    if (p?.locationPostalCode) setZip((cur) => (cur === '' ? p.locationPostalCode! : cur));
+  }, []);
 
   const search = async () => {
     const q = zip.trim();

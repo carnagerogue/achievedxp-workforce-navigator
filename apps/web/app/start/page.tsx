@@ -71,7 +71,7 @@ export default function ReentryCompassPage() {
           <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-700"><Star className="h-6 w-6" /></span>
           <h2 className="mt-3 text-lg font-bold text-navy-900">You&apos;ve worked every step here.</h2>
           <p className="mt-1 text-sm text-slate-600">That&apos;s real progress. Keep your plan moving and your job steady — and come back any time.</p>
-          <Link href="/local-help" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">Open My Plan <ArrowRight className="h-4 w-4" /></Link>
+          <Link href="/local-help?tab=checklist" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">Open My Plan <ArrowRight className="h-4 w-4" /></Link>
         </section>
       )}
 

@@ -183,7 +183,7 @@ export function useNavigatorProfile(): NavigatorProfile {
     journey: { pct: journeyProg.pct, done: journeyProg.done, total: journeyProg.total, phaseKey, phaseTitle, next },
     readiness: {
       score: readiness.score, band: BAND_LABEL[readiness.band], engaged: readinessEngaged,
-      gaps: readiness.gaps.slice(0, 3).map((g) => ({ label: g.gap?.label ?? g.label, url: g.gap?.url ?? '/local-help' })),
+      gaps: readiness.gaps.slice(0, 3).map((g) => ({ label: g.gap?.label ?? g.label, url: g.gap?.url ?? '/local-help?tab=checklist' })),
     },
     plan: { total: planTotal, done: planDone, pct: planTotal ? Math.round((planDone / planTotal) * 100) : 0, open: planTotal - planDone, nextDueDate },
     compliance, reportDue, reportDate: supervision.nextReportDate,

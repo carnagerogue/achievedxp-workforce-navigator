@@ -156,12 +156,19 @@ function JobsPage() {
 
   // Load the saved profile so browse scores with the user's real background
   // (the same shared scorer the dashboard uses) — not conviction-only. Default
-  // the conviction filter from their record when the URL doesn't set one.
+  // the conviction filter from their record when the URL doesn't set one, and
+  // seed the location filter from their saved city/region the same way.
   useEffect(() => {
     const p = getLocalProfile();
     setLocalProfile(p);
     const fromProfile = p?.convictions?.[0]?.offenseType;
     if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
+    if (!sp?.get('region')) {
+      const loc = p?.locationCity && p?.locationRegion
+        ? `${p.locationCity}, ${p.locationRegion}`
+        : p?.locationRegion ?? p?.locationPostalCode ?? '';
+      if (loc) setLocationInput((cur) => (cur === '' ? loc : cur));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getJobPool } from '../../../../../lib/mock-data';
+import { getJobPool } from '../../../../../lib/server-data';
 import { auditPool } from '@dxp/shared';
 
 export const runtime = 'nodejs';

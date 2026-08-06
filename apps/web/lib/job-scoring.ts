@@ -66,6 +66,30 @@ function worstCompatibility(job: JobDto, candidates: CandidateProfile[]): Compat
   return worst;
 }
 
+/**
+ * The conviction-dependent part of a job's score — independent of the user's
+ * credentials, so callers that simulate credential changes (insights) can
+ * compute it once per job and rescore cheaply.
+ */
+export interface JobScoreContext {
+  rating: CompatibilityRating;
+  hardBlockReason: string | null;
+  exclusionary: boolean;
+}
+
+export function jobScoreContext(
+  inputs: Pick<ScoreInputs, 'candidates' | 'convictionTypes'>,
+  job: JobDto,
+): JobScoreContext {
+  const rating = worstCompatibility(job, inputs.candidates);
+  let hardBlockReason: string | null = null;
+  for (const ct of inputs.convictionTypes) {
+    const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: job.industry, title: job.title });
+    if (hit.blocked) { hardBlockReason = hit.reason; break; }
+  }
+  return { rating, hardBlockReason, exclusionary: isExclusionaryEmployer(job) };
+}
+
 export type MatchChance = 'high' | 'medium' | 'low';
 const LABEL: Record<MatchChance, string> = { high: 'Strong Match', medium: 'Possible Match', low: 'Challenging Match' };
 
@@ -99,18 +123,16 @@ function buildExplanation(rating: CompatibilityRating, fit: RealisticFit): strin
   return parts.join('; ') + '.';
 }
 
-/** Score one job for a candidate. Identical math everywhere it's called. */
-export function scoreJobUnified(inputs: ScoreInputs, job: JobDto): UnifiedScore {
-  const { candidates, profile, convictionTypes, hasConvictions } = inputs;
-  const rating = worstCompatibility(job, candidates);
+/**
+ * Score one job for a candidate. Identical math everywhere it's called — the
+ * server match/insight routes and the client pages all go through here.
+ * Pass a precomputed `ctx` only when rescoring the same job with a varied
+ * profile (credential simulation); it must come from `jobScoreContext`.
+ */
+export function scoreJobUnified(inputs: ScoreInputs, job: JobDto, ctx?: JobScoreContext): UnifiedScore {
+  const { profile, hasConvictions } = inputs;
+  const { rating, hardBlockReason, exclusionary } = ctx ?? jobScoreContext(inputs, job);
   const fit = realisticFit(profile, job);
-
-  let hardBlockReason: string | null = null;
-  for (const ct of convictionTypes) {
-    const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: job.industry, title: job.title });
-    if (hit.blocked) { hardBlockReason = hit.reason; break; }
-  }
-  const exclusionary = isExclusionaryEmployer(job);
 
   let score = hasConvictions
     ? 0.65 * rating.score + 0.35 * fit.total

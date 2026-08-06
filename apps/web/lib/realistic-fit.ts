@@ -20,7 +20,7 @@
  *
  * This is the "can they get it + succeed in the interview" layer; the
  * @dxp/shared compatibility engine remains the authority on conviction/legal
- * barriers. The two are blended in mock-data.ts.
+ * barriers. The two are blended in job-scoring.ts (scoreJobUnified).
  */
 import type { JobDto } from '@dxp/shared';
 import type { StoredProfile } from './profile-store';

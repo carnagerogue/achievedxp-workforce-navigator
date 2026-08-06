@@ -2,7 +2,9 @@
 
 A production-grade job aggregation and matching platform built specifically for justice-impacted individuals. Real postings from federal, private-sector, and remote job boards are scored against each candidate's profile **and** their conviction history using two deterministic, fully auditable engines — never a black box.
 
-The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)** with **1,800+** real postings ingested from four providers and **40+ Department of Labor data feeds** powering occupation, wage, training, and reentry-program lookups.
+The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)**, serving real postings fetched live from up to 11 job sources, plus Department of Labor data feeds powering occupation, wage, training, and reentry-program lookups.
+
+> **Architecture status (read this first):** the deployed product is the **Next.js web app alone**. Its `/api/v1/*` route handlers are the production backend: jobs are fetched live from the providers in `apps/web/lib/providers/` (10-minute in-process cache, bundled 40-posting fallback), all match scoring goes through `apps/web/lib/job-scoring.ts`, and profiles/assessments live in in-process memory that **resets on redeploy**. The NestJS API in `apps/api/` (Prisma + Postgres + the ingestion pipeline) is **not currently in the request path** — it's an earlier backend kept as the starting point for the planned server-backed phase (see `docs/connected-backend-scope.md`). Sections below that describe `apps/api` describe that future path, not today's deployment.
 
 ---
 
@@ -37,23 +39,16 @@ This platform inverts both:
 ```
 workforce-navigator/
 ├── apps/
-│   ├── api/                         NestJS 10 API
+│   ├── api/                         NestJS 10 API — NOT deployed (future server-backed phase)
 │   │   ├── prisma/                  schema + migrations + seed
-│   │   └── src/
-│   │       ├── assessment/          O*NET RIASEC interest profiler
-│   │       ├── careeronestop/       DOL CareerOneStop wrapper (27 endpoints)
-│   │       ├── classification/      Job classifier (industry / risk / federal-suitability)
-│   │       ├── ingestion/           Provider pipeline
-│   │       │   └── providers/       USAJobs / Adzuna / Remotive / Jooble
-│   │       ├── jobs/                List / get / stats endpoints
-│   │       ├── location/            ZIP → city/state expansion
-│   │       ├── matches/             Personalization scoring + buckets
-│   │       ├── profiles/            User profiles + convictions
-│   │       └── scoring/             Per-user rule scorer + offense filters
-│   └── web/                         Next.js 14 App Router frontend
-│       ├── app/                     Page routes (jobs, dashboard, etc.)
-│       ├── components/              Shared UI (RiskBadge, JobCard, CompatibilityDrawer)
-│       └── lib/                     API client, formatters, hooks
+│   │   └── src/                     assessment / careeronestop / classification /
+│   │                                ingestion / jobs / matches / profiles / scoring
+│   └── web/                         Next.js 14 App Router — THE deployed product
+│       ├── app/                     Page routes (start, dashboard, jobs, caseworker, …)
+│       ├── app/api/v1/              The production backend (route handlers)
+│       ├── components/              Shared UI (JobCard, PlanWorkspace, CompatibilityDrawer, …)
+│       └── lib/                     server-data.ts (data layer), providers/ (11 job sources),
+│                                    job-scoring.ts (unified scorer), stores, journey engine
 ├── packages/
 │   └── shared/
 │       ├── src/
@@ -66,8 +61,8 @@ workforce-navigator/
 │       │   │   ├── explanations.ts  Summary / risk factors / chance improvers
 │       │   │   └── __tests__/       21 acceptance tests
 │       │   └── index.ts             Shared DTOs (JobDto, ConvictionDto, etc.)
-├── docker/                          Local Postgres + Redis compose
-├── deploy-railway*.mjs              Provisioning scripts
+├── docker/                          Local Postgres + Redis compose (NestJS path only)
+├── docs/                            Backend / auth / connected-platform roadmaps
 └── package.json                     pnpm workspace root
 ```
 
@@ -75,44 +70,36 @@ workforce-navigator/
 
 ## Tech stack
 
-| Layer | Tech |
-|---|---|
-| API | NestJS 10, TypeScript 5 (strict), Prisma 5 |
-| Web | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide icons |
-| Database | PostgreSQL 16 |
-| Cache | Redis 7 |
-| Shared | `@dxp/shared` workspace package — DTOs + the compatibility engine (pure TS, runs server-side and in the browser) |
-| Tests | Jest |
-| Hosting | Railway (4 services: API, Web, Postgres, Redis) |
+| Layer | Tech | In the deployed request path? |
+|---|---|---|
+| Web (app + its `/api/v1/*` backend) | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide icons | ✅ — this is the whole live product |
+| Shared | `@dxp/shared` workspace package — DTOs + the compatibility engine (pure TS, runs server-side and in the browser) | ✅ |
+| Tests | Jest (`packages/shared` engine suite + `apps/web` score-agreement suite) | ✅ |
+| API | NestJS 10, TypeScript 5 (strict), Prisma 5 | ❌ — future server-backed phase |
+| Database | PostgreSQL 16 | ❌ — used only by the NestJS path |
+| Cache | Redis 7 | ❌ — provisioned, unused |
+| Hosting | Railway | Web service only is user-facing |
 
 ---
 
-## The two scoring engines
+## The scoring pipeline
 
-The platform runs two deterministic engines that answer two different questions.
+Everything the user sees goes through **one scorer**: `scoreJobUnified` in `apps/web/lib/job-scoring.ts`. It runs identically in the `/api/v1/matches` route (dashboard buckets) and in the browser (`/jobs`, job detail, compare, Caseworker Mode), so a job can never show one score in one place and a different one elsewhere — `apps/web/lib/__tests__/score-agreement.test.ts` locks this in.
 
-### 1. Personalization scorer (existing, server-side)
+`scoreJobUnified` blends two deterministic components:
 
-**Question:** "Is this user a good fit for this job in general?"
+1. **Conviction compatibility** (`packages/shared/src/compatibility/` — see below): legal/duty barriers, worst-case across every conviction the person carries.
+2. **Realistic fit** (`apps/web/lib/realistic-fit.ts`): seniority gap, domain/skill overlap, location.
 
-Lives in `apps/api/src/scoring/rule.scorer.ts`. Powers the **Dashboard** (`/dashboard`) — the personalized Top / Medium / Avoid buckets at `GET /matches/:userId`. Six components × weights summing to 100:
+Weights: with a conviction on file, compatibility dominates (**0.65 / 0.35**); without one, fit dominates (0.4 / 0.6). Categorical barriers — federal/security-clearance employers, "clean record required" postings, offense × industry legal bars — cap the score (≤ 30 / ≤ 25) and force the job into the **Avoid** bucket with a specific reason attached.
 
-| Component | Max | What it measures |
-|---|---:|---|
-| Industry fit | 25 | Match against `desiredIndustries` + RIASEC bonus |
-| Skills | 25 | % of `requiredSkills` user has |
-| Certifications | 15 | % of `requiredCertifications` user has |
-| Experience | 15 | `yearsExperience` vs `minYearsExperience` |
-| Location | 10 | ZIP / region match + relocation willingness |
-| Risk tier | 10 | classifier output + years since release |
+*(The earlier server-side six-component `RuleScorer` in `apps/api/src/scoring/` belongs to the not-currently-deployed NestJS path.)*
 
-Hard filters (federal suitability, offense × industry bars, currently incarcerated, restricted industries) drop a job into the **Avoid** bucket regardless of score, with a specific reason attached.
-
-### 2. Conviction-aware compatibility engine (new, runs in the browser)
+### The conviction-aware compatibility engine
 
 **Question:** "Given this specific conviction, what's the realistic chance for this specific role?"
 
-Lives in `packages/shared/src/compatibility/`. Triggered when a user picks a conviction in the `/jobs` filter — every visible job is rescored client-side and re-ranked instantly. Seven components × weights summing to 100:
+Lives in `packages/shared/src/compatibility/` (pure TS — runs server-side and in the browser). When a user picks a conviction in the `/jobs` filter, every visible job is rescored client-side and re-ranked instantly. Seven components × weights summing to 100:
 
 | Component | Max | What it measures |
 |---|---:|---|
@@ -152,30 +139,24 @@ The engine is unit-tested with 21 acceptance cases covering every conviction × 
 
 ---
 
-## Job ingestion (4 providers)
+## Job sources (the live provider layer)
 
-| Provider | Auth | Notes |
+The deployed job pool comes from `apps/web/lib/providers/` — fetched live server-side with a 10-minute in-process cache (`JOBS_CACHE_TTL_SECONDS`), merged and deduped across providers, falling back to 40 bundled sample postings only if every provider returns empty.
+
+| Provider | Auth | On by default |
 |---|---|---|
-| **USAJobs** | API key + email user-agent | Federal civilian listings |
-| **Adzuna** | App ID + App Key | Private-sector aggregator |
-| **Remotive** | None | Remote-friendly postings, US-filterable |
-| **Jooble** | API key in URL path | Meta-aggregator over Indeed/Monster/ZipRecruiter |
+| **Remotive, RemoteOK, Jobicy, Himalayas, The Muse, ATS boards (Greenhouse/Lever)** | None | ✅ (disable with `<NAME>_ENABLED=false`) |
+| **USAJobs** | API key + email user-agent | needs keys |
+| **Adzuna** | App ID + App Key | needs keys |
+| **Jooble** | API key | needs keys |
+| **CareerOneStop jobs** | User ID + token | needs keys |
+| **Workday boards** | None | opt-in (`WORKDAY_ENABLED=true`) |
 
-Each provider implements a single interface (`apps/api/src/ingestion/providers/job-provider.interface.ts`):
-
-```ts
-interface JobProvider {
-  readonly code: string;                          // matches job_sources.code
-  fetch(): Promise<RawJobPayload[]>;              // pull raw postings
-  normalize(raw: unknown): CanonicalJob;          // map to our shape
-}
-```
-
-Adding a new source = **one class + one seed row**. The classifier, scorer, and dedup pipeline pick it up automatically.
+Adding a new source = one module in `apps/web/lib/providers/` + registration in `providers/index.ts`. *(The NestJS ingestion pipeline in `apps/api/src/ingestion/` is the older Postgres-backed version of this layer and only has 5 of these sources — it is not what feeds the live site.)*
 
 ### Classification + dedup
 
-Every ingested job is classified before insert:
+Every fetched job is classified before it enters the pool (`packages/shared` `classifyJob`):
 
 - **Industry** detected from title + description keywords
 - **Risk tier** (LOW / MEDIUM / HIGH) from industry × keyword rules
@@ -384,10 +365,13 @@ The list-jobs endpoint accepts `offenseType=DRUG_POSSESSION|...|REGISTRY_RELATED
 ## Testing
 
 ```bash
-pnpm --filter @dxp/shared test
+pnpm --filter @dxp/shared test   # compatibility-engine acceptance suite
+pnpm --filter web test           # server/client score-agreement suite
 ```
 
-Runs the 21-case acceptance suite for the compatibility engine. Each case maps to a line item in the engine spec:
+The web suite (`apps/web/lib/__tests__/score-agreement.test.ts`) asserts the dashboard match buckets and the browse-page scores come from the same math — the regression that guards against a second score blend ever creeping back in.
+
+The shared suite runs the 21-case acceptance spec for the compatibility engine. Each case maps to a line item in the engine spec:
 
 - DUI + CDL driver → Low Chance
 - Property/theft + bank teller → Low Chance
@@ -413,20 +397,19 @@ PYTHONIOENCODING=utf-8 python qa-full-site.py
 
 ## Deployment (Railway)
 
-The platform runs on Railway with four services in a single project:
+The **Web** service is the entire user-facing product: Dockerfile build from `apps/web/` with Next.js standalone output. It is self-sufficient — its `NEXT_PUBLIC_API_URL` defaults to its own `/api/v1` route handlers (baked in at build time via the Dockerfile ARG).
 
-- **API** — Dockerfile build from `apps/api/`, `prisma migrate deploy` + seed on boot
-- **Web** — Dockerfile build from `apps/web/` with Next.js standalone output
-- **Postgres** — `ghcr.io/railwayapp-templates/postgres-ssl:16` with a 1 GB volume at `/var/lib/postgresql/data`
-- **Redis** — `redis:7-alpine`
+Required env on the Web service:
 
-Each app service uses Debian-slim base images (not Alpine) — Prisma's binary engine ships only for glibc + OpenSSL, and Alpine's musl + OpenSSL 3 caused runtime crashes.
+- `SITE_PASSWORD` — the gate **fails closed (503) without it**; there is no committed fallback. Rotate any value that was ever committed to this repo.
+- Optional provider keys (`ADZUNA_*`, `JOOBLE_API_KEY`, `USAJOBS_*`, `COS_*`) — without them the site still serves jobs from the six no-auth providers.
+
+The other services in the Railway project (**API** from `apps/api/`, **Postgres**, **Redis**) belong to the not-yet-active server-backed phase and can be paused without affecting the site.
 
 To redeploy:
 
 ```bash
 # From workforce-navigator/
-railway up --service api --detach --ci
 railway up --service web --detach --ci
 ```
 
@@ -440,15 +423,16 @@ Designed for incremental growth without breaking changes:
 
 | Want to | Edit |
 |---|---|
-| Add a job source | new `apps/api/src/ingestion/providers/<name>.provider.ts` + register in `ingestion.module.ts` + add a row to `prisma/seed.ts` |
-| Add an offense × industry bar | append a rule to `OFFENSE_FILTER_RULES` in `apps/api/src/scoring/offense-filters.ts` |
+| Add a job source (live site) | new module in `apps/web/lib/providers/<name>.ts` + register in `apps/web/lib/providers/index.ts` |
+| Add an offense × industry bar (live site) | `packages/shared/src/compatibility/offense-hard-filters.ts` |
+| Change the score blend / barrier caps | `scoreJobUnified` in `apps/web/lib/job-scoring.ts` — `apps/web/lib/__tests__/score-agreement.test.ts` guards server/client agreement |
 | Add a hard-barrier phrase | add a `PatternRule` to `HARD_BARRIER_PATTERNS` in `packages/shared/src/compatibility/signals.ts` |
 | Add a fair-chance phrase | same file, `FAIR_CHANCE_PATTERNS` array |
 | Tune a score weight | `SCORE_WEIGHTS` in `packages/shared/src/compatibility/types.ts`. Tests will catch drift. |
 | Add a conviction × duty rule | `CONVICTION_MATRIX[<type>].rules` in `packages/shared/src/compatibility/risk-matrix.ts` |
 | Tune industry sensitivity | `INDUSTRY_SENSITIVITY` map in the same folder |
 | Add state fair-chance protections | `scoreLocationProtections` in `packages/shared/src/compatibility/scoring.ts` (currently a hand-curated state list — TODO: expand with full state-by-state law tables) |
-| Add a CareerOneStop endpoint | new method on `CareerOneStopService` + a thin route on `CareerOneStopController` |
+| Add a CareerOneStop lookup (live site) | `apps/web/lib/careeronestop.ts` + a thin route under `apps/web/app/api/v1/careeronestop/` |
 
 Every rule fires through the audit trail — flip on / off without changing the engine.
 
@@ -458,12 +442,15 @@ Every rule fires through the audit trail — flip on / off without changing the 
 
 | Area | Status | Notes |
 |---|---|---|
+| Server-side persistence | **None in the deployed app** | Profiles + assessment results live in in-process Maps and reset on redeploy; everything else is browser localStorage. The planned fix is the server-backed phase in `docs/connected-backend-scope.md`. |
+| Site gate | Shared password, fail-closed | `SITE_PASSWORD` must be set on the deployment (no committed fallback). Rotate any previously-committed value — old values live on in git history. |
+| Two backends in the repo | `apps/api` is out of the request path | Decide its fate explicitly: delete, or make it the persistence layer and remove the duplicated web-side logic. Until then, edit the web paths listed under Extension points. |
 | State fair-chance law table | Static (5 states "strong", 12 "some") | Expand with codified Fair Chance Acts, licensing-board disqualification lists, expungement timing by state |
 | Employer outcome feedback | Not yet wired | Future: feed application outcomes back to refine `employerFairChancePosture` per employer |
-| CareerOneStop NLX `/jobs` | Returns 404 from upstream for some queries | URL template uncertain; supplementary to our 4 providers |
+| CareerOneStop NLX `/jobs` | Returns 404 from upstream for some queries | URL template uncertain; supplementary to the live providers |
 | Real-time search | Filter changes are in-memory client-side | Works fine at 50 jobs/page; >500 would push to API |
 | Federal-suitability nuance | VA classified the same as DoD | VA Title 5 roles are often more accessible than military; could add a separate "federal civilian non-military" tier |
-| Authentication | JWT scaffolded but not enforced | Phase 8 — add auth guards before any prod usage |
+| Authentication | Not implemented | The site gate is a demo lock, not user auth. Real accounts are Phase 2 of `docs/connected-backend-scope.md`. |
 
 ---
 

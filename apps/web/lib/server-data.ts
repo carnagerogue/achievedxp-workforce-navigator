@@ -1,10 +1,17 @@
 /**
- * Bundled mock dataset used by the in-app API route handlers under
- * /api/v1/*. Lets the web frontend stand on its own when the NestJS
- * backend isn't deployed — useful for portfolio demos and PR previews.
+ * THE PRODUCTION DATA LAYER for the in-app API route handlers under
+ * /api/v1/* (formerly, and misleadingly, named mock-data.ts).
  *
- * The handlers under app/api/v1 read from these helpers; nothing else
- * in the app should import this file directly.
+ * The deployed site runs without the NestJS backend, so everything here is
+ * live-path code: the job pool (live provider fetch via lib/providers with a
+ * bundled 40-posting fallback), filtering, stats, the match/insight pipeline
+ * (which delegates all scoring to lib/job-scoring's scoreJobUnified), and the
+ * RIASEC assessment. State is in-process only — profiles and assessment
+ * results reset on redeploy (see profile-store.ts for the rationale and the
+ * plan to move to real persistence).
+ *
+ * The handlers under app/api/v1 read from these helpers; nothing else in the
+ * app should import this file directly.
  */
 
 import type {
@@ -17,11 +24,8 @@ import type {
   PublicJobSummaryDto,
   AvoidJobDto,
   RiskTier,
-  CandidateProfile,
-  CompatibilityRating,
-  JobInput,
 } from '@dxp/shared';
-import { scoreJobCompatibility, isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
+import { isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
 import { classifyJob, normalizeLocation, isApprenticeshipType } from '@dxp/shared';
 import {
   getProfile,
@@ -29,8 +33,12 @@ import {
   convictionTypesFor,
   type StoredProfile,
 } from './profile-store';
-import { realisticFit, type RealisticFit } from './realistic-fit';
-import { isExclusionaryEmployer } from './job-scoring';
+import {
+  scoreJobUnified,
+  jobScoreContext,
+  type JobScoreContext,
+  type ScoreInputs,
+} from './job-scoring';
 
 const NOW = Date.now();
 const DAY = 24 * 60 * 60 * 1000;
@@ -890,177 +898,59 @@ function publicSummary(j: JobDto): PublicJobSummaryDto {
   };
 }
 
-function jobToInput(j: JobDto): JobInput {
+/**
+ * Scoring inputs for a stored user. All match/insight math below goes through
+ * `scoreJobUnified` (lib/job-scoring.ts) — the same function the /jobs pages
+ * run in the browser — so a job can never score differently on the dashboard
+ * than it does on the browse page.
+ */
+function scoreInputsFor(profile: StoredProfile | null): ScoreInputs {
   return {
-    id: j.id,
-    title: j.title,
-    company: j.company,
-    description: j.description,
-    industry: j.industry,
-    riskTier: j.riskTier,
-    excludesFelons: j.excludesFelons,
-    backgroundCheckLikely: j.backgroundCheckLikely,
-    isApprenticeship: j.isApprenticeship,
-    remote: j.remote,
-    locationRegion: j.locationRegion,
-    locationCity: j.locationCity,
-    requiredSkills: j.requiredSkills,
-    requiredCertifications: j.requiredCertifications,
-  };
-}
-
-/**
- * Worst-case conviction compatibility across every conviction a person
- * carries. Fair-chance stance: never over-promise — the lowest-scoring
- * conviction governs the match. `candidates` is always non-empty.
- */
-function worstCompatibility(job: JobDto, candidates: CandidateProfile[]): CompatibilityRating {
-  const input = jobToInput(job);
-  let worst = scoreJobCompatibility(candidates[0], input);
-  for (let i = 1; i < candidates.length; i++) {
-    const r = scoreJobCompatibility(candidates[i], input);
-    if (r.score < worst.score) worst = r;
-  }
-  return worst;
-}
-
-interface ScoredInternal {
-  jobId: string;
-  score: number;
-  chance: CompatibilityRating['chance'];
-  breakdown: ScoredJobDto['breakdown'];
-  explanation: string;
-  rating: CompatibilityRating;
-  hardBlockReason: string | null;
-  job: JobDto;
-}
-
-/**
- * Conviction-only context for a job — independent of the user's credentials,
- * so it can be computed once and reused while simulating credential gains.
- */
-interface JobConvictionContext {
-  rating: CompatibilityRating;
-  hardBlockReason: string | null;
-}
-
-function convictionContext(
-  j: JobDto,
-  candidates: CandidateProfile[],
-  convictionTypes: string[],
-): JobConvictionContext {
-  const rating = worstCompatibility(j, candidates);
-  let hardBlockReason: string | null = null;
-  for (const ct of convictionTypes) {
-    const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: j.industry, title: j.title });
-    if (hit.blocked) { hardBlockReason = hit.reason; break; }
-  }
-  // Federal / security-clearance employers are categorical barriers too — treat
-  // them like a hard block so the dashboard never recommends a military-base or
-  // clearance-gated posting as a top match (consistent with lib/job-scoring).
-  if (!hardBlockReason && isExclusionaryEmployer(j)) {
-    hardBlockReason = 'Federal / security-clearance employer — typically disqualifies people with records.';
-  }
-  return { rating, hardBlockReason };
-}
-
-/**
- * Blend conviction compatibility with realistic fit, then apply the reality
- * checks. The conviction engine gates legal/duty barriers; realistic fit
- * (seniority gap, skill/domain overlap, location) drives the differentiation
- * the user actually sees. The attainability cap keeps over-leveled or
- * off-target roles out of "top matches", and a categorical legal bar caps
- * the score so the role lands in "approach carefully".
- */
-function blendScore(ratingScore: number, fit: RealisticFit, hasConvictions: boolean, hardBlocked: boolean): number {
-  const base = hasConvictions
-    ? 0.4 * ratingScore + 0.6 * fit.total
-    : 0.25 * ratingScore + 0.75 * fit.total;
-  let s = Math.min(base, fit.attainabilityCap);
-  if (hardBlocked) s = Math.min(s, 25);
-  return Math.max(0, Math.round(s));
-}
-
-/**
- * One-sentence "why this matches" that reflects THIS person and THIS role —
- * lead with the strongest realistic signal, then a caution if the score was
- * held back, plus a conviction note when relevant.
- */
-function buildMatchExplanation(rating: CompatibilityRating, fit: RealisticFit): string {
-  const parts: string[] = [];
-  if (fit.factors.positive[0]) parts.push(fit.factors.positive[0][0].toUpperCase() + fit.factors.positive[0].slice(1));
-  if (fit.factors.caution[0]) parts.push(fit.factors.caution[0]);
-  if (parts.length === 0) parts.push(rating.summary);
-  else if (rating.chance === 'high') parts.push('no legal barriers flagged');
-  return parts.join('; ') + '.';
-}
-
-function scoreJobForProfile(
-  j: JobDto,
-  profile: StoredProfile | null,
-  candidates: CandidateProfile[],
-  convictionTypes: string[],
-  hasConvictions: boolean,
-): ScoredInternal {
-  const ctx = convictionContext(j, candidates, convictionTypes);
-  const fit = realisticFit(profile, j);
-  const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
-
-  return {
-    jobId: j.id,
-    score,
-    chance: ctx.rating.chance,
-    breakdown: fit.breakdown,
-    explanation: buildMatchExplanation(ctx.rating, fit),
-    rating: ctx.rating,
-    hardBlockReason: ctx.hardBlockReason,
-    job: j,
+    candidates: candidateProfilesFromStored(profile),
+    profile,
+    convictionTypes: convictionTypesFor(profile),
+    hasConvictions: (profile?.convictions?.length ?? 0) > 0,
   };
 }
 
 export function matchesFor(userId: string, limit: number, source: JobDto[] = JOBS): MatchesResponseDto {
-  const profile = getProfile(userId);
-  const candidates = candidateProfilesFromStored(profile);
-  const convictionTypes = convictionTypesFor(profile);
-  const hasConvictions = (profile?.convictions?.length ?? 0) > 0;
+  const inputs = scoreInputsFor(getProfile(userId));
 
   const scored = source
-    .map((j) => scoreJobForProfile(j, profile, candidates, convictionTypes, hasConvictions))
-    .sort((a, b) => b.score - a.score);
+    .map((job) => ({ u: scoreJobUnified(inputs, job), job }))
+    .sort((a, b) => b.u.score - a.u.score);
 
-  const toScored = (m: ScoredInternal): ScoredJobDto => ({
-    jobId: m.jobId,
-    score: m.score,
-    breakdown: m.breakdown,
-    explanation: m.explanation,
+  type Scored = (typeof scored)[number];
+
+  const toScored = (m: Scored): ScoredJobDto => ({
+    jobId: m.u.jobId,
+    score: m.u.score,
+    breakdown: m.u.breakdown,
+    explanation: m.u.explanation,
     job: publicSummary(m.job),
   });
 
-  const isAvoid = (m: ScoredInternal) =>
-    m.hardBlockReason !== null || m.chance === 'low' || m.score < 40 || m.job.excludesFelons;
-
+  // The unified chance already folds in hard blocks, clean-record postings,
+  // exclusionary employers, and the score floor — 'low' is the avoid bucket.
   const top = scored
-    .filter((m) => !isAvoid(m) && m.score >= 70 && m.chance === 'high')
+    .filter((m) => m.u.chance === 'high')
     .slice(0, limit)
     .map(toScored);
 
   const topIds = new Set(top.map((t) => t.jobId));
   const medium = scored
-    .filter((m) => !isAvoid(m) && !topIds.has(m.jobId))
+    .filter((m) => m.u.chance !== 'low' && !topIds.has(m.u.jobId))
     .slice(0, limit)
     .map(toScored);
 
   const avoid: AvoidJobDto[] = scored
-    .filter(isAvoid)
+    .filter((m) => m.u.chance === 'low')
     .slice(0, limit)
     .map((m) => {
-      const reasons: string[] = [];
-      if (m.hardBlockReason) reasons.push(m.hardBlockReason);
-      if (m.job.excludesFelons) reasons.push('Employer states this role requires a clean record.');
-      reasons.push(...m.rating.possibleBarriers);
-      if (reasons.length === 0) reasons.push(...m.rating.riskFactors);
+      const reasons: string[] = [...m.u.flags, ...m.u.rating.possibleBarriers];
+      if (reasons.length === 0) reasons.push(...m.u.rating.riskFactors);
       if (reasons.length === 0) reasons.push('Lower overall fit based on your profile and this role.');
-      return { jobId: m.jobId, score: m.score, reasons: Array.from(new Set(reasons)).slice(0, 3), job: publicSummary(m.job) };
+      return { jobId: m.u.jobId, score: m.u.score, reasons: Array.from(new Set(reasons)).slice(0, 3), job: publicSummary(m.job) };
     });
 
   return {
@@ -1096,26 +986,21 @@ const prettyCode = (code: string) =>
  */
 export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsResponseDto {
   const profile = getProfile(userId);
+  const inputs = scoreInputsFor(profile);
   const baseline = matchesFor(userId, source.length, source);
   const tierOf = (score: number): 0 | 1 | 2 => (score >= 70 ? 2 : score >= 40 ? 1 : 0);
-
-  const candidates = candidateProfilesFromStored(profile);
-  const convictionTypes = convictionTypesFor(profile);
-  const hasConvictions = (profile?.convictions?.length ?? 0) > 0;
 
   // Precompute the conviction context per job ONCE. Adding a credential
   // changes only the personalization component, never the conviction
   // rating or the hard-block — so there's no need to re-run the engine for
   // every simulated credential.
-  const ctxByJob = new Map<string, JobConvictionContext>();
+  const ctxByJob = new Map<string, JobScoreContext>();
   const baseTier = new Map<string, 0 | 1 | 2>();
   for (const j of source) {
-    const ctx = convictionContext(j, candidates, convictionTypes);
+    const ctx = jobScoreContext(inputs, j);
     ctxByJob.set(j.id, ctx);
-    const fit = realisticFit(profile, j);
-    const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
-    const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
-    baseTier.set(j.id, blockedOrLow ? 0 : tierOf(score));
+    const u = scoreJobUnified(inputs, j, ctx);
+    baseTier.set(j.id, u.chance === 'low' ? 0 : tierOf(u.score));
   }
 
   const have = new Set([
@@ -1138,15 +1023,14 @@ export function insightsFor(userId: string, source: JobDto[] = JOBS): InsightsRe
       certifications: kind === 'certification' ? [...(profile?.certifications ?? []), code] : profile?.certifications ?? [],
       skills: kind === 'skill' ? [...(profile?.skills ?? []), code] : profile?.skills ?? [],
     };
+    const augInputs = { ...inputs, profile: augmented };
     let unlocks = 0;
     let promotesToTop = 0;
     for (const j of source) {
       const ctx = ctxByJob.get(j.id)!;
       const before = baseTier.get(j.id) ?? 0;
-      const fit = realisticFit(augmented, j);
-      const score = blendScore(ctx.rating.score, fit, hasConvictions, ctx.hardBlockReason !== null);
-      const blockedOrLow = ctx.hardBlockReason !== null || ctx.rating.chance === 'low' || j.excludesFelons;
-      const after = blockedOrLow ? 0 : tierOf(score);
+      const u = scoreJobUnified(augInputs, j, ctx);
+      const after = u.chance === 'low' ? 0 : tierOf(u.score);
       if (before === 0 && after >= 1) unlocks++;
       if (before <= 1 && after === 2) promotesToTop++;
     }
