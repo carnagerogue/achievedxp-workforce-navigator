@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
+const PHASES = ['Start', 'Plan', 'Prepare', 'Work'] as const;
 
 /**
  * Adds a single, coordinated motion system to the landing page. Elements
@@ -17,13 +18,19 @@ export function LandingScrollEffects() {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealItems = Array.from(root.querySelectorAll<HTMLElement>('[data-reveal]'));
     const stages = Array.from(root.querySelectorAll<HTMLElement>('[data-scroll-stage]'));
+    const chapters = Array.from(root.querySelectorAll<HTMLElement>('[data-motion-phase]'));
+    const phaseItems = Array.from(root.querySelectorAll<HTMLElement>('[data-motion-phase-item]'));
     const hero = root.querySelector<HTMLElement>('[data-scroll-hero]');
+    const routePath = root.querySelector<SVGPathElement>('[data-route-master]');
+    const traveler = root.querySelector<SVGGElement>('[data-route-traveler]');
+    const routeLength = routePath?.getTotalLength() ?? 0;
 
     root.classList.add('landing-scroll-ready');
 
     if (reducedMotion) {
       revealItems.forEach((item) => item.classList.add('is-visible'));
       root.style.setProperty('--hero-progress', '0');
+      root.style.setProperty('--page-progress', '.35');
       stages.forEach((stage) => stage.style.setProperty('--section-progress', '1'));
       return () => root.classList.remove('landing-scroll-ready');
     }
@@ -42,40 +49,102 @@ export function LandingScrollEffects() {
     revealItems.forEach((item) => observer.observe(item));
 
     let frame = 0;
-    const updateProgress = () => {
-      frame = 0;
+    let targetPage = 0;
+    let currentPage = 0;
+    let targetHero = 0;
+    let currentHero = 0;
+    let direction = 1;
+    const stageTargets = stages.map(() => 0);
+    const stageCurrent = stages.map(() => 0);
+
+    const renderProgress = () => {
+      currentPage += (targetPage - currentPage) * 0.1;
+      currentHero += (targetHero - currentHero) * 0.13;
+
+      root.style.setProperty('--page-progress', currentPage.toFixed(4));
+      root.style.setProperty('--hero-progress', currentHero.toFixed(4));
+      root.style.setProperty('--scroll-direction', String(direction));
+      root.style.setProperty('--scroll-energy', Math.min(1, Math.abs(targetPage - currentPage) * 22).toFixed(4));
+
+      stages.forEach((stage, index) => {
+        stageCurrent[index] += (stageTargets[index] - stageCurrent[index]) * 0.12;
+        stage.style.setProperty('--section-progress', stageCurrent[index].toFixed(4));
+      });
+
+      if (routePath && traveler && routeLength) {
+        const point = routePath.getPointAtLength(routeLength * currentPage);
+        traveler.setAttribute('transform', `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
+      }
+
+      const unsettled = Math.abs(targetPage - currentPage) > 0.0004 ||
+        Math.abs(targetHero - currentHero) > 0.0004 ||
+        stageCurrent.some((value, index) => Math.abs(stageTargets[index] - value) > 0.0004);
+
+      if (unsettled) frame = window.requestAnimationFrame(renderProgress);
+      else frame = 0;
+    };
+
+    const requestRender = () => {
+      if (!frame) frame = window.requestAnimationFrame(renderProgress);
+    };
+
+    const measureProgress = () => {
       const viewportHeight = window.innerHeight;
+      const rootRect = root.getBoundingClientRect();
+      const scrollableDistance = Math.max(rootRect.height - viewportHeight, 1);
+      const nextPage = clamp(-rootRect.top / scrollableDistance);
+      direction = nextPage >= targetPage ? 1 : -1;
+      targetPage = nextPage;
 
       if (hero) {
         const rect = hero.getBoundingClientRect();
-        const progress = clamp(-rect.top / Math.max(rect.height * 0.82, 1));
-        root.style.setProperty('--hero-progress', progress.toFixed(4));
+        targetHero = clamp(-rect.top / Math.max(rect.height * 0.82, 1));
       }
 
-      stages.forEach((stage) => {
+      stages.forEach((stage, index) => {
         const rect = stage.getBoundingClientRect();
-        const progress = clamp((viewportHeight * 0.84 - rect.top) / Math.max(rect.height + viewportHeight * 0.36, 1));
-        stage.style.setProperty('--section-progress', progress.toFixed(4));
+        stageTargets[index] = clamp((viewportHeight * 0.84 - rect.top) / Math.max(rect.height + viewportHeight * 0.36, 1));
       });
+
+      let activePhase = 0;
+      let closestDistance = Number.POSITIVE_INFINITY;
+      chapters.forEach((chapter, index) => {
+        const rect = chapter.getBoundingClientRect();
+        const distance = Math.abs(rect.top + Math.min(rect.height, viewportHeight) * 0.5 - viewportHeight * 0.5);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          activePhase = index;
+        }
+      });
+      root.dataset.activePhase = String(activePhase + 1);
+      phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === activePhase));
+      requestRender();
     };
 
-    const requestUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(updateProgress);
-    };
-
-    window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate);
-    updateProgress();
+    window.addEventListener('scroll', measureProgress, { passive: true });
+    window.addEventListener('resize', measureProgress);
+    measureProgress();
 
     return () => {
       observer.disconnect();
-      window.removeEventListener('scroll', requestUpdate);
-      window.removeEventListener('resize', requestUpdate);
+      window.removeEventListener('scroll', measureProgress);
+      window.removeEventListener('resize', measureProgress);
       if (frame) window.cancelAnimationFrame(frame);
       root.classList.remove('landing-scroll-ready');
     };
   }, []);
 
-  return null;
+  return (
+    <aside className="motion-progress" aria-hidden="true">
+      <span className="motion-progress__eyebrow">Your route</span>
+      <span className="motion-progress__line"><i /></span>
+      <ol>
+        {PHASES.map((phase, index) => (
+          <li key={phase} data-motion-phase-item className={index === 0 ? 'is-current' : undefined}>
+            <span>{String(index + 1).padStart(2, '0')}</span>{phase}
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
 }

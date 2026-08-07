@@ -17,13 +17,14 @@ export default function LandingPage() {
   return (
     <div className="landing-constellation full-bleed -mt-10 overflow-hidden text-white" data-landing-scroll>
       <LandingScrollEffects />
-      <section className="constellation-hero relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16" data-scroll-hero>
-        <Constellation />
+      <JourneyField />
+      <section className="constellation-hero motion-chapter relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16" data-scroll-hero data-motion-phase="1">
         <div className="relative z-10 mx-auto grid min-h-[760px] max-w-[1500px] gap-14 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
           <div data-reveal="left">
             <p className="section-kicker text-sunset-300">Achieve DXP · Workforce Navigator</p>
             <h1 aria-label="One clear next step." className="hero-title display-outline mt-8 max-w-[950px] text-[clamp(4.8rem,12vw,11.5rem)] leading-[.72]">
-              One clear<br />next step.
+              <span className="hero-title__line">One clear</span>
+              <span className="hero-title__line">next step.</span>
             </h1>
             <p className="mt-10 max-w-xl text-lg leading-relaxed text-teal-100 sm:text-xl">
               A calm, practical path through reentry—from the needs that come first to work that can move life forward.
@@ -55,8 +56,11 @@ export default function LandingPage() {
         <div className="scroll-cue" aria-hidden="true"><span>Scroll to trace the route</span><i /></div>
       </section>
 
-      <section className="bg-navy-900 px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
-        <div className="mx-auto max-w-[1500px]">
+      <RouteTicker />
+
+      <section className="motion-chapter journey-section journey-section--phases px-5 py-20 sm:px-10 lg:px-16 lg:py-28" data-motion-phase="2">
+        <span className="chapter-number" aria-hidden="true">02</span>
+        <div className="relative z-10 mx-auto max-w-[1500px]">
           <div className="scroll-stage grid gap-12 border-y border-white/15 py-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end" data-scroll-stage>
             <div data-reveal="left">
               <p className="section-kicker text-sunset-300">Your route, not a maze</p>
@@ -81,8 +85,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="product-constellation px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
-        <div className="scroll-stage mx-auto grid max-w-[1500px] gap-14 lg:grid-cols-[.75fr_1.25fr] lg:items-center" data-scroll-stage>
+      <RouteTicker reverse />
+
+      <section className="product-constellation motion-chapter px-5 py-20 sm:px-10 lg:px-16 lg:py-28" data-motion-phase="3">
+        <span className="chapter-number chapter-number--left" aria-hidden="true">03</span>
+        <div className="scroll-stage relative z-10 mx-auto grid max-w-[1500px] gap-14 lg:grid-cols-[.75fr_1.25fr] lg:items-center" data-scroll-stage>
           <div data-reveal="left">
             <p className="section-kicker text-sunset-300">Explainable by design</p>
             <h2 className="mt-5 font-display text-[clamp(3.2rem,7vw,7.2rem)] font-black uppercase leading-[.8] tracking-[-.04em]">
@@ -98,9 +105,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-sunset-500 px-5 py-20 text-navy-900 sm:px-10 lg:px-16 lg:py-28">
-        <div className="scroll-stage mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 border-y border-navy-900/35 py-10 lg:flex-row lg:items-center" data-scroll-stage>
-          <h2 className="font-display text-[clamp(3.8rem,9vw,9rem)] font-black uppercase leading-[.75] tracking-[-.04em]" data-reveal="left">Begin here.</h2>
+      <section className="closing-chapter motion-chapter bg-sunset-500 px-5 py-20 text-navy-900 sm:px-10 lg:px-16 lg:py-28" data-motion-phase="4">
+        <span className="chapter-number chapter-number--closing" aria-hidden="true">04</span>
+        <div className="scroll-stage relative z-10 mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 border-y border-navy-900/35 py-10 lg:flex-row lg:items-center" data-scroll-stage>
+          <h2 className="closing-title font-display text-[clamp(3.8rem,9vw,9rem)] font-black uppercase leading-[.75] tracking-[-.04em]" data-reveal="left">Begin here.</h2>
           <Link href={primaryHref} className="signal-button !border-navy-900 !bg-navy-900 !text-white" data-reveal="right">
             {AUTH_ENABLED ? 'Create your account' : 'Show my next step'} <ArrowRight className="h-4 w-4" />
           </Link>
@@ -112,6 +120,19 @@ export default function LandingPage() {
 
 function indexDelay(stepNumber: string) {
   return (Number(stepNumber) - 1) * 110;
+}
+
+function RouteTicker({ reverse = false }: { reverse?: boolean }) {
+  const words = ['Start', 'Stabilize', 'Plan', 'Prepare', 'Find work', 'Move forward'];
+  return (
+    <div className={'route-ticker ' + (reverse ? 'route-ticker--reverse' : '')} aria-hidden="true">
+      <div className="route-ticker__track">
+        {[...words, ...words, ...words].map((word, index) => (
+          <span key={`${word}-${index}`}>{word}<i /></span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function Promise({ Icon, children }: { Icon: typeof Check; children: React.ReactNode }) {
@@ -143,16 +164,49 @@ function ProductPreview() {
   );
 }
 
-function Constellation() {
+function JourneyField() {
+  const nodes = [
+    [92,690],[176,624],[276,662],[352,574],[464,602],[548,516],[632,420],[724,330],[812,356],[918,404],
+    [1018,458],[1118,518],[1224,478],[1328,392],[1448,232],[214,248],[314,310],[438,214],[572,278],[704,164],
+    [864,218],[1004,164],[1148,244],[1274,188],[1382,124],[1510,168],[124,420],[244,470],[402,422],[1180,674],
+  ];
   return (
-    <div className="constellation-art pointer-events-none absolute inset-0 h-full w-full opacity-65" aria-hidden="true">
-      <svg className="h-full w-full" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
-        <g fill="none" stroke="rgba(67,173,165,.48)" strokeWidth="1">
-          <path d="M-40 690 C190 590 280 740 470 620 S790 360 980 430 S1240 660 1650 370" />
-          <path d="M970 40 C1050 170 1180 180 1260 280 S1380 520 1580 490" stroke="rgba(173,226,221,.32)" />
-        </g>
-        {[[142,646],[466,621],[780,477],[980,430],[1255,565],[1518,417],[1085,154],[1260,280]].map(([cx,cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#ff7a3d" />)}
-      </svg>
+    <div className="journey-field" aria-hidden="true">
+      <div className="journey-field__sticky">
+        <div className="journey-field__glow" />
+        <div className="journey-field__scene">
+          <svg className="h-full w-full" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+            <g className="journey-field__web" fill="none" stroke="rgba(173,226,221,.24)" strokeWidth="1">
+              <path d="M-40 742 L92 690 L176 624 L276 662 L352 574 L464 602 L548 516 L632 420 L724 330 L812 356" />
+              <path d="M214 248 L314 310 L438 214 L572 278 L704 164 L864 218 L1004 164 L1148 244 L1274 188 L1382 124 L1510 168" />
+              <path d="M124 420 L244 470 L402 422 L548 516 L724 330 L918 404 L1018 458 L1118 518 L1224 478 L1328 392 L1448 232" />
+              <path d="M92 690 L244 470 M176 624 L402 422 M276 662 L548 516 M464 602 L632 420 M572 278 L812 356 M704 164 L918 404 M864 218 L1018 458 M1004 164 L1224 478 M1148 244 L1328 392 M1274 188 L1448 232" />
+              <path d="M548 516 L438 214 M724 330 L572 278 M918 404 L864 218 M1118 518 L1148 244 M1224 478 L1382 124" />
+            </g>
+            <path data-route-master className="journey-field__route" d="M 92 690 C 260 548 360 666 548 516 S 742 252 918 404 S 1188 602 1448 232" />
+            <g className="journey-field__nodes">
+              {nodes.map(([cx, cy], index) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={index % 6 === 0 ? 5 : index % 3 === 0 ? 3 : 2} />)}
+            </g>
+            <g className="journey-field__labels">
+              <text x="76" y="752">START · WHAT MATTERS NOW</text>
+              <text x="500" y="476">PLAN · ONE CLEAR ORDER</text>
+              <text x="910" y="372">PREPARE · BUILD THE PIECES</text>
+              <text x="1290" y="205">WORK · MOVE FORWARD</text>
+            </g>
+            <g data-route-traveler className="journey-field__traveler">
+              <circle className="journey-field__traveler-halo" r="24" />
+              <circle className="journey-field__traveler-core" r="6" />
+              <path d="M-2 -2 L8 0 L-2 2 Z" />
+            </g>
+          </svg>
+        </div>
+        <div className="journey-field__phase">
+          <span data-field-phase="1">START</span>
+          <span data-field-phase="2">PLAN</span>
+          <span data-field-phase="3">PREPARE</span>
+          <span data-field-phase="4">WORK</span>
+        </div>
+      </div>
     </div>
   );
 }
