@@ -5,6 +5,7 @@ import { Check, Plus, Briefcase, UserCircle2, Zap, Link2Off } from 'lucide-react
 import { type Provider, isConnected, disconnect, isOAuthEnabled, useConnections } from '../../lib/connections';
 import { ConnectDialog } from './ConnectDialog';
 import { BrandGlyph } from './BrandGlyph';
+import { IdentityConnect } from './IdentityConnect';
 
 const CAP_META = [
   { key: 'importsProfile', label: 'Fills your kit', Icon: UserCircle2 },
@@ -46,7 +47,10 @@ export function ConnectionTile({ provider }: { provider: Provider }) {
       </div>
 
       <div className="mt-3.5 flex items-center gap-2">
-        {connected ? (
+        {provider.category === 'identity' && !oauthOff ? (
+          // Real OAuth link + Apply Kit import (Clerk). Only when accounts are on.
+          <IdentityConnect provider={provider} />
+        ) : connected ? (
           <button onClick={() => disconnect(provider.id)}
             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600">
             <Link2Off className="h-3.5 w-3.5" /> Disconnect

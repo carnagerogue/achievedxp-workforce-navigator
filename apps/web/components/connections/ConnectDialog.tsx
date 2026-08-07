@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, ExternalLink, ShieldCheck, Check, ArrowRight, Lock } from 'lucide-react';
-import { connect, type Provider } from '../../lib/connections';
+import { connect, boardSearchUrl, type Provider } from '../../lib/connections';
+import { getLocalProfile } from '../../lib/local-profile';
 import { BrandGlyph } from './BrandGlyph';
 
 /**
@@ -23,8 +24,20 @@ export function ConnectDialog({ provider, onClose }: { provider: Provider; onClo
 
   const isIdentity = provider.category === 'identity';
 
+  // For job boards, drop the person straight into relevant listings on the
+  // board's own site, prefilled from their profile (location + a keyword from
+  // their goal/skills) — the honest "smarter handoff". Identity providers just
+  // open their site.
+  const { target, near } = useMemo(() => {
+    if (provider.category !== 'jobBoard') return { target: provider.url, near: '' };
+    const p = getLocalProfile();
+    const keyword = p?.desiredIndustries?.[0] || p?.skills?.[0] || '';
+    const url = boardSearchUrl(provider.id, { keyword, city: p?.locationCity, region: p?.locationRegion });
+    return { target: url || provider.url, near: [p?.locationCity, p?.locationRegion].filter(Boolean).join(', ') };
+  }, [provider]);
+
   const goToProvider = () => {
-    window.open(provider.url, '_blank', 'noopener,noreferrer');
+    window.open(target, '_blank', 'noopener,noreferrer');
     setStep('confirm');
   };
 
@@ -86,7 +99,11 @@ export function ConnectDialog({ provider, onClose }: { provider: Provider; onClo
             <button onClick={goToProvider} className="group flex w-full items-center justify-center gap-2 rounded-full bg-teal-600 px-6 py-3.5 text-base font-semibold text-white transition hover:bg-teal-700 active:scale-[0.99]">
               Continue to {provider.name} <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
-            <p className="text-center text-[11px] text-slate-400">Opens {provider.name} in a new tab. Come back here when you&apos;re signed in.</p>
+            <p className="text-center text-[11px] text-slate-400">
+              {near && provider.category === 'jobBoard'
+                ? `Opens ${provider.name} jobs near ${near} in a new tab. Sign in there, then come back.`
+                : `Opens ${provider.name} in a new tab. Come back here when you're signed in.`}
+            </p>
           </div>
         ) : (
           <div className="space-y-4 p-5">

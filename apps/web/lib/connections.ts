@@ -288,3 +288,27 @@ export function connectedCount(): number { return Object.keys(conns).length; }
 export function useConnections(): ConnMap {
   return useSyncExternalStore(subscribe, getConnections, () => ({}));
 }
+
+// ---- job-board deep links ------------------------------------------------
+
+/**
+ * A prefilled job-search URL on a job board, from what we already know about
+ * the person (location + a keyword from their goal/skills). This is the honest
+ * "smarter handoff": we can't sign into their account, but we can drop them
+ * straight into relevant listings on the board's own site. Returns null for
+ * providers without a known search surface.
+ */
+export function boardSearchUrl(
+  providerId: string,
+  opts: { keyword?: string; city?: string; region?: string } = {},
+): string | null {
+  const q = encodeURIComponent((opts.keyword ?? '').trim());
+  const loc = encodeURIComponent([opts.city, opts.region].filter(Boolean).join(', ').trim());
+  switch (providerId) {
+    case 'indeed':        return `https://www.indeed.com/jobs?q=${q}&l=${loc}`;
+    case 'ziprecruiter':  return `https://www.ziprecruiter.com/jobs-search?search=${q}&location=${loc}`;
+    case 'monster':       return `https://www.monster.com/jobs/search?q=${q}&where=${loc}`;
+    case 'linkedin-jobs': return `https://www.linkedin.com/jobs/search/?keywords=${q}&location=${loc}`;
+    default:              return null;
+  }
+}
