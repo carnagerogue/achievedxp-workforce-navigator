@@ -9,7 +9,6 @@ import {
   Building2,
   Calendar,
   Clock,
-  ExternalLink,
   MapPin,
   Share2,
   Link as LinkIcon,
@@ -32,6 +31,7 @@ import { useToast } from '../../../components/Toast';
 import { SaveJobButton } from '../../../components/SaveJobButton';
 import { CompareButton } from '../../../components/CompareButton';
 import { ApplicationStatusPicker } from '../../../components/ApplicationStatusPicker';
+import { ApplyButton } from '../../../components/apply/ApplyButton';
 import { useTrackRecentView } from '../../../lib/personal-store';
 import { prettyDate, prettyIndustry, prettySalary } from '../../../lib/format';
 import { parseDescription } from '../../../lib/description-format';
@@ -184,15 +184,7 @@ export default function JobDetailPage() {
         </dl>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover"
-          >
-            Apply on employer site
-            <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </a>
+          <ApplyButton job={job} />
           <SaveJobButton jobId={job.id} variant="full" />
           <ApplicationStatusPicker jobId={job.id} />
           <button
@@ -302,14 +294,7 @@ export default function JobDetailPage() {
             <p className="truncate text-xs font-medium text-slate-500">Ready to apply?</p>
             <p className="truncate text-sm font-semibold text-navy-900">{job.title}</p>
           </div>
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
-          >
-            Apply ↗
-          </a>
+          <ApplyButton job={job} className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 active:scale-[0.98]" />
         </div>
       </div>
     </article>

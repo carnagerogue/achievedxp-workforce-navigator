@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
-  ClipboardList, UserPlus, User, ListChecks, LifeBuoy, HandCoins, GraduationCap, Rocket, MessageSquareQuote,
+  ClipboardList, UserPlus, User, ListChecks, LifeBuoy, HandCoins, GraduationCap, Rocket, MessageSquareQuote, FileText, Link2,
 } from 'lucide-react';
 import { listJobs } from '../lib/api';
 import { CONVICTION_LABELS, type JobDto } from '@dxp/shared';
@@ -32,6 +32,8 @@ const NAV_ITEMS: CommandItem[] = [
   { kind: 'nav', label: 'Home',              sub: 'Your next step & compass',              href: '/dashboard',       Icon: LayoutDashboard },
   { kind: 'nav', label: 'My plan',           sub: 'Steps, readiness, supervision',         href: '/plan',            Icon: ListChecks      },
   { kind: 'nav', label: 'Find a job',        sub: 'Filter by city, ZIP, industry',         href: '/jobs',            Icon: Briefcase       },
+  { kind: 'nav', label: 'Apply Kit',         sub: 'Fill it once, reuse everywhere',        href: '/apply-kit',       Icon: FileText        },
+  { kind: 'nav', label: 'Connections',       sub: 'Link Indeed, LinkedIn, ZipRecruiter…',  href: '/connections',     Icon: Link2           },
   { kind: 'nav', label: 'Apprenticeships',   sub: 'Earn-while-you-learn pathways',         href: '/apprenticeships', Icon: HardHat         },
   { kind: 'nav', label: 'Career quiz',       sub: 'RIASEC interest profiler (5 min)',      href: '/assessment',      Icon: Brain           },
   { kind: 'nav', label: 'Tell your story',   sub: 'Disclosure statement help',             href: '/background-statement', Icon: MessageSquareQuote },

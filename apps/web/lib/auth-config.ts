@@ -21,6 +21,8 @@ export const PROTECTED_PREFIXES = [
   '/assessment',
   '/caseworker',
   '/jobs/compare',
+  '/apply-kit',
+  '/connections',
 ];
 
 export function isProtectedPath(pathname: string): boolean {

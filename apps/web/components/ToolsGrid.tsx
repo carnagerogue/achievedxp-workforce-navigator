@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { Briefcase, HardHat, GraduationCap, Rocket, HandCoins, LifeBuoy, MapPin, Brain, MessageSquareQuote } from 'lucide-react';
+import { Briefcase, HardHat, GraduationCap, Rocket, HandCoins, LifeBuoy, MapPin, Brain, MessageSquareQuote, FileText, Link2 } from 'lucide-react';
 
 const TOOLS: { href: string; label: string; sub: string; Icon: typeof Briefcase }[] = [
   { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
+  { href: '/apply-kit', label: 'Apply Kit', sub: 'Fill it once, reuse everywhere', Icon: FileText },
+  { href: '/connections', label: 'Connections', sub: 'Link your job accounts', Icon: Link2 },
   { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
   { href: '/assessment', label: 'Career quiz', sub: 'What fits you (5 min)', Icon: Brain },
   { href: '/background-statement', label: 'Tell your story', sub: 'Talking about your record', Icon: MessageSquareQuote },

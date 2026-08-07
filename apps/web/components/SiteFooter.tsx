@@ -33,6 +33,8 @@ export function SiteFooter() {
             { href: '/dashboard', label: 'Home — your next step' },
             { href: '/plan', label: 'My plan' },
             { href: '/jobs', label: 'Find a job' },
+            { href: '/apply-kit', label: 'Apply Kit' },
+            { href: '/connections', label: 'Connections' },
             { href: '/apprenticeships', label: 'Apprenticeships' },
             { href: '/assessment', label: 'Career quiz' },
             { href: '/background-statement', label: 'Tell your story' },
