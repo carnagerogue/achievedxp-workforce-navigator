@@ -10,8 +10,16 @@ import {
 import { Reveal } from '../components/Reveal';
 import { Marquee } from '../components/Marquee';
 import { PosterStats } from '../components/PosterStats';
+import { AUTH_ENABLED } from '../lib/auth-config';
 
 export default function LandingPage() {
+  // When accounts are on, login comes before anything in the system, so the
+  // front door funnels into account creation / sign-in. When accounts are off
+  // (graceful mode), it opens straight into the app.
+  const primaryHref = AUTH_ENABLED ? '/sign-up' : '/dashboard';
+  const primaryLabel = AUTH_ENABLED ? 'Create your account' : 'Start here';
+  const secondaryHref = AUTH_ENABLED ? '/sign-in' : '/jobs';
+  const secondaryLabel = AUTH_ENABLED ? 'Sign in' : 'Just browse jobs';
   return (
     <div className="animate-fade-in">
       {/* ── Act 1 · The billboard ─────────────────────────────────────── */}
@@ -32,19 +40,19 @@ export default function LandingPage() {
                 A guided path for life after release —
                 backed by real reentry research.
               </p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <Link
-                  href="/dashboard"
-                  className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-4 pl-8 pr-7 text-base font-bold text-white transition hover:bg-teal-700 active:scale-[0.98]"
+                  href={primaryHref}
+                  className="group inline-flex items-center gap-2 bg-teal-600 px-8 py-4 text-sm font-extrabold uppercase tracking-[0.1em] text-white transition hover:bg-teal-700 active:scale-[0.98]"
                 >
-                  Start here
+                  {primaryLabel}
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <Link
-                  href="/jobs"
-                  className="inline-flex items-center rounded-full px-6 py-4 text-base font-bold text-slate-500 transition hover:text-slate-900"
+                  href={secondaryHref}
+                  className="inline-flex items-center border-b-2 border-transparent py-1 text-sm font-extrabold uppercase tracking-[0.1em] text-slate-500 transition hover:border-slate-900 hover:text-slate-900"
                 >
-                  Just browse jobs
+                  {secondaryLabel}
                 </Link>
               </div>
             </div>
@@ -53,7 +61,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Act 2 · The ticker ────────────────────────────────────────── */}
-      <div className="full-bleed -rotate-1 border-y-4 border-slate-900 bg-slate-900 py-4">
+      <div className="full-bleed bg-slate-950 py-4">
         <Marquee duration={26}>
           <TickerRun />
         </Marquee>
@@ -105,8 +113,8 @@ export default function LandingPage() {
               </div>
             </Reveal>
             <Reveal delay={140}>
-              <div className="relative mx-auto max-w-xl rotate-2 transition-transform duration-500 hover:rotate-0">
-                <span className="absolute -top-5 right-6 z-10 -rotate-6 rounded-full bg-sunset-500 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-white">
+              <div className="relative mx-auto max-w-xl">
+                <span className="absolute -top-3 right-6 z-10 bg-sunset-500 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-white">
                   Plain English
                 </span>
                 <HeroPreview />
@@ -135,10 +143,10 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={140}>
             <Link
-              href="/dashboard"
-              className="group mt-12 inline-flex items-center gap-2 rounded-full bg-white py-4 pl-8 pr-7 text-base font-bold text-slate-950 transition hover:bg-teal-50 active:scale-[0.98]"
+              href={primaryHref}
+              className="group mt-12 inline-flex items-center gap-2 bg-teal-500 px-8 py-4 text-sm font-extrabold uppercase tracking-[0.1em] text-slate-950 transition hover:bg-teal-400 active:scale-[0.98]"
             >
-              Start here
+              {primaryLabel}
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </Reveal>

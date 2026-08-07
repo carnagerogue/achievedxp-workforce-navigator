@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Search, UserCircle2, Command, HardHat, HeartHandshake, ClipboardList,
   Compass, Rocket, GraduationCap, LifeBuoy, HandCoins, MapPin, Briefcase, Menu, X, ChevronDown,
-  ListChecks, Brain, MessageSquareQuote,
+  ListChecks, Brain, MessageSquareQuote, FileText, Link2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AuthControls } from './auth/AuthControls';
@@ -33,6 +33,13 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: '/background-statement', label: 'Tell your story', sub: 'Talking about your record', Icon: MessageSquareQuote },
       { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
       { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
+    ],
+  },
+  {
+    title: 'Apply anywhere',
+    items: [
+      { href: '/apply-kit', label: 'Apply Kit', sub: 'Fill it once, reuse everywhere', Icon: FileText },
+      { href: '/connections', label: 'Connections', sub: 'Link your job accounts', Icon: Link2 },
     ],
   },
   {

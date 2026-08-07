@@ -1,19 +1,26 @@
 # Accounts & per-user data isolation
 
 The app supports real sign-in (email, Google, Microsoft) with each person's data
-isolated to their account. It's built to be **graceful**: with no auth keys set,
-the app runs exactly as before — one local data scope, behind the site-password
-gate — and lights up accounts the moment keys are added. No code change, just
+isolated to their account. When accounts are on, **login comes before anything**:
+every route is behind the sign-in wall except a tiny public allowlist (the
+welcome page and the sign-in / sign-up pages). It's built to be **graceful**:
+with no auth keys set, the app falls back to the pre-launch site-password gate,
+and lights up accounts the moment keys are added. No code change, just
 environment variables.
 
 ## Two states
 
 | | Accounts OFF (no Clerk key) | Accounts ON (Clerk key set) |
 |---|---|---|
-| Gate | Site password (`/access`) | Personal routes require sign-in; rest open |
+| Gate | Site password (`/access`) | **Sign-in required before anything** — every route except the welcome + `/sign-in` + `/sign-up` redirects to sign-in |
 | Data scope | single `guest` namespace on the device | one namespace per signed-in user |
 | Sign-in UI | none | header "Sign in" / avatar menu; `/sign-in`, `/sign-up` |
 | Server data key | client-generated id | **verified** Clerk user id |
+
+The public allowlist lives in `lib/auth-config.ts` (`PUBLIC_EXACT` /
+`PUBLIC_PREFIXES`, enforced by `middleware.ts`). To make the login screen the
+very first thing anyone sees — no public welcome at all — remove `'/'` from
+`PUBLIC_EXACT`.
 
 ## How isolation works (`lib/scoped-storage.ts`)
 
@@ -41,14 +48,18 @@ another user's data by editing the URL.
    **Google**, and **Microsoft** (Clerk walks you through each OAuth setup; for a
    quick start it can use Clerk's shared OAuth credentials, then you swap in your
    own before launch).
-3. Copy the two API keys into the web service's environment (Railway → web →
-   Variables):
+3. Copy the keys and redirect URLs into the web service's environment
+   (Railway → web → Variables) — all six are listed in
+   `apps/web/.env.local.example`:
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (starts `pk_...`)
    - `CLERK_SECRET_KEY` (starts `sk_...`)
-   - Keep the four `NEXT_PUBLIC_CLERK_*_URL` values from `.env.example`.
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard`,
+     `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard`
 4. Redeploy. Because `NEXT_PUBLIC_*` is inlined at build time, accounts turn on
-   with the new build. The site-password gate is then bypassed (auth replaces
-   it); you can remove `SITE_PASSWORD`, or set `SITE_GATE=off`.
+   with the new build, and the sign-in wall goes up in front of the whole app.
+   The site-password gate is then redundant (auth replaces it); you can remove
+   `SITE_PASSWORD`, or set `SITE_GATE=off`.
 
 ## Cross-device data
 

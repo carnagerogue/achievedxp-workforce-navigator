@@ -1,16 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { AUTH_ENABLED, PROTECTED_PREFIXES } from './lib/auth-config';
+import { clerkMiddleware } from '@clerk/nextjs/server';
+import { AUTH_ENABLED, isPublicPath } from './lib/auth-config';
 
 /**
  * Two request-time gates, chosen once at module load:
  *
- *  - **Accounts enabled** (a Clerk key is set): Clerk protects the personal
- *    routes (dashboard, plan, onboarding, assessment, caseworker, compare) —
- *    an unauthenticated visitor is redirected to /sign-in. Everything else
- *    (landing, jobs, resources, …) stays open, keeping the "browse without an
- *    account" promise. Per-user data isolation is handled client-side by the
- *    scope seam; this just enforces sign-in for the personal surfaces.
+ *  - **Accounts enabled** (a Clerk key is set): login comes before anything.
+ *    Every route is protected EXCEPT the tiny public allowlist (the welcome
+ *    page, /sign-in, /sign-up, and the static files those pages need). An
+ *    unauthenticated visitor to any system route is redirected to /sign-in;
+ *    they must log in or create an account to see or do anything. Per-user
+ *    data isolation is handled client-side by the scope seam; this enforces
+ *    the sign-in wall in front of all of it.
  *
  *  - **Accounts disabled** (no Clerk key): the pre-launch site-password gate
  *    below, unchanged — the safe fallback so nothing is ever exposed before
@@ -74,10 +75,9 @@ function constantTimeEqual(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
-/** Accounts-on path: Clerk protects only the personal routes; the rest is open. */
-const isProtectedRoute = createRouteMatcher(PROTECTED_PREFIXES.map((p) => `${p}(.*)`));
+/** Accounts-on path: everything requires sign-in except the public allowlist. */
 const clerkGate = clerkMiddleware((auth, req) => {
-  if (isProtectedRoute(req)) auth().protect();
+  if (!isPublicPath(req.nextUrl.pathname)) auth().protect();
 });
 
 /** Accounts-off path: the original pre-launch site-password gate. */

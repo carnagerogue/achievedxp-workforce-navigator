@@ -13,16 +13,35 @@ export const AUTH_ENABLED = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.length > 0,
 );
 
-/** Paths that require a signed-in user when auth is enabled (personal data). */
-export const PROTECTED_PREFIXES = [
-  '/dashboard',
-  '/plan',
-  '/onboarding',
-  '/assessment',
-  '/caseworker',
-  '/jobs/compare',
+/**
+ * The ONLY routes viewable without signing in, when accounts are enabled.
+ * Everything else in the app requires a signed-in user — login or account
+ * creation comes before anything in the system. Kept deliberately tiny.
+ *
+ * Exact-match, public:
+ *  - '/'                 the welcome / front door (its CTAs lead to sign-up)
+ *  - static files the welcome + auth pages need to render
+ *
+ * To make the login screen the very first thing anyone sees (no public
+ * welcome at all), remove '/' from PUBLIC_EXACT — the root will then redirect
+ * unauthenticated visitors straight to /sign-in.
+ */
+export const PUBLIC_EXACT = [
+  '/',
+  '/logo.png',
+  '/favicon.ico',
+  '/us-states-10m.json',
+  '/robots.txt',
 ];
 
-export function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+/** Prefix-match, public: the account pages themselves (+ Clerk sub-routes). */
+export const PUBLIC_PREFIXES = [
+  '/sign-in',
+  '/sign-up',
+];
+
+/** True when a path may be viewed without signing in (accounts-enabled mode). */
+export function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_EXACT.includes(pathname)) return true;
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
