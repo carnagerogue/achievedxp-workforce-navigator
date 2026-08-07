@@ -10,8 +10,16 @@ import {
 import { Reveal } from '../components/Reveal';
 import { Marquee } from '../components/Marquee';
 import { PosterStats } from '../components/PosterStats';
+import { AUTH_ENABLED } from '../lib/auth-config';
 
 export default function LandingPage() {
+  // When accounts are on, login comes before anything in the system, so the
+  // front door funnels into account creation / sign-in. When accounts are off
+  // (graceful mode), it opens straight into the app.
+  const primaryHref = AUTH_ENABLED ? '/sign-up' : '/dashboard';
+  const primaryLabel = AUTH_ENABLED ? 'Create your account' : 'Start here';
+  const secondaryHref = AUTH_ENABLED ? '/sign-in' : '/jobs';
+  const secondaryLabel = AUTH_ENABLED ? 'Sign in' : 'Just browse jobs';
   return (
     <div className="animate-fade-in">
       {/* ── Act 1 · The billboard ─────────────────────────────────────── */}
@@ -34,17 +42,17 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  href="/dashboard"
+                  href={primaryHref}
                   className="group inline-flex items-center gap-2 rounded-full bg-teal-600 py-4 pl-8 pr-7 text-base font-bold text-white transition hover:bg-teal-700 active:scale-[0.98]"
                 >
-                  Start here
+                  {primaryLabel}
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <Link
-                  href="/jobs"
+                  href={secondaryHref}
                   className="inline-flex items-center rounded-full px-6 py-4 text-base font-bold text-slate-500 transition hover:text-slate-900"
                 >
-                  Just browse jobs
+                  {secondaryLabel}
                 </Link>
               </div>
             </div>
@@ -135,10 +143,10 @@ export default function LandingPage() {
           </Reveal>
           <Reveal delay={140}>
             <Link
-              href="/dashboard"
+              href={primaryHref}
               className="group mt-12 inline-flex items-center gap-2 rounded-full bg-white py-4 pl-8 pr-7 text-base font-bold text-slate-950 transition hover:bg-teal-50 active:scale-[0.98]"
             >
-              Start here
+              {primaryLabel}
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
           </Reveal>

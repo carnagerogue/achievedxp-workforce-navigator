@@ -91,8 +91,9 @@ their one feed is genuinely aggregating, not empty theater.
   configured — same switch (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) as the rest of
   auth. No keys ⇒ the identity tiles show "Enabled by your program," nothing
   breaks.
-- `/apply-kit` and `/connections` are added to `PROTECTED_PREFIXES`, so when
-  accounts are on they require sign-in like the other personal-data routes.
+- `/apply-kit` and `/connections` sit behind the sign-in wall like the rest of
+  the app when accounts are on (login is required before anything; see
+  `docs/auth.md`).
 - We never store passwords for any external platform, and never apply on anyone's
   behalf. Those are product invariants, not TODOs.
 
