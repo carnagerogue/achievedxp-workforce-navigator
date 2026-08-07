@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, ExternalLink, ShieldCheck, Check, ArrowRight, Lock } from 'lucide-react';
 import { connect, type Provider } from '../../lib/connections';
+import { BrandGlyph } from './BrandGlyph';
 
 /**
  * The consent gate. Connecting is always: (1) see plainly what it does and does
@@ -39,9 +40,7 @@ export function ConnectDialog({ provider, onClose }: { provider: Provider; onClo
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-900/[0.06] px-5 py-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl text-base font-bold text-white" style={{ backgroundColor: provider.accent }}>
-              {provider.name.charAt(0)}
-            </span>
+            <BrandGlyph id={provider.id} size={44} />
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-slate-900">{provider.name}</h2>
               <p className="text-sm text-slate-500">{provider.blurb}</p>
