@@ -61,19 +61,19 @@ export default function CaseworkerCommandCenter() {
   );
 
   return (
-    <div className="animate-fade-in">
+    <div className="constellation-workspace animate-fade-in">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-8 text-white shadow-card sm:p-10">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_350px_at_85%_20%,rgba(245,91,29,0.18),transparent),radial-gradient(700px_350px_at_-10%_120%,rgba(30,166,156,0.25),transparent)]" />
+      <section className="relative overflow-hidden rounded-3xl border border-teal-400/45 bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 p-8 text-white shadow-card sm:p-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(700px_350px_at_85%_20%,rgba(23,148,138,0.24),transparent),radial-gradient(700px_350px_at_-10%_120%,rgba(245,91,29,0.12),transparent)]" />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/20 backdrop-blur">
               <ClipboardList className="h-7 w-7" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-200">Staff view · Reentry navigator</p>
-              <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Caseload Command Center</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-teal-50/90">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sunset-200">Staff view · Reentry navigator</p>
+              <h1 className="mt-2 font-display text-4xl font-black uppercase leading-[.85] tracking-[-.04em] sm:text-6xl">Caseload command center</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-teal-100">
                 Your whole caseload at a glance — who needs you today, what&rsquo;s overdue, and where each
                 person stands. Open anyone to their workspace: realistic matches, barriers mapped to local
                 help, training, the action plan, and live labor-market data, all in one place.

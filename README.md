@@ -2,9 +2,9 @@
 
 A production-grade job aggregation and matching platform built specifically for justice-impacted individuals. Real postings from federal, private-sector, and remote job boards are scored against each candidate's profile **and** their conviction history using two deterministic, fully auditable engines — never a black box.
 
-The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)**, serving real postings fetched live from up to 11 job sources, plus Department of Labor data feeds powering occupation, wage, training, and reentry-program lookups.
+The platform is live at **[web-production-059d02.up.railway.app](https://web-production-059d02.up.railway.app)**, serving postings from configured job sources plus Department of Labor lookups when CareerOneStop credentials are present. Live-data routes return an explicit official-finder fallback instead of invented records when credentials are absent.
 
-> **Architecture status (read this first):** the deployed product is the **Next.js web app alone**. Its `/api/v1/*` route handlers are the production backend: jobs are fetched live from the providers in `apps/web/lib/providers/` (10-minute in-process cache, bundled 40-posting fallback), all match scoring goes through `apps/web/lib/job-scoring.ts`, and profiles/assessments live in in-process memory that **resets on redeploy**. The earlier NestJS API (`apps/api/`, Prisma + Postgres + its ingestion pipeline) was never in the request path and has been **removed from the repo** — it lives in git history (commit `6553630` and earlier). The planned server-backed phase (see `docs/connected-backend-scope.md`) now targets the web app's own backend (`apps/web/app/api/v1` + the new storage layer). Sections below that mention the NestJS path describe that removed code, not today's deployment.
+> **Architecture status (read this first):** the deployed product is the **Next.js web app alone**. Its `/api/v1/*` route handlers are the production backend: jobs are fetched from providers with a bundled fallback, and all match scoring goes through `apps/web/lib/job-scoring.ts`. Profiles and assessments can use Postgres when accounts are enabled; guest-mode personal data is intentionally memory-only by default and resets with the server. The earlier NestJS API has been removed and is not in the request path.
 
 ---
 
@@ -84,7 +84,7 @@ Everything the user sees goes through **one scorer**: `scoreJobUnified` in `apps
 1. **Conviction compatibility** (`packages/shared/src/compatibility/` — see below): legal/duty barriers, worst-case across every conviction the person carries.
 2. **Realistic fit** (`apps/web/lib/realistic-fit.ts`): seniority gap, domain/skill overlap, location.
 
-Weights: with a conviction on file, compatibility dominates (**0.65 / 0.35**); without one, fit dominates (0.4 / 0.6). Categorical barriers — federal/security-clearance employers, "clean record required" postings, offense × industry legal bars — cap the score (≤ 30 / ≤ 25) and force the job into the **Avoid** bucket with a specific reason attached.
+Weights: with a conviction on file, compatibility dominates (**0.65 / 0.35**); without one, fit dominates (0.4 / 0.6). Categorical barriers — explicit clearance/security-sensitive duties, "clean record required" postings, and offense × industry legal bars — cap the score and force the job into the **Avoid** bucket with a specific reason attached. Federal employment alone is not treated as a barrier.
 
 *(The earlier server-side six-component `RuleScorer` belonged to the removed NestJS path — `apps/api/src/scoring/` in git history.)*
 
@@ -92,7 +92,7 @@ Weights: with a conviction on file, compatibility dominates (**0.65 / 0.35**); w
 
 **Question:** "Given this specific conviction, what's the realistic chance for this specific role?"
 
-Lives in `packages/shared/src/compatibility/` (pure TS — runs server-side and in the browser). When a user picks a conviction in the `/jobs` filter, every visible job is rescored client-side and re-ranked instantly. Seven components × weights summing to 100:
+Lives in `packages/shared/src/compatibility/` (pure TS — runs server-side and in the browser). When a user picks a conviction in the `/jobs` filter, the complete filtered pool is ranked server-side before pagination; the browser computes only the visible explanations. Seven components × weights summing to 100:
 
 | Component | Max | What it measures |
 |---|---:|---|
@@ -154,10 +154,10 @@ Every fetched job is classified before it enters the pool (`packages/shared` `cl
 - **Industry** detected from title + description keywords
 - **Risk tier** (LOW / MEDIUM / HIGH) from industry × keyword rules
 - **Background check likely** from posting language
-- **Excludes felons** from explicit phrases AND federal-employer detection
+- **Excludes records** only from explicit clean-record, clearance, or security-sensitive evidence
 - **Apprenticeship** flag from title/description markers
 
-The federal-employer override is conservative by design: if the employer name matches military, federal law-enforcement, BoP, or installation patterns (Fort, AFB, NAS, MCAS, Joint Base, Pearl Harbor, etc.), the job is forced to `riskTier=HIGH` + `excludesFelons=true`. Better to flag a federal civilian job that *might* accept a felony than to mislead a candidate into wasting an application.
+Federal employer names are not blanket exclusions. Civilian federal roles remain eligible for ordinary classification; only explicit clearance/public-trust language or security-sensitive duties raise the role to a categorical barrier.
 
 Deduplication uses a `(title, company, locationCity, locationRegion)` hash so the same role from multiple aggregators only lands once.
 

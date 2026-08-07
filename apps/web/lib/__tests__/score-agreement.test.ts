@@ -44,6 +44,7 @@ const POOL: JobDto[] = [
   job({ id: 'bank-teller', title: 'Bank Teller', industry: 'finance', description: 'Handle cash and customer accounts.', riskTier: 'HIGH', backgroundCheckLikely: true }),
   job({ id: 'clean-record', title: 'Warehouse Associate', industry: 'warehousing', excludesFelons: true, description: 'Clean background required.' }),
   job({ id: 'federal', title: 'Custodial Worker', company: 'U.S. Army', description: 'On-base custodial role.', riskTier: 'HIGH' }),
+  job({ id: 'clearance', title: 'Systems Analyst', company: 'Federal Contractor', description: 'Active Secret security clearance required.', riskTier: 'HIGH' }),
   job({ id: 'pharmacy', title: 'Pharmacy Technician', industry: 'healthcare', description: 'Dispense controlled medications.', riskTier: 'HIGH', backgroundCheckLikely: true }),
 ];
 
@@ -102,7 +103,7 @@ describe('server/client score agreement', () => {
     const res = await matchesFor(PROFILE.userId, POOL.length, POOL);
     const avoidIds = new Set(res.avoid.map((m) => m.jobId));
     expect(avoidIds.has('clean-record')).toBe(true);
-    expect(avoidIds.has('federal')).toBe(true);
+    expect(avoidIds.has('clearance')).toBe(true);
     for (const m of res.avoid) expect(m.reasons.length).toBeGreaterThan(0);
   });
 

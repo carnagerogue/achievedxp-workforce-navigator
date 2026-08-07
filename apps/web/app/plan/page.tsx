@@ -3,6 +3,7 @@
 import { ListChecks } from 'lucide-react';
 import { MyPlan } from '../../components/plan/MyPlan';
 import { CalendarExportButton } from '../../components/CalendarExportButton';
+import { JourneyRail } from '../../components/JourneyRail';
 
 /**
  * Top-level home for the person's plan. The workspace itself (steps,
@@ -12,12 +13,13 @@ import { CalendarExportButton } from '../../components/CalendarExportButton';
  */
 export default function PlanPage() {
   return (
-    <div className="animate-fade-in">
-      <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
+    <div className="constellation-workspace animate-fade-in">
+      <JourneyRail active="plan" />
+      <header className="border-y border-navy-900/20 bg-transparent py-8 sm:py-10">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sunset-600">
           <ListChecks className="h-3.5 w-3.5" /> Plan &amp; progress
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">
+        <h1 className="mt-2 font-display text-5xl font-black uppercase leading-[.85] tracking-[-.04em] text-navy-900 sm:text-7xl">
           My plan
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">

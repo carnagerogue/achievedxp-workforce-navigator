@@ -98,8 +98,8 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-900/[0.07] bg-white/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/65">
-      <div className="mx-auto flex h-[60px] max-w-6xl items-center gap-2 px-4 sm:px-6">
+    <header className="sticky top-0 z-30 border-b border-navy-900/10 bg-white/90 text-slate-900 backdrop-blur-xl">
+      <div className="mx-auto flex h-[64px] max-w-[1440px] items-center gap-2 px-4 sm:px-8">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-3 rounded-md" aria-label="Achieve DXP home">
           <Image src="/logo.png" alt="Achieve DXP" width={170} height={40} priority className="h-[30px] w-auto" />
@@ -115,34 +115,34 @@ export function SiteHeader() {
             return (
               <Link key={href} href={href}
                 className={'relative whitespace-nowrap rounded-lg px-3.5 py-2 text-sm transition-colors duration-150 ' +
-                  (active ? 'font-semibold text-slate-900' : 'font-medium text-slate-500 hover:text-slate-900')}
+                  (active ? 'font-semibold text-navy-900' : 'font-medium text-slate-500 hover:text-navy-900')}
                 aria-current={active ? 'page' : undefined}>
                 {label}
-                {active && <span aria-hidden="true" className="absolute inset-x-3.5 -bottom-[11px] h-[2px] rounded-full bg-teal-600" />}
+                {active && <span aria-hidden="true" className="absolute inset-x-3.5 -bottom-[13px] h-[2px] bg-teal-600" />}
               </Link>
             );
           })}
         </nav>
 
-        <div className="mx-1 hidden h-5 w-px bg-slate-900/10 sm:block" />
+        <div className="mx-1 hidden h-5 w-px bg-navy-900/10 sm:block" />
 
         {/* Search (palette) */}
         <button type="button" onClick={openPalette}
-          className="hidden shrink-0 items-center gap-2 rounded-full border border-slate-900/10 bg-white/60 py-1.5 pl-3 pr-1.5 text-xs font-medium text-slate-500 hover:border-slate-900/20 hover:text-slate-900 md:inline-flex"
+          className="hidden shrink-0 items-center gap-2 border border-slate-200 bg-white py-1.5 pl-3 pr-1.5 text-xs font-medium text-slate-500 hover:border-teal-400 hover:text-navy-900 md:inline-flex"
           aria-label="Search">
           <Search className="h-3.5 w-3.5" /> <span>Search</span>
-          <span className="flex items-center gap-0.5 rounded-full bg-slate-900/[0.05] px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+          <span className="flex items-center gap-0.5 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
             {modMeta ? <Command className="h-2.5 w-2.5" /> : 'Ctrl'}<span>K</span>
           </span>
         </button>
-        <button type="button" onClick={openPalette} className="inline-flex shrink-0 items-center justify-center rounded-full p-2 text-slate-500 hover:bg-slate-900/[0.05] hover:text-slate-900 md:hidden" aria-label="Search">
+        <button type="button" onClick={openPalette} className="inline-flex shrink-0 items-center justify-center p-2 text-slate-500 hover:bg-teal-50 hover:text-teal-700 md:hidden" aria-label="Search">
           <Search className="h-5 w-5" />
         </button>
 
         {/* Explore / Menu trigger — the one filled control in the chrome */}
         <button type="button" onClick={() => setOpen((v) => !v)}
-          className={'inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ' +
-            (open ? 'bg-slate-900 text-white' : 'bg-teal-600 text-white hover:bg-teal-700')}
+          className={'inline-flex shrink-0 items-center gap-1.5 border px-4 py-2 text-sm font-semibold ' +
+            (open ? 'border-teal-700 bg-teal-700 text-white' : 'border-teal-600 bg-teal-600 text-white hover:bg-teal-700')}
           aria-expanded={open} aria-haspopup="true" aria-label="Explore all tools">
           <Menu className="h-4 w-4 sm:hidden" aria-hidden="true" />
           <span className="hidden sm:inline">Explore</span>
@@ -157,14 +157,14 @@ export function SiteHeader() {
       {/* Menu panel */}
       {open && (
         <>
-          <button className="fixed inset-0 z-20 cursor-default bg-slate-950/20 backdrop-blur-[2px]" aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} />
+          <button className="fixed inset-0 z-20 cursor-default bg-navy-900/45 backdrop-blur-[2px]" aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} />
           <div ref={menuRef} className="absolute inset-x-3 top-full z-30 mt-2 sm:inset-x-auto sm:right-6 sm:w-[640px]">
-            <div className="animate-slide-up overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white shadow-pop">
+            <div className="animate-slide-up overflow-hidden border border-slate-200 bg-white text-slate-900 shadow-pop">
               {/* Featured: the guided home */}
-              <Link href="/dashboard" className="group flex items-center gap-3.5 border-b border-slate-900/[0.06] px-5 py-4 transition-colors hover:bg-teal-50/60">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-teal-600 text-white transition-transform duration-200 group-hover:scale-105"><Compass className="h-5 w-5" /></span>
+              <Link href="/dashboard" className="group flex items-center gap-3.5 border-b border-slate-200 px-5 py-4 transition-colors hover:bg-teal-50">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-teal-600 bg-teal-600 text-white transition-transform duration-200 group-hover:scale-105"><Compass className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold tracking-tight text-slate-900">Your next step</span>
+                  <span className="block text-[15px] font-semibold tracking-tight text-navy-900">Your next step</span>
                   <span className="block text-xs text-slate-500">The reentry compass — one step at a time, in the order that works.</span>
                 </span>
                 <span className="text-xs font-semibold text-teal-700 opacity-0 transition-opacity duration-150 group-hover:opacity-100">Open</span>
@@ -173,18 +173,18 @@ export function SiteHeader() {
               <div className="grid gap-x-8 gap-y-5 p-5 sm:grid-cols-2">
                 {GROUPS.map((g) => (
                   <div key={g.title}>
-                    <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{g.title}</p>
+                    <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-sunset-600">{g.title}</p>
                     <ul>
                       {g.items.map((it) => {
                         const active = isActive(pathname, it.href);
                         return (
                           <li key={it.href + it.label}>
                             <Link href={it.href}
-                              className={'group flex items-center gap-3 rounded-xl px-2 py-[7px] transition-colors duration-150 ' + (active ? 'bg-teal-50/70' : 'hover:bg-slate-900/[0.04]')}>
-                              <span className={'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] transition-colors ' + (active ? 'bg-teal-600 text-white' : 'bg-slate-900/[0.05] text-slate-500 group-hover:text-slate-700')}><it.Icon className="h-4 w-4" strokeWidth={1.75} /></span>
+                              className={'group flex items-center gap-3 px-2 py-[7px] transition-colors duration-150 ' + (active ? 'bg-teal-50' : 'hover:bg-slate-50')}>
+                              <span className={'inline-flex h-8 w-8 shrink-0 items-center justify-center border transition-colors ' + (active ? 'border-teal-600 bg-teal-600 text-white' : 'border-slate-200 bg-white text-slate-500 group-hover:border-teal-300 group-hover:text-teal-700')}><it.Icon className="h-4 w-4" strokeWidth={1.75} /></span>
                               <span className="min-w-0">
-                                <span className={'block text-sm ' + (active ? 'font-semibold text-teal-800' : 'font-medium text-slate-800')}>{it.label}</span>
-                                <span className="block text-[11px] leading-tight text-slate-400">{it.sub}</span>
+                                <span className={'block text-sm ' + (active ? 'font-semibold text-teal-800' : 'font-medium text-navy-900')}>{it.label}</span>
+                                <span className="block text-[11px] leading-tight text-slate-500">{it.sub}</span>
                               </span>
                             </Link>
                           </li>

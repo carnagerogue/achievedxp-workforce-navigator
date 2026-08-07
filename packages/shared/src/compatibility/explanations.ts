@@ -140,10 +140,12 @@ function buildChanceImprovers(input: {
   candidate: CandidateProfile;
   matrixWorst: MatrixMatch;
   signals: SignalsResult;
-  conviction: ConvictionType;
+  conviction?: ConvictionType;
 }): string[] {
   const out: string[] = [];
-  if (!input.candidate.expungedOrSealed) pushUnique(out, 'Pursue expungement or record sealing if eligible in your state.');
+  if (input.conviction && !input.candidate.expungedOrSealed) {
+    pushUnique(out, 'Pursue expungement or record sealing if eligible in your state.');
+  }
   if (!(input.candidate.certifications ?? []).some((c) => /osha|cdl|forklift|servsafe|nccer|aws/i.test(c))) {
     pushUnique(out, 'Add an industry-recognized certification (e.g. OSHA 10, forklift, ServSafe) to strengthen your profile.');
   }
@@ -165,7 +167,9 @@ function buildChanceImprovers(input: {
     }
   }
   if ((input.candidate.workExperienceIndustries ?? []).length === 0) {
-    pushUnique(out, 'Document any post-release work experience and add it to your profile.');
+    pushUnique(out, input.conviction
+      ? 'Document any post-release work experience and add it to your profile.'
+      : 'Add relevant work experience to your profile.');
   }
   return out;
 }
@@ -201,10 +205,15 @@ function buildCaseworkerNotes(input: {
 
 export function recommendNextStep(
   chance: ChanceLevel,
-  conviction: ConvictionType,
+  conviction: ConvictionType | undefined,
   matrixWorst: MatrixMatch,
   signals: SignalsResult,
 ): string {
+  if (!conviction) {
+    if (chance === 'high') return 'This role aligns well with the skills and preferences currently in your profile.';
+    if (chance === 'medium') return 'Review the job requirements and add any missing skills or experience to your profile before applying.';
+    return 'Compare the role requirements with your experience, or start with a closer-fit role.';
+  }
   if (chance === 'high') {
     return 'Apply now. This role has low detected conflict with the selected conviction history.';
   }
@@ -278,7 +287,7 @@ export function generateExplanations(input: {
     candidate: input.candidate,
     matrixWorst: input.matrixWorst,
     signals: input.signals,
-    conviction: input.candidate.convictionType ?? 'other',
+    conviction: input.candidate.convictionType,
   });
   const caseworkerNotes = buildCaseworkerNotes({
     conviction: input.candidate.convictionType ?? 'other',

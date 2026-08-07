@@ -28,6 +28,10 @@
  */
 import { memGetDoc, memPutDoc } from './memory';
 import { pgGetDoc, pgPutDoc, postgresConfigured } from './postgres';
+import { AUTH_ENABLED } from '../auth-config';
+
+const guestPersistenceEnabled = () =>
+  process.env.ALLOW_GUEST_PERSISTENCE === 'true';
 
 export async function getDoc<T>(collection: string, id: string): Promise<T | null> {
   const cached = memGetDoc<T>(collection, id);
@@ -46,5 +50,29 @@ export async function putDoc<T>(collection: string, id: string, doc: T): Promise
   // see the write immediately, and a DB outage never loses in-session state.
   memPutDoc(collection, id, doc);
   if (!postgresConfigured()) return;
+  await pgPutDoc(collection, id, doc);
+}
+
+/**
+ * Personal records are durable only behind verified accounts by default.
+ * Guest/demo mode still works for the current server session, but it will not
+ * write profiles or assessments to Postgres unless an operator deliberately
+ * opts in with ALLOW_GUEST_PERSISTENCE=true.
+ */
+export async function getPersonalDoc<T>(collection: string, id: string): Promise<T | null> {
+  const cached = memGetDoc<T>(collection, id);
+  if (cached !== null) return cached;
+  if ((!AUTH_ENABLED && !guestPersistenceEnabled()) || !postgresConfigured()) return null;
+  const res = await pgGetDoc(collection, id);
+  if (res.ok && res.doc != null) {
+    memPutDoc(collection, id, res.doc);
+    return res.doc as T;
+  }
+  return null;
+}
+
+export async function putPersonalDoc<T>(collection: string, id: string, doc: T): Promise<void> {
+  memPutDoc(collection, id, doc);
+  if ((!AUTH_ENABLED && !guestPersistenceEnabled()) || !postgresConfigured()) return;
   await pgPutDoc(collection, id, doc);
 }

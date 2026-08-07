@@ -165,7 +165,8 @@ async function fetchGreenhouse(e: Employer): Promise<JobDto[]> {
   const url = `https://boards-api.greenhouse.io/v1/boards/${e.slug}/jobs?content=true`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(8000),
+    cache: 'no-store',
   });
   if (!res.ok) return [];
   const data = (await res.json()) as { jobs?: GreenhouseJob[] };
@@ -215,7 +216,8 @@ async function fetchLever(e: Employer): Promise<JobDto[]> {
   const url = `https://api.lever.co/v0/postings/${e.slug}?mode=json`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(8000),
+    cache: 'no-store',
   });
   if (!res.ok) return [];
   const data = (await res.json()) as LeverPosting[] | { data?: LeverPosting[] };
@@ -276,7 +278,8 @@ async function fetchAshby(e: Employer): Promise<JobDto[]> {
   const url = `https://api.ashbyhq.com/posting-api/job-board/${e.slug}?includeCompensation=true`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(8000),
+    cache: 'no-store',
   });
   if (!res.ok) return [];
   const data = (await res.json()) as { jobs?: AshbyJob[] };

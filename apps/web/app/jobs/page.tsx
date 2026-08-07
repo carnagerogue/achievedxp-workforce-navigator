@@ -39,6 +39,8 @@ import { CompatibilityDrawer } from '../../components/CompatibilityDrawer';
 import { prettyDate, prettyIndustry, prettySalary } from '../../lib/format';
 import { parseLocationInput } from '../../lib/location-parse';
 import { useDebounce } from '../../lib/use-debounce';
+import { getUserId } from '../../lib/session';
+import { JourneyRail } from '../../components/JourneyRail';
 
 /**
  * Map between the legacy uppercase OffenseType (DB enum) and the lowercase
@@ -153,6 +155,7 @@ function JobsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
   const [localProfile, setLocalProfile] = useState<StoredProfile | null>(null);
+  const [userId, setCurrentUserId] = useState<string | null>(null);
 
   // Load the saved profile so browse scores with the user's real background
   // (the same shared scorer the dashboard uses) — not conviction-only. Default
@@ -161,6 +164,7 @@ function JobsPage() {
   useEffect(() => {
     const p = getLocalProfile();
     setLocalProfile(p);
+    setCurrentUserId(getUserId());
     const fromProfile = p?.convictions?.[0]?.offenseType;
     if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
     if (!sp?.get('region')) {
@@ -188,6 +192,10 @@ function JobsPage() {
     return { candidates: [], convictionTypes: [], profile: null, hasConvictions: false };
   }, [offenseType, localProfile]);
 
+  const hasCompatibilityContext = Boolean(
+    offenseType || (localProfile?.convictions?.length ?? 0) > 0,
+  );
+
   // Debounce the text inputs so we don't hit the API on every keystroke.
   // 300ms feels instant but eliminates burst requests.
   const dq        = useDebounce(q, 300);
@@ -199,8 +207,8 @@ function JobsPage() {
   // offset) in a single effect so a filter change can't race a stale `offset`
   // into a wrong-page append + redundant fetch (was two effects sharing deps).
   const queryKey = useMemo(
-    () => JSON.stringify([dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly]),
-    [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly],
+    () => JSON.stringify([dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly, userId]),
+    [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly, userId],
   );
   const prevQueryKey = useRef(queryKey);
 
@@ -234,6 +242,7 @@ function JobsPage() {
       postedWithinDays: postedWithinDays || undefined,
       remote: remote || undefined,
       apprenticeshipsOnly: apprenticeshipsOnly || undefined,
+      userId: userId || undefined,
       limit: PAGE_SIZE,
       offset,
     })
@@ -253,12 +262,13 @@ function JobsPage() {
   const hasMore = results.length < total;
 
   /**
-   * When a conviction is selected, score every visible job with the
-   * compatibility engine and re-rank by score descending. Pure function,
-   * runs locally, ~few-ms per 50 jobs.
+   * The API has already ranked the entire filtered pool before pagination.
+   * Compute ratings here only for explanation UI; never re-sort this page,
+   * otherwise page 2 could outrank page 1 without the user seeing it.
    */
   const scoredResults = useMemo(() => {
-    const out = results.map((job) => {
+    return results.map((job) => {
+      if (!hasCompatibilityContext) return { job, rating: null };
       const u = scoreJobUnified(scoreInputs, job);
       // Overlay the unified score/chance/label onto the rating so the chip and
       // sort reflect the blended (conviction + realistic-fit + barriers) result
@@ -266,14 +276,13 @@ function JobsPage() {
       const rating = { ...u.rating, score: u.score, chance: u.chance, label: u.label } as CompatibilityRating;
       return { job, rating };
     });
-    out.sort((a, b) => b.rating.score - a.rating.score);
-    return out;
-  }, [results, scoreInputs]);
+  }, [results, scoreInputs, hasCompatibilityContext]);
 
   /** Apply the chance-band filter. Even when hiding, surface a count so users know jobs were filtered. */
   const visibleResults = useMemo(() => {
     if (chanceFilter === 'all') return scoredResults;
     return scoredResults.filter(({ rating }) => {
+      if (!rating) return true;
       if (chanceFilter === 'high_only')   return rating.chance === 'high';
       if (chanceFilter === 'high_medium') return rating.chance !== 'low';
       if (chanceFilter === 'hide_low')    return rating.chance !== 'low';
@@ -282,6 +291,9 @@ function JobsPage() {
   }, [scoredResults, chanceFilter]);
 
   const hiddenLowCount = scoredResults.length - visibleResults.length;
+  const activeConviction = offenseType
+    ? OFFENSE_TO_CONVICTION[offenseType]
+    : scoreInputs.candidates.find((candidate) => candidate.convictionType)?.convictionType ?? null;
 
   // Active-filter chip descriptors used in the summary row below the filter card.
   const activeChips: Array<{ key: string; label: string; onClear: () => void }> = [];
@@ -312,12 +324,13 @@ function JobsPage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="constellation-workspace animate-fade-in">
+      <JourneyRail active="work" />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">Browse jobs</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          All active postings ingested from our sources. Filter by conviction history to see
-          only roles a candidate with that record would pass.
+        <p className="section-kicker text-sunset-600">Phase 04 · Find work</p>
+        <h1 className="mt-2 font-display text-5xl font-black uppercase leading-[.82] tracking-[-.04em] text-navy-900 sm:text-7xl">Find work that fits.</h1>
+        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+          Search active postings across every source. Add a profile or optional background context when you want personalized fit guidance.
         </p>
       </div>
 
@@ -347,7 +360,7 @@ function JobsPage() {
       </div>
 
       {/* ─────────── Filter card ─────────── */}
-      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+      <div className="navigator-panel mb-5 rounded-2xl border border-navy-900/20 bg-white/55 p-5 shadow-card">
         <button
           type="button"
           onClick={() => setShowFilters((v) => !v)}
@@ -462,7 +475,7 @@ function JobsPage() {
             )}
           </FilterField>
 
-          {offenseType && (
+          {hasCompatibilityContext && (
             <FilterField label="Compatibility filter" Icon={Scale}>
               <select
                 value={chanceFilter}
@@ -542,7 +555,7 @@ function JobsPage() {
 
       {/* ─────────── Results ─────────── */}
       {loading ? (
-        <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+        <ul className="jobs-list divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
           {Array.from({ length: 6 }).map((_, i) => <JobRowSkeleton key={i} />)}
         </ul>
       ) : results.length === 0 ? (
@@ -553,13 +566,13 @@ function JobsPage() {
             <strong className="font-semibold text-navy-900">{total.toLocaleString()}</strong> total
             <span className="mx-1.5 text-slate-300">·</span>
             showing {visibleResults.length.toLocaleString()}
-            {offenseType && hiddenLowCount > 0 && (
+            {hasCompatibilityContext && hiddenLowCount > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
                 {hiddenLowCount} hidden by compatibility filter
               </span>
             )}
           </p>
-          <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+          <ul className="jobs-list divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
             {visibleResults.map(({ job, rating }) => (
               <JobRow
                 key={job.id}
@@ -592,7 +605,7 @@ function JobsPage() {
         rating={drawerJob?.rating ?? null}
         jobTitle={drawerJob?.job.title ?? ''}
         company={drawerJob?.job.company ?? ''}
-        conviction={offenseType ? OFFENSE_TO_CONVICTION[offenseType] : null}
+        conviction={activeConviction}
         job={drawerJob ? {
           id: drawerJob.job.id,
           title: drawerJob.job.title,
@@ -609,7 +622,7 @@ function JobsPage() {
           requiredSkills: drawerJob.job.requiredSkills,
           requiredCertifications: drawerJob.job.requiredCertifications,
         } : undefined}
-        candidate={offenseType ? { convictionType: OFFENSE_TO_CONVICTION[offenseType] } : undefined}
+        candidate={activeConviction ? { convictionType: activeConviction } : undefined}
       />
     </div>
   );
@@ -710,7 +723,7 @@ function JobRow({
     ? (job.locationPostalCode ? `${cityRegion} ${job.locationPostalCode}` : cityRegion)
     : 'Location TBD';
   const salary = prettySalary(job.salaryMin, job.salaryMax, job.salaryCurrency);
-  const decision = decisionFor(job, { convictionSelected: !!rating });
+  const decision = decisionFor(job, { convictionSelected: rating !== null });
 
   return (
     <li className="group relative transition-colors hover:bg-slate-50/70">

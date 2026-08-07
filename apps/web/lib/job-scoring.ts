@@ -5,7 +5,7 @@
  *
  * Blends conviction compatibility (legal/duty barriers) with realistic fit
  * (seniority, domain, skills, location), caps for attainability, and flags
- * categorical barriers: federal/clearance employers, clean-record postings,
+ * categorical barriers: clearance/security roles, clean-record postings,
  * and offense-specific legal bars. Pure + isomorphic (no server-only deps) so
  * the server mock backend and the client pages share it.
  */
@@ -20,22 +20,15 @@ import {
 import { realisticFit, type RealisticFit, type FitBreakdown } from './realistic-fit';
 import type { StoredProfile } from './profile-store';
 
-// Federal / security-clearance employers run suitability/clearance checks that
-// are typically disqualifying for justice-impacted applicants — surfacing them
-// as strong matches wastes the user's time.
+// Only explicit clearance/suitability language or security-sensitive duties
+// are categorical. Federal employment by itself is not: USAJOBS and OPM say
+// people with records are eligible for the vast majority of federal jobs.
 const EXCLUSIONARY_EMPLOYER = new RegExp(
   [
-    '\\bU\\.?\\s?S\\.?\\s?(Army|Navy|Air Force|Marines?|Coast Guard|Marshals?)\\b',
-    '\\bArmy (National Guard|Reserve)\\b', '\\bNational Guard\\b',
-    '\\bNaval (Air|Sea|Surface|Special|Information|Installations|Education|Station|Base)\\b',
-    '\\bMarine Corps\\b', '\\bSpace Force\\b', '\\bAir Force\\b',
-    '\\bDepartment of Defense\\b', '\\bDefense (Logistics|Commissary|Finance|Information|Intelligence)\\b',
-    '\\bPentagon\\b', '\\bBureau of Prisons\\b', '\\bFederal (Prison|Penitentiary|Correctional|Bureau of Investigation|Protective Service)\\b',
-    '\\bSecret Service\\b', '\\bFBI\\b', '\\bDrug Enforcement\\b', '\\bCustoms and Border\\b', '\\bBorder Patrol\\b',
-    '\\bImmigration and Customs\\b', '\\bTransportation Security Administration\\b', '\\bTSA\\b',
-    '\\bCentral Intelligence\\b', '\\bNational Security Agency\\b', '\\bCommander,',
     '\\bsecurity clearance\\b', '\\btop[\\s-]secret\\b', '\\bsecret clearance\\b', '\\bpolice officer\\b',
-    '\\bcorrectional? officer\\b', '\\bdeputy (sheriff|marshal)\\b',
+    '\\bpublic trust\\b', '\\bts\\/sci\\b', '\\bcjis\\b', '\\bhspd[\\s-]?12\\b', '\\bpiv credential\\b',
+    '\\bcorrectional? officer\\b', '\\bdeputy (sheriff|marshal)\\b', '\\bspecial agent\\b',
+    '\\barmed (guard|security)\\b', '\\bprison guard\\b',
   ].join('|'),
   'i',
 );
@@ -100,7 +93,7 @@ export interface UnifiedScore {
   label: string;
   breakdown: FitBreakdown;
   explanation: string;
-  /** Categorical barrier reasons (federal employer, clean-record, legal bar). */
+  /** Categorical barrier reasons (clearance/security role, clean-record, legal bar). */
   flags: string[];
   hardBlockReason: string | null;
   rating: CompatibilityRating;
@@ -140,7 +133,7 @@ export function scoreJobUnified(inputs: ScoreInputs, job: JobDto, ctx?: JobScore
   score = Math.min(score, fit.attainabilityCap);
 
   const flags: string[] = [];
-  if (exclusionary) { score = Math.min(score, 30); flags.push('Federal / security-clearance employer — typically disqualifies people with records.'); }
+  if (exclusionary) { score = Math.min(score, 30); flags.push('This posting signals a clearance or security-sensitive role that may create a serious barrier.'); }
   if (job.excludesFelons) { score = Math.min(score, 25); flags.push('Posting states a clean record is required.'); }
   if (hardBlockReason) { score = Math.min(score, 25); flags.push(hardBlockReason); }
   score = Math.max(0, Math.round(score));

@@ -81,6 +81,17 @@ describe('eligibility / fair-chance (verified evidence only)', () => {
     expect(r.fairChance.value).toBe(false);          // but NOT confirmed fair-chance
     expect(r.fairChance.confidence).toBe('uncertain');
   });
+
+  it('does not turn an ordinary federal civilian role into a hard barrier', () => {
+    const r = classifyEligibility({
+      ...base,
+      company: 'U.S. Department of Labor',
+      title: 'Program Support Assistant',
+      description: longDesc('Provide scheduling and administrative support. Applicants are evaluated individually.'),
+    }, 'government');
+    expect(r.excludesFelons.value).toBe(false);
+    expect(r.backgroundCheckLikely.value).toBe(true);
+  });
 });
 
 describe('industry confidence', () => {
@@ -90,6 +101,11 @@ describe('industry confidence', () => {
   });
   it('is uncertain when nothing matches', () => {
     expect(classifyIndustry({ ...base, title: 'Underwater Basket Weaver', description: 'misc' }).confidence).toBe('uncertain');
+  });
+  it('uses strong title/company evidence before noisy description text', () => {
+    expect(classifyIndustry({ ...base, title: 'Associate, Capital Markets', description: 'Work with a modern data warehouse.' }).value).toBe('finance');
+    expect(classifyIndustry({ ...base, company: 'Supply Coffee', title: 'Junior Team Member', description: 'Education stipend included.' }).value).toBe('food_service');
+    expect(classifyIndustry({ ...base, title: 'Research Engineer Intern', description: 'Help construct reliable research systems.' }).value).toBe('it_general');
   });
 });
 

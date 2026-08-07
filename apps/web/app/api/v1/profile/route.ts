@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { PROFILE_COLLECTION, type StoredProfile } from '../../../../lib/profile-store';
-import { putDoc } from '../../../../lib/storage';
+import { putPersonalDoc } from '../../../../lib/storage';
 import { resolveUserId } from '../../../../lib/auth-server';
 
 export const runtime = 'nodejs';
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   // the profile survives redeploys. (No-op against a real backend, which is
   // selected via NEXT_PUBLIC_API_URL.)
   const profile = { ...body, userId } as StoredProfile;
-  await putDoc(PROFILE_COLLECTION, userId, profile);
+  await putPersonalDoc(PROFILE_COLLECTION, userId, profile);
 
   return NextResponse.json({ ok: true, profile });
 }

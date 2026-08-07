@@ -10,6 +10,7 @@ import { CommandPalette } from '../components/CommandPalette';
 import { KeyboardHelp } from '../components/KeyboardHelp';
 import { AuthProvider } from '../components/auth/AuthProvider';
 import { AuthScopeSync } from '../components/auth/AuthScopeSync';
+import { AUTH_ENABLED } from '../lib/auth-config';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -37,8 +38,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthScopeSync />
           <ToastProvider>
             <SiteHeader />
-            <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-              <ErrorBoundary>{children}</ErrorBoundary>
+            {!AUTH_ENABLED && (
+              <div className="preview-notice" role="status">
+                <strong>Private preview</strong>
+                <span className="preview-notice__full">Guest profile data stays in this server session and may reset. Do not enter sensitive case notes.</span>
+                <span className="preview-notice__short">Guest data may reset. Avoid sensitive case notes.</span>
+              </div>
+            )}
+            <main id="main-content" className="mx-auto w-full max-w-[1440px] flex-1 px-5 sm:px-8">
+              <div className="workspace-shell"><ErrorBoundary>{children}</ErrorBoundary></div>
             </main>
             <SiteFooter />
             <CompareBar />
