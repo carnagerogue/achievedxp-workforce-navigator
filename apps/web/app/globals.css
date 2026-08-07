@@ -100,6 +100,19 @@ body {
     radial-gradient(800px 560px at 80% 18%, rgba(23, 148, 138, .38), transparent 68%),
     linear-gradient(135deg, #1d2640 0%, #283558 58%, #0b3d3a 100%);
 }
+.landing-constellation { --hero-progress: 0; }
+.constellation-art {
+  transform: translate3d(0, calc(var(--hero-progress) * 72px), 0) scale(calc(1 + var(--hero-progress) * .035));
+  transform-origin: 68% 42%;
+  will-change: transform;
+}
+.constellation-art path { stroke-dasharray: 14 8; stroke-dashoffset: calc(var(--hero-progress) * -150px); }
+.constellation-art circle { transform-box: fill-box; transform-origin: center; animation: constellationPulse 3.8s ease-in-out infinite; }
+.constellation-art circle:nth-of-type(2n) { animation-delay: -1.9s; }
+@keyframes constellationPulse {
+  0%, 100% { opacity: .55; transform: scale(.75); }
+  50% { opacity: 1; transform: scale(1.45); }
+}
 .product-constellation {
   background:
     radial-gradient(800px 520px at 20% 70%, rgba(23, 148, 138, .24), transparent 70%),
@@ -119,6 +132,14 @@ body {
   color: transparent;
   -webkit-text-stroke: 2px #79cbc4;
   text-wrap: balance;
+}
+.hero-title {
+  color: #f0faf9;
+  -webkit-text-stroke: 1px rgba(121, 203, 196, .95);
+  text-shadow: 0 10px 40px rgba(2, 12, 28, .26);
+  transform: translate3d(0, calc(var(--hero-progress) * -58px), 0);
+  opacity: calc(1 - var(--hero-progress) * .34);
+  will-change: transform, opacity;
 }
 .display-outline--small {
   display: inline-block;
@@ -145,7 +166,7 @@ body {
 .signal-button--ghost { background: transparent; color: #fff; }
 .signal-button--ghost:hover { background: rgba(67, 173, 165, .14); }
 
-.journey-path { position: relative; display: grid; gap: .75rem; padding-left: 1.5rem; }
+.journey-path { position: relative; display: grid; gap: .75rem; padding-left: 1.5rem; transform: translate3d(0, calc(var(--hero-progress) * 30px), 0); will-change: transform; }
 .journey-path::before {
   content: "";
   position: absolute;
@@ -153,6 +174,18 @@ body {
   left: 1.68rem;
   width: 1px;
   background: linear-gradient(#43ada5, rgba(67, 173, 165, .12));
+}
+.journey-path::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset-block: 2rem;
+  left: 1.63rem;
+  width: 2px;
+  background: linear-gradient(#ff7a3d, #43ada5);
+  transform: scaleY(calc(.08 + var(--hero-progress) * .92));
+  transform-origin: top;
+  box-shadow: 0 0 16px rgba(67, 173, 165, .38);
 }
 .journey-node {
   position: relative;
@@ -179,6 +212,55 @@ body {
 .product-preview__rail > * { padding: .9rem; border-right: 1px solid rgba(255,255,255,.12); }
 .product-preview__rail strong { color: #ffa272; }
 .product-preview__body { padding: clamp(1.5rem, 4vw, 3.2rem); }
+
+/* Scroll choreography: the route draws while content enters from the
+   direction it occupies. Hidden states are applied only after hydration. */
+.scroll-stage { --section-progress: 0; position: relative; }
+.scroll-stage::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: -1px auto auto 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #f55b1d, #43ada5 70%, transparent);
+  transform: scaleX(var(--section-progress));
+  transform-origin: left;
+  box-shadow: 0 0 14px rgba(67, 173, 165, .22);
+}
+.landing-scroll-ready [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 48px, 0);
+  transition:
+    opacity .72s cubic-bezier(.2,.7,.2,1),
+    transform .9s cubic-bezier(.16,1,.3,1),
+    clip-path .95s cubic-bezier(.16,1,.3,1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, clip-path;
+}
+.landing-scroll-ready [data-reveal="left"] { transform: translate3d(-64px, 18px, 0); }
+.landing-scroll-ready [data-reveal="right"] { transform: translate3d(64px, 18px, 0); }
+.landing-scroll-ready [data-reveal="step"] { transform: translate3d(36px, 24px, 0); }
+.landing-scroll-ready [data-reveal="card"] { transform: translate3d(0, 84px, 0); clip-path: inset(0 0 72% 0); }
+.landing-scroll-ready [data-reveal="preview"] { transform: translate3d(72px, 60px, 0); clip-path: inset(0 0 18% 12%); }
+.landing-scroll-ready [data-reveal].is-visible { opacity: 1; transform: translate3d(0, 0, 0); clip-path: inset(0); }
+
+.scroll-cue {
+  position: absolute;
+  z-index: 3;
+  bottom: 1.4rem;
+  left: clamp(1.25rem, 4vw, 4rem);
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: #ade2dd;
+  font-size: .62rem;
+  font-weight: 750;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+.scroll-cue i { position: relative; display: block; width: 66px; height: 1px; overflow: hidden; background: rgba(173,226,221,.24); }
+.scroll-cue i::after { content: ""; position: absolute; inset: 0; background: #ff7a3d; transform: translateX(calc(-100% + var(--hero-progress) * 100%)); }
 
 .constellation-workspace > .mb-6:first-of-type { border-bottom: 1px solid rgba(29, 38, 64, .18); padding-bottom: 1.75rem; }
 .navigator-panel { position: relative; overflow: hidden; }
@@ -208,6 +290,11 @@ body {
   .preview-notice__short { display: inline; }
   .workspace-shell { padding-inline: 1rem; }
   .display-outline { -webkit-text-stroke-width: 1.4px; }
+  .hero-title { -webkit-text-stroke-width: .75px; }
+  .scroll-cue { display: none; }
+  .landing-scroll-ready [data-reveal="left"],
+  .landing-scroll-ready [data-reveal="right"],
+  .landing-scroll-ready [data-reveal="preview"] { transform: translate3d(0, 44px, 0); }
   .journey-node { margin-left: 0 !important; grid-template-columns: 1.5rem 2.4rem 1fr; }
   .product-preview__rail { grid-template-columns: repeat(2, 1fr); }
 }
@@ -233,6 +320,13 @@ body {
     transition-duration: 0.01ms !important;
   }
   html { scroll-behavior: auto; }
+  .constellation-art,
+  .hero-title,
+  .journey-path,
+  .landing-scroll-ready [data-reveal] { opacity: 1 !important; transform: none !important; clip-path: none !important; }
+  .constellation-art circle { animation: none !important; }
+  .scroll-stage::before,
+  .journey-path::after { transform: none !important; }
 }
 
 /* Custom scrollbar — slim, not invisible, matches palette */
