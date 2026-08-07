@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ReentryInputs } from './reentry-journey';
+import { lsGet, lsSet, onStoreChange } from './scoped-storage';
 
 /**
  * Reentry Compass state — the user's light self-reported context (for
@@ -19,26 +20,23 @@ const listeners = new Set<Listener>();
 const emit = () => listeners.forEach((fn) => fn());
 
 function read<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try { const raw = window.localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback; }
-  catch { return fallback; }
+  const raw = lsGet(key);
+  try { return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
 }
-function write<T>(key: string, value: T) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
-}
+function write<T>(key: string, value: T) { lsSet(key, JSON.stringify(value)); }
 
 let inputs: ReentryInputs = read<ReentryInputs>(INPUTS_KEY, {});
 let done: string[] = read<string[]>(DONE_KEY, []);
 let futureSelf: string = read<string>(GOAL_KEY, '');
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === INPUTS_KEY) { inputs = read<ReentryInputs>(INPUTS_KEY, {}); emit(); }
-    else if (e.key === DONE_KEY) { done = read<string[]>(DONE_KEY, []); emit(); }
-    else if (e.key === GOAL_KEY) { futureSelf = read<string>(GOAL_KEY, ''); emit(); }
-  });
-}
+// Re-read from the active scope whenever the signed-in user changes or another
+// tab writes. This is what makes the store per-user.
+onStoreChange(() => {
+  inputs = read<ReentryInputs>(INPUTS_KEY, {});
+  done = read<string[]>(DONE_KEY, []);
+  futureSelf = read<string>(GOAL_KEY, '');
+  emit();
+});
 function subscribe(fn: Listener) { listeners.add(fn); return () => listeners.delete(fn); }
 
 export function getReentryInputs(): ReentryInputs { return inputs; }

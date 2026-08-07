@@ -1,6 +1,7 @@
 'use client';
 
 import type { StoredProfile } from './profile-store';
+import { lsGet, lsSet, lsRemove } from './scoped-storage';
 
 /**
  * Client-side copy of the user's profile (localStorage), written at onboarding.
@@ -14,25 +15,20 @@ import type { StoredProfile } from './profile-store';
  * the personal profile fully client-side is part of the auth/PII decision in
  * docs/caseworker-auth-plan.md.)
  */
-const KEY = 'dxp.profile';
+const KEY = 'profile';
 
 /** The stored profile plus account fields the wizard needs to re-hydrate on edit. */
 export type LocalProfile = StoredProfile & { email?: string; displayName?: string };
 
 export function getLocalProfile(): LocalProfile | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as LocalProfile) : null;
-  } catch { return null; }
+  const raw = lsGet(KEY);
+  try { return raw ? (JSON.parse(raw) as LocalProfile) : null; } catch { return null; }
 }
 
 export function setLocalProfile(p: LocalProfile) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* quota */ }
+  lsSet(KEY, JSON.stringify(p));
 }
 
 export function clearLocalProfile() {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.removeItem(KEY); } catch { /* ignore */ }
+  lsRemove(KEY);
 }

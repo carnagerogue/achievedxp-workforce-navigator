@@ -1,7 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { AUTH_ENABLED, PROTECTED_PREFIXES } from './lib/auth-config';
 
 /**
- * Site-wide password gate.
+ * Two request-time gates, chosen once at module load:
+ *
+ *  - **Accounts enabled** (a Clerk key is set): Clerk protects the personal
+ *    routes (dashboard, plan, onboarding, assessment, caseworker, compare) —
+ *    an unauthenticated visitor is redirected to /sign-in. Everything else
+ *    (landing, jobs, resources, …) stays open, keeping the "browse without an
+ *    account" promise. Per-user data isolation is handled client-side by the
+ *    scope seam; this just enforces sign-in for the personal surfaces.
+ *
+ *  - **Accounts disabled** (no Clerk key): the pre-launch site-password gate
+ *    below, unchanged — the safe fallback so nothing is ever exposed before
+ *    accounts are configured.
+ *
+ * Site-wide password gate (fallback path).
  *
  * Until the configured SITE_PASSWORD env var is matched, every request is
  * redirected to /access. Designed for pre-launch demos where the site
@@ -59,7 +74,14 @@ function constantTimeEqual(a: string, b: string): boolean {
   return mismatch === 0;
 }
 
-export async function middleware(req: NextRequest) {
+/** Accounts-on path: Clerk protects only the personal routes; the rest is open. */
+const isProtectedRoute = createRouteMatcher(PROTECTED_PREFIXES.map((p) => `${p}(.*)`));
+const clerkGate = clerkMiddleware((auth, req) => {
+  if (isProtectedRoute(req)) auth().protect();
+});
+
+/** Accounts-off path: the original pre-launch site-password gate. */
+async function passwordGate(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Operator escape hatch: SITE_GATE=off disables the gate entirely.
@@ -91,6 +113,11 @@ export async function middleware(req: NextRequest) {
   url.search = `?next=${encodeURIComponent(pathname + (req.nextUrl.search || ''))}`;
   return NextResponse.redirect(url);
 }
+
+// One gate, chosen at module load. `clerkGate` is only constructed in the
+// enabled branch, so no Clerk key is ever required to run the password gate.
+const middleware = AUTH_ENABLED ? clerkGate : passwordGate;
+export default middleware;
 
 /**
  * Match every path except Next.js framework + static asset routes that

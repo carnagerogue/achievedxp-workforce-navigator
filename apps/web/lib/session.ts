@@ -1,22 +1,24 @@
 'use client';
 
-// Phase-1/2 session is just a userId in localStorage. Phase 8 replaces this
-// with JWT access+refresh cookies. Keeping the API surface small makes that
-// swap trivial — callers only ever ask for `getUserId()`.
+// The server-facing user id used for match/assessment/profile API calls.
+//
+// When Clerk auth is enabled and someone is signed in, AuthScopeSync sets this
+// to the verified Clerk user id, so server-side data keys off a real identity.
+// When auth is off, it holds the locally-generated id from onboarding. Either
+// way it is namespaced by the active scope, so it is per-user on the device.
 
-const KEY = 'dxp.userId';
+import { lsGet, lsSet, lsRemove } from './scoped-storage';
+
+const KEY = 'userId';
 
 export function getUserId(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(KEY);
+  return lsGet(KEY);
 }
 
 export function setUserId(id: string): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(KEY, id);
+  lsSet(KEY, id);
 }
 
 export function clearUserId(): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(KEY);
+  lsRemove(KEY);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { lsGet, lsSet, onStoreChange } from './scoped-storage';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 import type { SupervisionInfo, SupervisionCondition, FeeObligation } from './supervision';
 import type { PlanStepStatus } from './plan-model';
@@ -55,30 +56,24 @@ export interface CheckIn {
   note: string;
 }
 
-const KEY = 'dxp.checklist';
-const NAME_KEY = 'dxp.checklist.name';
-const GOALS_KEY = 'dxp.checklist.goals';
-const CHECKINS_KEY = 'dxp.checklist.checkins';
-const READINESS_KEY = 'dxp.checklist.readiness';
-const SUPERVISION_KEY = 'dxp.checklist.supervision';
-const CONDITIONS_KEY = 'dxp.checklist.conditions';
-const FEES_KEY = 'dxp.checklist.fees';
+const KEY = 'checklist';
+const NAME_KEY = 'checklist.name';
+const GOALS_KEY = 'checklist.goals';
+const CHECKINS_KEY = 'checklist.checkins';
+const READINESS_KEY = 'checklist.readiness';
+const SUPERVISION_KEY = 'checklist.supervision';
+const CONDITIONS_KEY = 'checklist.conditions';
+const FEES_KEY = 'checklist.fees';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
 function emit() { listeners.forEach((fn) => fn()); }
 
 function read<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch { return fallback; }
+  const raw = lsGet(key);
+  try { return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
 }
-function write<T>(key: string, value: T) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
-}
+function write<T>(key: string, value: T) { lsSet(key, JSON.stringify(value)); }
 
 // Map legacy statuses (todo/visited) onto the richer progression.
 const STATUS_MIGRATE: Record<string, ChecklistStatus> = {
@@ -100,18 +95,19 @@ let supervisionInfo: SupervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {}
 let conditions: SupervisionCondition[] = read<SupervisionCondition[]>(CONDITIONS_KEY, []);
 let fees: FeeObligation[] = read<FeeObligation[]>(FEES_KEY, []);
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === KEY) { items = normalize(read<ChecklistItem[]>(KEY, [])); emit(); }
-    else if (e.key === NAME_KEY) { ownerName = read<string>(NAME_KEY, ''); emit(); }
-    else if (e.key === GOALS_KEY) { planGoals = read<string>(GOALS_KEY, ''); emit(); }
-    else if (e.key === CHECKINS_KEY) { checkins = read<CheckIn[]>(CHECKINS_KEY, []); emit(); }
-    else if (e.key === READINESS_KEY) { readiness = read<ReadinessAnswers>(READINESS_KEY, {}); emit(); }
-    else if (e.key === SUPERVISION_KEY) { supervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {}); emit(); }
-    else if (e.key === CONDITIONS_KEY) { conditions = read<SupervisionCondition[]>(CONDITIONS_KEY, []); emit(); }
-    else if (e.key === FEES_KEY) { fees = read<FeeObligation[]>(FEES_KEY, []); emit(); }
-  });
-}
+// Re-read every blob from the active scope on user-switch or cross-tab write —
+// this is what makes the plan per-user on a shared device.
+onStoreChange(() => {
+  items = normalize(read<ChecklistItem[]>(KEY, []));
+  ownerName = read<string>(NAME_KEY, '');
+  planGoals = read<string>(GOALS_KEY, '');
+  checkins = read<CheckIn[]>(CHECKINS_KEY, []);
+  readiness = read<ReadinessAnswers>(READINESS_KEY, {});
+  supervisionInfo = read<SupervisionInfo>(SUPERVISION_KEY, {});
+  conditions = read<SupervisionCondition[]>(CONDITIONS_KEY, []);
+  fees = read<FeeObligation[]>(FEES_KEY, []);
+  emit();
+});
 
 function subscribe(fn: Listener) { listeners.add(fn); return () => listeners.delete(fn); }
 

@@ -37,7 +37,7 @@ export default function PlanPrintPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const raw = window.localStorage.getItem('dxp:caseworker:plan');
+    const raw = window.localStorage.getItem('achievedxp.print.plan');
     if (raw) { try { setPlan(JSON.parse(raw)); } catch { setPlan(null); } }
     const t = setTimeout(() => window.print(), 600);
     return () => clearTimeout(t);

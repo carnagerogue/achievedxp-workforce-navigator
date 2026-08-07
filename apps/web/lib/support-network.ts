@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { lsGet, lsSet, onStoreChange } from './scoped-storage';
 
 /**
  * "Your Corner" — a support map for the person who feels they have no one.
@@ -33,27 +34,21 @@ export const CONTACT_TAG_LABEL: Record<ContactTag, string> = {
   risky: 'Pulls me backward',
 };
 
-const KEY = 'dxp.corner';
+const KEY = 'corner';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
 const emit = () => listeners.forEach((fn) => fn());
 
 function read(): Contact[] {
-  if (typeof window === 'undefined') return [];
-  try { const raw = window.localStorage.getItem(KEY); return raw ? (JSON.parse(raw) as Contact[]) : []; }
-  catch { return []; }
+  const raw = lsGet(KEY);
+  try { return raw ? (JSON.parse(raw) as Contact[]) : []; } catch { return []; }
 }
-function write(v: Contact[]) {
-  if (typeof window === 'undefined') return;
-  try { window.localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* quota */ }
-}
+function write(v: Contact[]) { lsSet(KEY, JSON.stringify(v)); }
 
 let contacts: Contact[] = read();
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => { if (e.key === KEY) { contacts = read(); emit(); } });
-}
+onStoreChange(() => { contacts = read(); emit(); });
 function subscribe(fn: Listener) { listeners.add(fn); return () => listeners.delete(fn); }
 
 export function getContacts(): Contact[] { return contacts; }

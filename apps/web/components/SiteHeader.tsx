@@ -9,6 +9,7 @@ import {
   ListChecks, Brain, MessageSquareQuote,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { AuthControls } from './auth/AuthControls';
 
 type Item = { href: string; label: string; sub: string; Icon: typeof Compass };
 
@@ -141,6 +142,9 @@ export function SiteHeader() {
           <ChevronDown className={'hidden h-3.5 w-3.5 transition-transform duration-200 sm:inline ' + (open ? 'rotate-180' : '')} aria-hidden="true" />
           <span className="sm:hidden">Menu</span>
         </button>
+
+        {/* Account — renders only when accounts are enabled */}
+        <AuthControls />
       </div>
 
       {/* Menu panel */}

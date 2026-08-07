@@ -325,7 +325,10 @@ export default function ParticipantWorkspace() {
       dol,
     };
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('dxp:caseworker:plan', JSON.stringify(payload));
+      // Transient print handoff read once by /caseworker/plan in a new tab.
+      // Neutral key (not the dxp:scope: scheme, not the dxp. legacy scheme) so
+      // per-user scoping and legacy cleanup never touch it.
+      window.localStorage.setItem('achievedxp.print.plan', JSON.stringify(payload));
       window.open('/caseworker/plan', '_blank');
     }
   };
