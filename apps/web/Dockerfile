@@ -20,6 +20,22 @@ FROM base AS build
 # pointing at a real NestJS backend.
 ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Accounts (Clerk). NEXT_PUBLIC_* is inlined into the CLIENT bundle at build
+# time, so the publishable key MUST be present here — otherwise the browser
+# builds with accounts "off" (AUTH_ENABLED=false) while the server runs them
+# "on", and Clerk hooks throw "useSession … within <ClerkProvider>". Railway
+# supplies these from the web service's variables of the same name. The SECRET
+# key is intentionally NOT baked in — it's read at runtime by the server only.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/onboarding
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
