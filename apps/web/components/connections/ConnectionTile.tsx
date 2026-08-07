@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check, Plus, Briefcase, UserCircle2, Zap, Link2Off } from 'lucide-react';
 import { type Provider, isConnected, disconnect, isOAuthEnabled, useConnections } from '../../lib/connections';
 import { ConnectDialog } from './ConnectDialog';
+import { BrandGlyph } from './BrandGlyph';
 
 const CAP_META = [
   { key: 'importsProfile', label: 'Fills your kit', Icon: UserCircle2 },
@@ -22,9 +23,7 @@ export function ConnectionTile({ provider }: { provider: Provider }) {
   return (
     <div className={'relative flex flex-col rounded-2xl border bg-white p-4 shadow-card transition ' + (connected ? 'border-teal-300' : 'border-slate-200')}>
       <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white" style={{ backgroundColor: provider.accent }}>
-          {provider.name.charAt(0)}
-        </span>
+        <BrandGlyph id={provider.id} size={40} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-sm font-bold text-slate-900">{provider.name}</h3>
