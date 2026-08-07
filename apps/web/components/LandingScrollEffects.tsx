@@ -20,6 +20,8 @@ export function LandingScrollEffects() {
     const stages = Array.from(root.querySelectorAll<HTMLElement>('[data-scroll-stage]'));
     const chapters = Array.from(root.querySelectorAll<HTMLElement>('[data-motion-phase]'));
     const phaseItems = Array.from(root.querySelectorAll<HTMLElement>('[data-motion-phase-item]'));
+    const rideScenes = Array.from(root.querySelectorAll<HTMLElement>('[data-ride-scene]'));
+    const rideNodes = Array.from(root.querySelectorAll<HTMLElement>('[data-ride-node]'));
     const hero = root.querySelector<HTMLElement>('[data-scroll-hero]');
     const routePath = root.querySelector<SVGPathElement>('[data-route-master]');
     const traveler = root.querySelector<SVGGElement>('[data-route-traveler]');
@@ -27,8 +29,22 @@ export function LandingScrollEffects() {
 
     root.classList.add('landing-scroll-ready');
 
+    let activeRideStep = -1;
+    const updateRideStep = (nextStep: number) => {
+      if (nextStep === activeRideStep) return;
+      activeRideStep = nextStep;
+      root.dataset.rideStep = String(nextStep + 1);
+      rideScenes.forEach((scene, index) => scene.classList.toggle('is-current', index === nextStep));
+      rideNodes.forEach((node, index) => {
+        node.classList.toggle('is-current', index === nextStep);
+        node.classList.toggle('is-reached', index <= nextStep);
+        node.classList.toggle('is-past', index < nextStep);
+      });
+    };
+
     if (reducedMotion) {
       revealItems.forEach((item) => item.classList.add('is-visible'));
+      updateRideStep(0);
       root.style.setProperty('--hero-progress', '0');
       root.style.setProperty('--page-progress', '.35');
       stages.forEach((stage) => stage.style.setProperty('--section-progress', '1'));
@@ -66,6 +82,25 @@ export function LandingScrollEffects() {
       root.style.setProperty('--scroll-direction', String(direction));
       root.style.setProperty('--scroll-energy', Math.min(1, Math.abs(targetPage - currentPage) * 22).toFixed(4));
 
+      if (rideScenes.length) {
+        const ridePosition = currentHero * (rideScenes.length - 1);
+        const nextRideStep = Math.min(rideScenes.length - 1, Math.max(0, Math.round(ridePosition)));
+        updateRideStep(nextRideStep);
+
+        rideScenes.forEach((scene, index) => {
+          const delta = index - ridePosition;
+          const depth = Math.min(1, Math.abs(delta));
+          const isPast = delta < 0;
+          scene.style.setProperty('--ride-x', `${(delta * (isPast ? 30 : 38)).toFixed(2)}vw`);
+          scene.style.setProperty('--ride-y', `${(depth * (isPast ? -8 : 12)).toFixed(2)}vh`);
+          scene.style.setProperty('--ride-z', `${(-depth * 460).toFixed(2)}px`);
+          scene.style.setProperty('--ride-scale', `${(isPast ? 1 + depth * 0.28 : 1 - depth * 0.18).toFixed(4)}`);
+          scene.style.setProperty('--ride-tilt', `${(delta * -7).toFixed(2)}deg`);
+          scene.style.setProperty('--ride-opacity', clamp(1 - Math.abs(delta) * 1.08).toFixed(4));
+          scene.style.setProperty('--ride-blur', `${(depth * 8).toFixed(2)}px`);
+        });
+      }
+
       stages.forEach((stage, index) => {
         stageCurrent[index] += (stageTargets[index] - stageCurrent[index]) * 0.12;
         stage.style.setProperty('--section-progress', stageCurrent[index].toFixed(4));
@@ -98,7 +133,7 @@ export function LandingScrollEffects() {
 
       if (hero) {
         const rect = hero.getBoundingClientRect();
-        targetHero = clamp(-rect.top / Math.max(rect.height * 0.82, 1));
+        targetHero = clamp(-rect.top / Math.max(rect.height - viewportHeight, 1));
       }
 
       stages.forEach((stage, index) => {
@@ -117,7 +152,10 @@ export function LandingScrollEffects() {
         }
       });
       root.dataset.activePhase = String(activePhase + 1);
-      phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === activePhase));
+      const progressIndex = targetHero < 0.995 && rideScenes.length
+        ? Math.min(rideScenes.length - 1, Math.round(targetHero * (rideScenes.length - 1)))
+        : activePhase;
+      phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === progressIndex));
       requestRender();
     };
 
