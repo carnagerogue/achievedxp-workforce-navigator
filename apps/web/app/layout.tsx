@@ -8,6 +8,8 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { CompareBar } from '../components/CompareBar';
 import { CommandPalette } from '../components/CommandPalette';
 import { KeyboardHelp } from '../components/KeyboardHelp';
+import { AuthProvider } from '../components/auth/AuthProvider';
+import { AuthScopeSync } from '../components/auth/AuthScopeSync';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,16 +33,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to main content
         </a>
-        <ToastProvider>
-          <SiteHeader />
-          <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-            <ErrorBoundary>{children}</ErrorBoundary>
-          </main>
-          <SiteFooter />
-          <CompareBar />
-          <CommandPalette />
-          <KeyboardHelp />
-        </ToastProvider>
+        <AuthProvider>
+          <AuthScopeSync />
+          <ToastProvider>
+            <SiteHeader />
+            <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </main>
+            <SiteFooter />
+            <CompareBar />
+            <CommandPalette />
+            <KeyboardHelp />
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

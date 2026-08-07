@@ -1,6 +1,7 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { lsGet, lsSet, lsRemove, onStoreChange } from './scoped-storage';
 import type { ConvictionType, UserContextMode, EducationLevel } from '@dxp/shared';
 import type { ReadinessAnswers, ReadinessDomainKey, DomainStatus } from './readiness';
 import type { SupervisionCondition, FeeObligation } from './supervision';
@@ -108,7 +109,7 @@ export interface Participant {
   updatedAt: number;
 }
 
-const KEY = 'dxp.caseload';
+const KEY = 'caseload';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -140,9 +141,8 @@ function migrateParticipant(p: Participant): Participant {
 }
 
 function read(): Participant[] {
-  if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = lsGet(KEY);
     const parsed = raw ? (JSON.parse(raw) as Participant[]) : [];
     return parsed.map(migrateParticipant);
   } catch { return []; }
@@ -157,18 +157,14 @@ export function setPersistEnabled(on: boolean) {
   persistEnabled = on;
   // Turning session-only ON removes the on-disk copy but keeps the in-memory
   // caseload for this session (reversible — toggling back re-flushes to disk).
-  if (typeof window !== 'undefined') {
-    try {
-      if (on) window.localStorage.setItem(KEY, JSON.stringify(roster));
-      else window.localStorage.removeItem(KEY);
-    } catch { /* ignore */ }
-  }
+  if (on) lsSet(KEY, JSON.stringify(roster));
+  else lsRemove(KEY);
   emit();
 }
 
 function write(v: Participant[]) {
-  if (typeof window === 'undefined' || !persistEnabled) return;
-  try { window.localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* quota */ }
+  if (!persistEnabled) return;
+  lsSet(KEY, JSON.stringify(v));
 }
 
 const byRecent = (xs: Participant[]) => [...xs].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -185,9 +181,9 @@ function commit(next: Participant[]) {
   emit();
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => { if (e.key === KEY) { roster = read(); snapshot = byRecent(roster); emit(); } });
-}
+// Re-read the caseload from the active scope on caseworker-switch or cross-tab
+// write, so one caseworker never sees another's roster on a shared machine.
+onStoreChange(() => { roster = read(); snapshot = byRecent(roster); emit(); });
 function subscribe(fn: Listener) { listeners.add(fn); return () => listeners.delete(fn); }
 
 export function getCaseload(): Participant[] {
@@ -218,7 +214,7 @@ export function removeParticipant(id: string) {
 export function clearCaseload() {
   roster = [];
   snapshot = [];
-  if (typeof window !== 'undefined') { try { window.localStorage.removeItem(KEY); } catch { /* ignore */ } }
+  lsRemove(KEY);
   emit();
 }
 

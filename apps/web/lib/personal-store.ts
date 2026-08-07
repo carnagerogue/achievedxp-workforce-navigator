@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useSyncExternalStore } from 'react';
+import { lsGet, lsSet, onStoreChange } from './scoped-storage';
 
 /**
  * Lightweight localStorage-backed store with a subscribe/notify pattern.
@@ -24,22 +25,12 @@ const listeners = new Set<Listener>();
 function emit() { listeners.forEach((fn) => fn()); }
 
 function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+  const raw = lsGet(key);
+  try { return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
 }
 
 function writeJson<T>(key: string, value: T) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // quota exceeded → drop silently; Phase 8 swaps to server-side.
-  }
+  lsSet(key, JSON.stringify(value));
 }
 
 // ────────────── In-memory mirrors (stable references for React) ──────────────
@@ -51,10 +42,10 @@ interface Mirror {
   applications: Record<string, ApplicationRecord>;
 }
 
-const SAVED_KEY = 'dxp.saved';
-const APPS_KEY  = 'dxp.applications';
-const RECENT_KEY = 'dxp.recent';
-const COMPARE_KEY = 'dxp.compare';
+const SAVED_KEY = 'saved';
+const APPS_KEY  = 'applications';
+const RECENT_KEY = 'recent';
+const COMPARE_KEY = 'compare';
 const RECENT_CAP = 12;
 const COMPARE_CAP = 3;
 
@@ -65,17 +56,16 @@ const mirror: Mirror = {
   applications: readJson<Record<string, ApplicationRecord>>(APPS_KEY, {}),
 };
 
-// Keep in sync across tabs (and refresh our mirror in the current tab).
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === SAVED_KEY)        mirror.saved   = readJson(SAVED_KEY, []);
-    else if (e.key === RECENT_KEY)  mirror.recent  = readJson(RECENT_KEY, []);
-    else if (e.key === COMPARE_KEY) mirror.compare = readJson(COMPARE_KEY, []);
-    else if (e.key === APPS_KEY)    mirror.applications = readJson(APPS_KEY, {});
-    else return;
-    emit();
-  });
-}
+// Re-read the whole mirror from the active scope on user-switch or cross-tab
+// write. Rebuilding all four blobs keeps the mirror references fresh so
+// getSnapshot reflects the new user's data.
+onStoreChange(() => {
+  mirror.saved = readJson(SAVED_KEY, []);
+  mirror.recent = readJson(RECENT_KEY, []);
+  mirror.compare = readJson(COMPARE_KEY, []);
+  mirror.applications = readJson(APPS_KEY, {});
+  emit();
+});
 
 // ─────────────────────── Saved jobs ───────────────────────
 
