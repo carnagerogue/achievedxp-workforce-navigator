@@ -505,7 +505,7 @@ export function scoreJobCompatibility(
     positiveFactors: explanations.positiveFactors,
     possibleBarriers: explanations.possibleBarriers,
     chanceImprovers: explanations.chanceImprovers,
-    recommendedNextStep: recommendNextStep(chance, candidate.convictionType ?? 'other', dutyResult.worst, signals),
+    recommendedNextStep: recommendNextStep(chance, candidate.convictionType, dutyResult.worst, signals),
     caseworkerNotes: explanations.caseworkerNotes,
     auditTrail,
   };

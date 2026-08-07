@@ -59,7 +59,7 @@ export const remoteokProvider: JobProvider = {
 function normalize(h: RemoteOkHit): JobDto {
   return applyClassification({
     id: `remoteok-${h.id}`,
-    title:   h.position ?? '',
+    title:   cleanMojibake(h.position ?? ''),
     company: h.company ?? 'Unknown employer',
     description: stripHtml(h.description ?? ''),
     descriptionHtml: h.description ?? null,
@@ -82,6 +82,11 @@ function normalize(h: RemoteOkHit): JobDto {
     sourceCode: 'remoteok',
     sourceName: 'Remote OK',
   });
+}
+
+/** Strip malformed UTF-8 byte fragments occasionally emitted by Remote OK. */
+function cleanMojibake(value: string): string {
+  return value.replace(/[ÃÂð][\u0080-\u00bf]*/gi, '').replace(/\s+/g, ' ').trim();
 }
 
 function stripHtml(s: string): string {

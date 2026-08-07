@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { filterJobs, getJobPool } from '../../../../lib/server-data';
+import { filterJobsForUser, getJobPool } from '../../../../lib/server-data';
+import { resolveUserId } from '../../../../lib/auth-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
   };
 
   const { jobs } = await getJobPool();
-  const data = filterJobs({
+  const userId = resolveUserId(str('userId'));
+  const data = await filterJobsForUser({
     q: str('q'),
     industry: str('industry'),
     city: str('city'),
@@ -34,6 +36,6 @@ export async function GET(req: NextRequest) {
     apprenticeshipsOnly: bool('apprenticeshipsOnly'),
     limit: num('limit'),
     offset: num('offset'),
-  }, jobs);
+  }, jobs, userId);
   return NextResponse.json(data);
 }

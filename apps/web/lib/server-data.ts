@@ -28,13 +28,14 @@ import type {
 } from '@dxp/shared';
 import { isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
 import { classifyJob, normalizeLocation, isApprenticeshipType } from '@dxp/shared';
+import zipcodes from 'zipcodes';
 import {
   PROFILE_COLLECTION,
   candidateProfilesFromStored,
   convictionTypesFor,
   type StoredProfile,
 } from './profile-store';
-import { getDoc, putDoc } from './storage';
+import { getPersonalDoc, putPersonalDoc } from './storage';
 import {
   scoreJobUnified,
   jobScoreContext,
@@ -677,7 +678,77 @@ export interface JobsQuery {
   offset?: number;
 }
 
-export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): PaginatedJobsDto {
+function jobZip(job: JobDto): string | null {
+  const exact = (job.locationPostalCode ?? '').match(/^\d{5}/)?.[0];
+  if (exact && zipcodes.lookup(exact)) return exact;
+  if (!job.locationCity || !job.locationRegion) return null;
+  return zipcodes.lookupByName(job.locationCity, job.locationRegion)[0]?.zip ?? null;
+}
+
+function sourceDiverseOrder(pool: JobDto[]): JobDto[] {
+  const groups = new Map<string, JobDto[]>();
+  for (const job of pool) {
+    const key = job.sourceCode || 'unknown';
+    const group = groups.get(key) ?? [];
+    group.push(job);
+    groups.set(key, group);
+  }
+  const posted = (job: JobDto) => job.postedAt ? new Date(job.postedAt).getTime() : 0;
+  for (const group of groups.values()) group.sort((a, b) => posted(b) - posted(a));
+  const orderedGroups = Array.from(groups.values()).sort((a, b) => posted(b[0]) - posted(a[0]));
+  const indexes = orderedGroups.map(() => 0);
+  const out: JobDto[] = [];
+  let remaining = pool.length;
+  while (remaining > 0) {
+    for (let i = 0; i < orderedGroups.length; i += 1) {
+      const job = orderedGroups[i][indexes[i]];
+      if (!job) continue;
+      out.push(job);
+      indexes[i] += 1;
+      remaining -= 1;
+    }
+  }
+  return out;
+}
+
+function defaultBrowseOrder(pool: JobDto[]): JobDto[] {
+  const genericInputs: ScoreInputs = {
+    candidates: [{}],
+    profile: null,
+    convictionTypes: [],
+    hasConvictions: false,
+  };
+  const bands = new Map<number, JobDto[]>();
+  for (const job of pool) {
+    const score = scoreJobUnified(genericInputs, job).score;
+    const band = Math.floor(score / 10) * 10;
+    const jobs = bands.get(band) ?? [];
+    jobs.push(job);
+    bands.set(band, jobs);
+  }
+  return Array.from(bands.keys())
+    .sort((a, b) => b - a)
+    .flatMap((band) => sourceDiverseOrder(bands.get(band) ?? []));
+}
+
+function orderForCandidate(pool: JobDto[], inputs: ScoreInputs | null): JobDto[] {
+  if (!inputs) return defaultBrowseOrder(pool);
+  return pool
+    .map((job) => ({ job, score: scoreJobUnified(inputs, job).score }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const bDate = b.job.postedAt ? new Date(b.job.postedAt).getTime() : 0;
+      const aDate = a.job.postedAt ? new Date(a.job.postedAt).getTime() : 0;
+      return bDate - aDate;
+    })
+    .map(({ job }) => job);
+}
+
+export function filterJobs(
+  query: JobsQuery,
+  source: JobDto[] = JOBS,
+  scoreInputs: ScoreInputs | null = null,
+): PaginatedJobsDto {
   let pool = source.slice();
 
   if (query.q) {
@@ -707,9 +778,16 @@ export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): Paginated
     }
 
     if (query.postalCode) {
-      // Bucket by first 2 zip digits — close enough for a demo of radius search.
-      const prefix = query.postalCode.slice(0, 2);
-      pool = pool.filter((j) => (j.locationPostalCode ?? '').startsWith(prefix));
+      const origin = query.postalCode.match(/^\d{5}/)?.[0];
+      const radius = Math.max(1, Math.min(250, query.radiusMiles ?? 25));
+      pool = origin && zipcodes.lookup(origin)
+        ? pool.filter((job) => {
+            const destination = jobZip(job);
+            if (!destination) return false;
+            const miles = zipcodes.distance(origin, destination);
+            return miles != null && miles <= radius;
+          })
+        : [];
     }
   }
 
@@ -747,12 +825,35 @@ export function filterJobs(query: JobsQuery, source: JobDto[] = JOBS): Paginated
     );
   }
 
+  pool = orderForCandidate(pool, scoreInputs);
   const total = pool.length;
   const offset = Math.max(0, query.offset ?? 0);
   const limit  = Math.max(1, Math.min(200, query.limit ?? 50));
   const results = pool.slice(offset, offset + limit);
 
   return { total, limit, offset, results };
+}
+
+/** Load a profile once, rank the full filtered pool, then paginate it. */
+export async function filterJobsForUser(
+  query: JobsQuery,
+  source: JobDto[] = JOBS,
+  userId?: string | null,
+): Promise<PaginatedJobsDto> {
+  const profile = userId
+    ? await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId)
+    : null;
+  let inputs: ScoreInputs | null = profile ? scoreInputsFor(profile) : null;
+  if (query.offenseType) {
+    const conviction = convictionForOffenseType(query.offenseType);
+    inputs = {
+      candidates: [{ convictionType: conviction }],
+      convictionTypes: [conviction],
+      profile,
+      hasConvictions: true,
+    };
+  }
+  return filterJobs(query, source, inputs);
 }
 
 export function findJob(id: string, source: JobDto[] = JOBS): JobDto | undefined {
@@ -931,7 +1032,7 @@ export async function matchesFor(
   const profile =
     preloadedProfile !== undefined
       ? preloadedProfile
-      : await getDoc<StoredProfile>(PROFILE_COLLECTION, userId);
+      : await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
   const inputs = scoreInputsFor(profile);
 
   const scored = source
@@ -1003,7 +1104,7 @@ const prettyCode = (code: string) =>
  * over promotions (cross into top). Replaces the previously hardcoded list.
  */
 export async function insightsFor(userId: string, source: JobDto[] = JOBS): Promise<InsightsResponseDto> {
-  const profile = await getDoc<StoredProfile>(PROFILE_COLLECTION, userId);
+  const profile = await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
   const inputs = scoreInputsFor(profile);
   const baseline = await matchesFor(userId, source.length, source, profile);
   const tierOf = (score: number): 0 | 1 | 2 => (score >= 70 ? 2 : score >= 40 ? 1 : 0);
@@ -1249,113 +1350,12 @@ export async function scoreAssessment(
   answers: Record<number, number>,
 ): Promise<AssessmentResult> {
   const result = buildAssessmentResult(userId, answers);
-  await putDoc(ASSESSMENT_COLLECTION, userId, result);
+  await putPersonalDoc(ASSESSMENT_COLLECTION, userId, result);
   return result;
 }
 
 export async function getAssessmentResultFor(userId: string): Promise<AssessmentResult | null> {
-  return getDoc<AssessmentResult>(ASSESSMENT_COLLECTION, userId);
-}
-
-// ────────────────────────────────────────────────────────────────────
-// CareerOneStop (mock — real API needs DOL auth)
-// ────────────────────────────────────────────────────────────────────
-
-export function mockAjcCenters(location: string) {
-  return {
-    OneStopCenterList: [
-      {
-        ID: 'WA-SEATTLE-01',
-        Name: 'Seattle WorkSource Affiliate',
-        Address1: '2nd Avenue Office',
-        City: 'Seattle', StateAbbr: 'WA', Zip: '98101',
-        Phone: '(206) 555-0142',
-        Distance: '0.0',
-        ProgramType: 'WorkSource',
-        OpenHour: 'Mon–Fri 8a–5p',
-        Latitude: 47.6062, Longitude: -122.3321,
-        WebSiteUrl: 'https://www.worksourcewa.com/',
-      },
-      {
-        ID: 'WA-RENTON-02',
-        Name: 'WorkSource Renton',
-        Address1: '500 SW 7th St',
-        City: 'Renton', StateAbbr: 'WA', Zip: '98057',
-        Phone: '(425) 555-0118',
-        Distance: '11.4',
-        ProgramType: 'WorkSource',
-        OpenHour: 'Mon–Thu 8:30a–4:30p',
-        Latitude: 47.4829, Longitude: -122.2171,
-        WebSiteUrl: 'https://www.worksourcewa.com/',
-      },
-      {
-        ID: 'WA-TACOMA-03',
-        Name: 'WorkSource Pierce',
-        Address1: '1313 Tacoma Ave S',
-        City: 'Tacoma', StateAbbr: 'WA', Zip: '98402',
-        Phone: '(253) 555-0177',
-        Distance: '32.1',
-        ProgramType: 'WorkSource',
-        OpenHour: 'Mon–Fri 8a–5p',
-        Latitude: 47.2529, Longitude: -122.4443,
-        WebSiteUrl: 'https://www.worksourcewa.com/',
-      },
-    ],
-    RecordCount: 3,
-    partial: false,
-  };
-}
-
-export function mockReentryPrograms(_location: string) {
-  return {
-    items: [
-      { name: 'Pioneer Human Services',  city: 'Seattle',  region: 'WA', focus: 'Employment, housing, treatment' },
-      { name: 'FreeAmerica Project',     city: 'Tacoma',   region: 'WA', focus: 'Reentry employment + advocacy' },
-      { name: 'Post-Prison Education Program', city: 'Seattle', region: 'WA', focus: 'Education + mentorship' },
-    ],
-  };
-}
-
-export function mockWages(_onetOrKeyword: string) {
-  return {
-    OccupationDetail: {
-      Wages: {
-        NationalWagesList: [
-          { RateType: 'Annual', Pct10: '32000', Pct25: '38000', Median: '46000', Pct75: '58000', Pct90: '72000' },
-        ],
-      },
-    },
-  };
-}
-
-export function mockLicenses(_kw: string, location: string) {
-  return {
-    LicenseList: [
-      { Title: 'CDL Class A', Region: location || 'WA', Description: 'Commercial Driver License for combination vehicles.' },
-      { Title: 'OSHA 10',     Region: location || 'WA', Description: '10-hour OSHA construction or general industry card.' },
-    ],
-  };
-}
-
-export function mockCertifications(_kw: string) {
-  return {
-    CertificationList: [
-      { Name: 'OSHA Forklift Operator', Issuer: 'OSHA',  Description: 'Powered industrial truck operator card.' },
-      { Name: 'ServSafe Food Handler',  Issuer: 'NRA',   Description: 'Food handler certification accepted by most states.' },
-      { Name: 'AWS Certified Welder',   Issuer: 'AWS',   Description: 'Performance-based weld certification.' },
-    ],
-  };
-}
-
-export function mockApprenticeships(_kw: string, location: string) {
-  return {
-    ApprenticeshipList: [
-      { Title: 'Electrical Apprentice',  Sponsor: 'IBEW Local 46',         Region: location || 'WA' },
-      { Title: 'Plumber Apprentice',     Sponsor: 'UA Local 290',          Region: location || 'OR' },
-      { Title: 'HVAC Apprentice',        Sponsor: 'NW Mechanical',         Region: location || 'WA' },
-      { Title: 'Carpenter Apprentice',   Sponsor: 'Northwest Carpenters',  Region: location || 'WA' },
-    ],
-  };
+  return getPersonalDoc<AssessmentResult>(ASSESSMENT_COLLECTION, userId);
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -1410,4 +1410,3 @@ export async function getJobPool(): Promise<{
   if (!live) return { jobs: enrichPool(JOBS), isMock: true, perProvider: [] };
   return { jobs: enrichPool(live.jobs), isMock: false, perProvider: live.perProvider };
 }
-

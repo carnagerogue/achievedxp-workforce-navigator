@@ -19,6 +19,7 @@ import { MiniJobList } from '../../components/MiniJobList';
 import { InsightsPanel } from '../../components/InsightsPanel';
 import { SaveJobButton } from '../../components/SaveJobButton';
 import { TodayFocus } from '../../components/TodayFocus';
+import { JourneyRail } from '../../components/JourneyRail';
 import { ToolsGrid } from '../../components/ToolsGrid';
 import { FocusHero } from '../../components/journey/FocusHero';
 import {
@@ -91,9 +92,10 @@ export default function HomePage() {
   const heroTone = overdue > 0 ? 'from-rose-50 to-white' : soon > 0 ? 'from-amber-50 to-white' : 'from-teal-50 to-white';
 
   return (
-    <div className="animate-fade-in space-y-4">
+    <div className="constellation-workspace animate-fade-in space-y-4">
+      <JourneyRail active="start" />
       {/* ─── Hero: greeting + Steady score ─── */}
-      <section className={'overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br p-6 shadow-card sm:p-8 ' + heroTone}>
+      <section className={'overflow-hidden rounded-3xl border border-navy-900/20 bg-gradient-to-br p-6 shadow-card sm:p-8 ' + heroTone}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar name={p.displayName || 'You'} size={56} />

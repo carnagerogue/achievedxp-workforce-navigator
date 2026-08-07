@@ -60,7 +60,7 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
 
   if (!open || !rating) return null;
   const style = CHANCE_STYLES[rating.chance];
-  const convictionLabel = conviction ? LABELS[conviction] : 'No conviction selected';
+  const convictionLabel = conviction ? LABELS[conviction] : null;
 
   return (
     <div
@@ -111,7 +111,9 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
               <p className="text-xs uppercase tracking-wider text-slate-500">
                 Risk level: {rating.riskLevel.replace('_', ' ')}
               </p>
-              <p className="mt-0.5 text-xs text-slate-500">Scored against: {convictionLabel}</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {convictionLabel ? `Scored against: ${convictionLabel}` : 'Fit estimate based on the profile details available.'}
+              </p>
             </div>
           </div>
 

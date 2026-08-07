@@ -50,6 +50,10 @@ async function fetchJson<T>(path: string, ttlMs: number): Promise<T | null> {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     });
     const text = await res.text();
+    if (!res.ok) {
+      cache.set(path, { expires: now + 60_000, data: null });
+      return null;
+    }
     let data: unknown = null;
     try { data = JSON.parse(text); } catch { data = null; }
     if (data == null) {
@@ -102,6 +106,50 @@ export async function reentryPrograms(location: string, radius = 50, limit = 25)
   const { userId } = creds();
   const path = `/reentryprogramfinder/${seg(userId)}/${seg(location)}/${radius}/CountyName/asc/0/${limit}`;
   return fetchJson<unknown>(path, 6 * 60 * 60_000);
+}
+
+export async function occupationWages(keyword: string, location = 'US'): Promise<unknown> {
+  const { userId } = creds();
+  const path = `/comparesalaries/${seg(userId)}/wage?keyword=${seg(keyword)}&location=${seg(location)}&enableMetaData=false`;
+  return fetchJson<unknown>(path, 12 * 60 * 60_000);
+}
+
+export async function occupationalLicenses(keyword: string, location: string, limit = 25): Promise<unknown> {
+  const { userId } = creds();
+  const path = `/license/${seg(userId)}/${seg(keyword)}/${seg(location)}/Title/asc/0/${limit}`;
+  return fetchJson<unknown>(path, 12 * 60 * 60_000);
+}
+
+export async function occupationalCertifications(keyword: string, limit = 25): Promise<unknown> {
+  const { userId } = creds();
+  const path = `/certificationfinder/${seg(userId)}/${seg(keyword)}/0/0/0/0/0/0/Name/asc/0/${limit}`;
+  return fetchJson<unknown>(path, 12 * 60 * 60_000);
+}
+
+/** CareerOneStop exposes nearby apprenticeship offices, not fabricated programs. */
+export async function apprenticeshipOffices(location: string, radius = 100): Promise<unknown> {
+  const { userId } = creds();
+  const path = `/apprenticeshipfinder/${seg(userId)}/${seg(location)}/${Math.max(5, Math.min(500, radius))}`;
+  return fetchJson<unknown>(path, 12 * 60 * 60_000);
+}
+
+export function careerOneStopUnavailable(kind: 'wages' | 'licenses' | 'certifications' | 'apprenticeships', query: string) {
+  const links = {
+    wages: 'https://www.careeronestop.org/Toolkit/Wages/find-salary.aspx',
+    licenses: 'https://www.careeronestop.org/Toolkit/Training/find-licenses.aspx',
+    certifications: 'https://www.careeronestop.org/Toolkit/Training/find-certifications.aspx',
+    apprenticeships: 'https://www.apprenticeship.gov/apprenticeship-job-finder',
+  };
+  return {
+    items: [],
+    meta: {
+      configured: false,
+      source: 'CareerOneStop, U.S. Department of Labor',
+      query,
+      finderUrl: links[kind],
+      message: 'Live CareerOneStop credentials are not configured. Use the official finder for current results.',
+    },
+  };
 }
 
 /** The full DOL reentry-program dataset (no location filter). Cached hard. */

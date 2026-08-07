@@ -171,16 +171,17 @@ const INDUSTRY_RULES: ReadonlyArray<[string, readonly string[]]> = [
   // Avoid boilerplate traps: bare "federal" ("federal law/holidays/contractor")
   // and "state of" ("state-of-the-art") falsely hit almost every description.
   ['government', ['gsa', 'va medical', 'civil service', 'federal agency', 'federal government', 'municipal government']],
+  ['finance', ['capital markets', 'banking', 'banker', 'teller', 'accountant', 'accounting', 'financial analyst', 'payroll', 'bookkeeper', 'auditor']],
   ['transportation', ['cdl', 'truck driver', 'trucking', 'freight', 'delivery driver', 'logistics', 'shipping']],
   ['warehousing', ['warehouse', 'forklift', 'distribution center', 'order picking', 'packing', 'pallet']],
   ['construction', ['carpenter', 'electrician', 'plumber', 'concrete', 'mason', 'framer', 'roofing', 'hvac', 'journeyman']],
   ['manufacturing', ['welder', 'machinist', 'fabricat', 'assembly line', 'production line', 'foundry', 'cnc']],
-  ['food_service', ['cook', 'chef', 'kitchen', 'restaurant', 'barista', 'server', 'dishwasher', 'food prep']],
+  ['food_service', ['cook', 'chef', 'kitchen', 'restaurant', 'coffee', 'barista', 'server', 'dishwasher', 'food prep']],
   ['automotive', ['mechanic', 'auto repair', 'tire tech', 'oil change', 'collision repair']],
   ['cleaning', ['janitor', 'custodian', 'housekeep', 'sanitation']],
   ['landscaping', ['landscap', 'groundskeep', 'lawn care', 'tree trimm']],
   ['retail', ['cashier', 'sales associate', 'merchandis', 'stocker']],
-  ['it_general', ['software', 'developer', 'sysadmin', 'help desk', 'it support', 'network tech']],
+  ['it_general', ['software', 'developer', 'research engineer', 'security engineer', 'platform engineer', 'site reliability', 'data engineer', 'machine learning', 'sysadmin', 'help desk', 'it support', 'network tech']],
   ['energy_utilities', ['utility', 'lineman', 'oilfield', 'driller', 'powerline', 'wind tech', 'solar install']],
   ['education', ['teacher', 'instructor', 'tutor', 'professor']],
   ['services', ['maintenance', 'janitorial', 'security guard', 'customer service']],
@@ -206,7 +207,10 @@ export function classifyIndustry(input: ClassifyJobInput): ClassifiedField<strin
     return { value: hint, confidence: 'verified', basis: 'source category' };
   }
   // The title is the strongest, least-noisy signal — check it first.
-  const title = input.title ?? '';
+  // Company names can carry strong context when the title is generic (for
+  // example "Team Member" at a coffee company), while the full description
+  // is often noisy with unrelated technology/benefits language.
+  const title = `${input.title ?? ''} ${input.company ?? ''}`;
   for (const [name, re] of INDUSTRY_MATCHERS) {
     const m = title.match(re);
     if (m) return { value: name, confidence: 'inferred', basis: `title keyword "${m[1].toLowerCase()}"` };
@@ -223,7 +227,6 @@ export function classifyIndustry(input: ClassifyJobInput): ClassifiedField<strin
 }
 
 // ── Eligibility (risk / fair-chance / exclusion) ──────────────────────────
-const FEDERAL_EMPLOYER = /\b(department of |dept\.? of |dod|u\.?s\.? (army|navy|air force|marine corps|coast guard|space force)|fbi|cia|nsa|dea|atf|tsa|cbp|usss|us marshals|federal bureau|joint base|fort \w+|naval (station|base)|afb)\b/i;
 const SECURITY_ROLE = /\b(police officer|sheriff|deputy|correctional officer|federal agent|prison guard|armed (guard|security)|bank teller|cash handler|loss prevention|armored)\b/i;
 const CLEARANCE = /\b(security clearance|secret clearance|top[- ]secret|ts\/sci|public trust|cjis|fingerprint(ing)? required)\b/i;
 const CLEAN_RECORD = /\b(clean (background|record) required|no (criminal|felony) record|must pass (a )?background check|spotless record)\b/i;
@@ -242,7 +245,11 @@ interface Eligibility {
 
 export function classifyEligibility(input: ClassifyJobInput, industry: string | null): Eligibility {
   const blob = `${input.title} ${input.description} ${input.company}`;
-  const clearance = CLEARANCE.test(blob) || FEDERAL_EMPLOYER.test(input.company) || SECURITY_ROLE.test(input.title);
+  // A federal employer is not itself a categorical barrier. USAJOBS and OPM
+  // explicitly say people with records remain eligible for the vast majority
+  // of federal roles. Treat only posting evidence (clearance / public-trust)
+  // or genuinely security-sensitive duties as a high-risk signal.
+  const clearance = CLEARANCE.test(blob) || SECURITY_ROLE.test(input.title);
   const cleanRecord = CLEAN_RECORD.test(blob);
   const fairChanceLang = FAIR_CHANCE.test(blob);
   const bg = BG_CHECK.test(blob);
@@ -271,7 +278,9 @@ export function classifyEligibility(input: ClassifyJobInput, industry: string | 
 
   if (industry && HIGH_RISK_INDUSTRY.has(industry)) {
     return {
-      excludesFelons: { value: true, confidence: 'inferred', basis: `${industry} typically runs strict background checks` },
+      // Industry can predict review intensity, never a categorical exclusion.
+      // A hard "excludes" flag requires explicit posting or legal evidence.
+      excludesFelons: { value: false, confidence: 'uncertain', basis: `no explicit exclusion; ${industry} often reviews backgrounds` },
       fairChance: { value: false, confidence: 'uncertain', basis: 'no fair-chance language; high-background industry' },
       backgroundCheckLikely: { value: true, confidence: 'inferred', basis: `${industry} industry` },
       riskTier: { value: 'HIGH', confidence: 'inferred', basis: `${industry} industry` },

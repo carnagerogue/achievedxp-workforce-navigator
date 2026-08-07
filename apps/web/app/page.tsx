@@ -1,284 +1,149 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  MapPin,
-  Briefcase,
-  Building2,
-  CheckCircle2,
-  AlertTriangle,
-} from 'lucide-react';
-import { Reveal } from '../components/Reveal';
-import { Marquee } from '../components/Marquee';
-import { PosterStats } from '../components/PosterStats';
+import { ArrowRight, Check, Compass, MapPin, ShieldCheck } from 'lucide-react';
 import { AUTH_ENABLED } from '../lib/auth-config';
 
+const STEPS = [
+  { n: '01', title: 'Start', copy: 'Tell us what matters right now. Skip anything you are not ready to share.' },
+  { n: '02', title: 'Plan', copy: 'Turn housing, documents, supervision, training, and work into one clear sequence.' },
+  { n: '03', title: 'Prepare', copy: 'Build the skills, story, and application pieces that strengthen your next move.' },
+  { n: '04', title: 'Find work', copy: 'Search real openings, with fit signals and possible barriers explained.' },
+];
+
 export default function LandingPage() {
-  // When accounts are on, login comes before anything in the system, so the
-  // front door funnels into account creation / sign-in. When accounts are off
-  // (graceful mode), it opens straight into the app.
   const primaryHref = AUTH_ENABLED ? '/sign-up' : '/dashboard';
-  const primaryLabel = AUTH_ENABLED ? 'Create your account' : 'Start here';
   const secondaryHref = AUTH_ENABLED ? '/sign-in' : '/jobs';
-  const secondaryLabel = AUTH_ENABLED ? 'Sign in' : 'Just browse jobs';
+
   return (
-    <div className="animate-fade-in">
-      {/* ── Act 1 · The billboard ─────────────────────────────────────── */}
-      <section className="full-bleed flex min-h-[86vh] flex-col justify-center bg-[#f7f9fa] px-5 pb-16 pt-20 sm:px-10">
-        <div className="mx-auto w-full max-w-[1400px]">
-          <Reveal>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
-              Achieve DXP · Workforce Navigator
+    <div className="landing-constellation full-bleed -mt-10 overflow-hidden text-white">
+      <section className="constellation-hero relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16">
+        <Constellation />
+        <div className="relative z-10 mx-auto grid min-h-[760px] max-w-[1500px] gap-14 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
+          <div>
+            <p className="section-kicker text-sunset-300">Achieve DXP · Workforce Navigator</p>
+            <h1 aria-label="One clear next step." className="display-outline mt-8 max-w-[950px] text-[clamp(4.8rem,12vw,11.5rem)] leading-[.72]">
+              One clear<br />next step.
+            </h1>
+            <p className="mt-10 max-w-xl text-lg leading-relaxed text-teal-100 sm:text-xl">
+              A calm, practical path through reentry—from the needs that come first to work that can move life forward.
             </p>
-          </Reveal>
-          <h1 className="mt-6 font-extrabold uppercase leading-[0.82] tracking-[-0.03em]">
-            <Reveal delay={60}><span className="block text-[clamp(3.2rem,10.5vw,10rem)] text-slate-900">One clear</span></Reveal>
-            <Reveal delay={140}><span className="block text-[clamp(3.2rem,10.5vw,10rem)] text-slate-900">next<span className="text-teal-600">&nbsp;step.</span></span></Reveal>
-          </h1>
-          <Reveal delay={240}>
-            <div className="mt-10 flex flex-wrap items-end justify-between gap-8">
-              <p className="max-w-md text-lg leading-snug text-slate-500 sm:text-xl">
-                A guided path for life after release —
-                backed by real reentry research.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href={primaryHref}
-                  className="group inline-flex items-center gap-2 bg-teal-600 px-8 py-4 text-sm font-extrabold uppercase tracking-[0.1em] text-white transition hover:bg-teal-700 active:scale-[0.98]"
-                >
-                  {primaryLabel}
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-                <Link
-                  href={secondaryHref}
-                  className="inline-flex items-center border-b-2 border-transparent py-1 text-sm font-extrabold uppercase tracking-[0.1em] text-slate-500 transition hover:border-slate-900 hover:text-slate-900"
-                >
-                  {secondaryLabel}
-                </Link>
-              </div>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link href={primaryHref} className="signal-button group">
+                {AUTH_ENABLED ? 'Create your account' : 'Open my navigator'}
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link href={secondaryHref} className="signal-button signal-button--ghost">
+                {AUTH_ENABLED ? 'Sign in' : 'Browse jobs first'}
+              </Link>
             </div>
-          </Reveal>
-        </div>
-      </section>
+          </div>
 
-      {/* ── Act 2 · The ticker ────────────────────────────────────────── */}
-      <div className="full-bleed bg-slate-950 py-4">
-        <Marquee duration={26}>
-          <TickerRun />
-        </Marquee>
-      </div>
-
-      {/* ── Act 3 · The board ─────────────────────────────────────────── */}
-      <section className="full-bleed bg-teal-700 py-24 sm:py-28">
-        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
-          <Reveal>
-            <p className="mb-10 text-xs font-bold uppercase tracking-[0.3em] text-teal-200">Right now</p>
-          </Reveal>
-          <Reveal delay={100}>
-            <PosterStats />
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── Act 4 · Three steps, chart style ──────────────────────────── */}
-      <section className="full-bleed bg-[#f7f9fa] py-24 sm:py-32">
-        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
-          <Reveal>
-            <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em]">
-              <span className="block text-[clamp(2.6rem,7vw,6.5rem)] text-slate-900">Three steps.</span>
-              <span className="block text-[clamp(2.6rem,7vw,6.5rem)] text-slate-300">No black box.</span>
-            </h2>
-          </Reveal>
-          <ol className="mt-16 border-t-4 border-slate-900">
-            <ChartStep n="01" title="Start with your compass" body="A few quick questions, and the one step that matters most right now — in the order reentry research says works." />
-            <ChartStep n="02" title="Build your plan as you go" body="Steps, supervision dates, readiness, and check-ins live in one plan. Every tool here feeds it." />
-            <ChartStep n="03" title="Find work that says yes" body="Every posting scored against your background — Strong, Possible, or Challenging, with the reasons in plain English." />
+          <ol className="journey-path" aria-label="How the navigator works">
+            {STEPS.map((step, index) => (
+              <li key={step.n} className="journey-node" style={{ marginLeft: `${index % 2 === 0 ? 0 : 36}px` }}>
+                <span className="journey-dot" aria-hidden="true" />
+                <span className="journey-number">{step.n}</span>
+                <div>
+                  <h2>{step.title}</h2>
+                  <p>{step.copy}</p>
+                </div>
+              </li>
+            ))}
           </ol>
         </div>
       </section>
 
-      {/* ── Act 5 · The product ───────────────────────────────────────── */}
-      <section className="full-bleed overflow-hidden bg-white py-24 sm:py-32">
-        <div className="mx-auto max-w-[1400px] px-5 sm:px-10">
-          <div className="grid items-center gap-14 lg:grid-cols-2">
-            <Reveal>
-              <div>
-                <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em]">
-                  <span className="block text-[clamp(2.6rem,6.5vw,6rem)] text-slate-900">Every ranking,</span>
-                  <span className="block text-[clamp(2.6rem,6.5vw,6rem)] text-teal-600">explained.</span>
-                </h2>
-                <p className="mt-8 max-w-md text-lg leading-relaxed text-slate-500">
-                  Deterministic scoring — conviction-to-duty relevance, hard barriers, employer
-                  posture — with every component visible. A caseworker can reproduce any score by hand.
-                </p>
-              </div>
-            </Reveal>
-            <Reveal delay={140}>
-              <div className="relative mx-auto max-w-xl">
-                <span className="absolute -top-3 right-6 z-10 bg-sunset-500 px-4 py-1.5 text-xs font-extrabold uppercase tracking-[0.14em] text-white">
-                  Plain English
-                </span>
-                <HeroPreview />
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Act 6 · Principles ────────────────────────────────────────── */}
-      <section className="full-bleed bg-[#f7f9fa] py-24 sm:py-28">
-        <div className="mx-auto max-w-[1400px] border-t-4 border-slate-900 px-5 sm:px-10">
-          <BigPrinciple title="Your data stays yours." body="Background details never reach employers. Your plan lives on your device." />
-          <BigPrinciple title="Dignity, throughout." body="Neutral language everywhere — in what you see, and in the code itself." />
-          <BigPrinciple title="Built with caseworkers." body="Share your plan when you choose. Revoke it when you choose." />
-        </div>
-      </section>
-
-      {/* ── Act 7 · Begin ─────────────────────────────────────────────── */}
-      <section className="full-bleed bg-slate-950 pb-10 pt-28 sm:pt-36">
-        <div className="mx-auto max-w-[1400px] px-5 text-center sm:px-10">
-          <Reveal>
-            <h2 className="font-extrabold uppercase leading-[0.85] tracking-[-0.03em] text-[clamp(3rem,10vw,9rem)] text-white">
-              Begin<span className="text-teal-500"> today.</span>
-            </h2>
-          </Reveal>
-          <Reveal delay={140}>
-            <Link
-              href={primaryHref}
-              className="group mt-12 inline-flex items-center gap-2 bg-teal-500 px-8 py-4 text-sm font-extrabold uppercase tracking-[0.1em] text-slate-950 transition hover:bg-teal-400 active:scale-[0.98]"
-            >
-              {primaryLabel}
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-          </Reveal>
-        </div>
-        <div className="mt-24 border-t border-white/10 py-4">
-          <Marquee duration={30}>
-            <TickerRun light />
-          </Marquee>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-const TICKER = ['Real jobs', 'Real research', 'No black box', 'Your data stays yours', 'One step at a time', 'Free, always'];
-
-function TickerRun({ light = false }: { light?: boolean }) {
-  return (
-    <>
-      {TICKER.map((t) => (
-        <span key={t} className="inline-flex items-center">
-          <span className={'px-6 text-lg font-extrabold uppercase tracking-[0.1em] ' + (light ? 'text-white/70' : 'text-white')}>{t}</span>
-          <span className={'text-lg ' + (light ? 'text-teal-500' : 'text-sunset-400')} aria-hidden="true">✦</span>
-        </span>
-      ))}
-    </>
-  );
-}
-
-function ChartStep({ n, title, body }: { n: string; title: string; body: string }) {
-  return (
-    <li className="border-b-2 border-slate-900/15">
-      <Reveal className="grid grid-cols-[auto_1fr] items-center gap-6 py-10 sm:grid-cols-[1fr_2fr] sm:gap-10 sm:py-12">
-        <span aria-hidden="true" className="text-[clamp(4rem,9vw,8rem)] font-extrabold leading-[0.85] tracking-[-0.04em] text-teal-600 tabular-nums">{n}</span>
-        <div>
-          <h3 className="text-2xl font-extrabold uppercase tracking-tight text-slate-900 sm:text-3xl">{title}</h3>
-          <p className="mt-2 max-w-lg text-base leading-relaxed text-slate-500 sm:text-lg">{body}</p>
-        </div>
-      </Reveal>
-    </li>
-  );
-}
-
-function BigPrinciple({ title, body }: { title: string; body: string }) {
-  return (
-    <Reveal className="border-b-2 border-slate-900/15 py-12 sm:py-14">
-      <h3 className="text-[clamp(2rem,5vw,4rem)] font-extrabold uppercase leading-[0.9] tracking-[-0.02em] text-slate-900">{title}</h3>
-      <p className="mt-4 max-w-md text-base leading-relaxed text-slate-500 sm:text-lg">{body}</p>
-    </Reveal>
-  );
-}
-
-/**
- * Static preview of a job-card with the new compatibility engine UI.
- * Decorative — doesn't fetch real data — but every label and signal here
- * is faithful to what the live Browse Jobs page actually produces.
- *
- * Example role chosen to demonstrate the compatibility engine without
- * misrepresenting any real employer:
- *   - Apprentice Carpenter (real apprenticeship-tagged role from our feed)
- *   - Property/theft-related conviction selected
- *   - Engine output: Possible Match · 68% — construction industry has
- *     low sensitivity, but the role lists "valid driver's license"
- *     which dings the score slightly. This mirrors the actual scoring
- *     behavior and shows the audit-friendly explanations.
- */
-function HeroPreview() {
-  return (
-    <div className="relative h-full min-h-[340px]">
-      {/* Floating chance pill */}
-      <div className="absolute -right-4 -top-4 z-10 animate-slide-up rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 shadow-card-hover">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">Compatibility</p>
-        <p className="text-sm font-bold text-amber-800">Possible Match · 68%</p>
-        <p className="text-[10px] text-amber-700">scored against property/theft conviction</p>
-      </div>
-
-      {/* Main card */}
-      <div className="relative animate-slide-up rounded-2xl border border-slate-200 bg-white p-5 shadow-card-hover">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-full border border-navy-200 bg-navy-50 px-2 py-0.5 text-[10px] font-medium text-navy-700">Adzuna</span>
-              <span className="rounded-full border border-sunset-200 bg-sunset-50 px-2 py-0.5 text-[10px] font-medium text-sunset-700">Apprenticeship</span>
+      <section className="bg-navy-900 px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="grid gap-12 border-y border-white/15 py-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end">
+            <div>
+              <p className="section-kicker text-sunset-300">Your route, not a maze</p>
+              <h2 className="mt-5 font-display text-[clamp(3rem,7vw,7rem)] font-black uppercase leading-[.82] tracking-[-.04em]">
+                Four phases.<br /><span className="text-teal-300">One open path.</span>
+              </h2>
             </div>
-            <h4 className="mt-2 text-base font-semibold text-navy-900">Apprentice Carpenter</h4>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-600">
-              <Building2 className="h-3.5 w-3.5" /> Local 1750 Carpenters Union
-              <span className="text-slate-300">·</span>
-              <MapPin className="h-3.5 w-3.5" /> Columbus, OH
+            <p className="max-w-2xl text-lg leading-relaxed text-teal-100 lg:justify-self-end">
+              The navigator keeps the whole journey visible while highlighting only the next useful action. Nothing is hidden behind a score: you can see the evidence, the uncertainty, and what to do next.
             </p>
           </div>
+
+          <div className="phase-grid mt-16">
+            {STEPS.slice(0, 3).map((step) => (
+              <article key={step.n}>
+                <span>{step.n}</span>
+                <h3>{step.title}</h3>
+                <p>{step.copy}</p>
+              </article>
+            ))}
+          </div>
         </div>
+      </section>
 
-        <p className="mt-3 rounded-lg bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-700">
-          <span className="font-semibold text-slate-900">Why this score:</span>{' '}
-          construction has minimal regulatory scrutiny, no clean-record language detected,
-          and the role doesn&rsquo;t involve cash or inventory custody. Posting requires a valid
-          driver&rsquo;s license — minor dock.
-        </p>
-
-        <div className="mt-3 flex flex-wrap gap-1">
-          {[
-            ['conviction-duty', '28/30'],
-            ['hard barriers', '23/25'],
-            ['employer posture', '7/15'],
-            ['industry', '10/10'],
-          ].map(([label,v]) => (
-            <span key={label} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] text-amber-800">
-              {label} {v}
-            </span>
-          ))}
+      <section className="product-constellation px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+        <div className="mx-auto grid max-w-[1500px] gap-14 lg:grid-cols-[.75fr_1.25fr] lg:items-center">
+          <div>
+            <p className="section-kicker text-sunset-300">Explainable by design</p>
+            <h2 className="mt-5 font-display text-[clamp(3.2rem,7vw,7.2rem)] font-black uppercase leading-[.8] tracking-[-.04em]">
+              See why.<br /><span className="display-outline display-outline--small">Choose clearly.</span>
+            </h2>
+            <ul className="mt-10 space-y-4 text-teal-100">
+              <Promise Icon={ShieldCheck}>Background details stay out of employer applications.</Promise>
+              <Promise Icon={Compass}>Every recommendation includes a practical next action.</Promise>
+              <Promise Icon={MapPin}>Local help and distance filters use real locations.</Promise>
+            </ul>
+          </div>
+          <ProductPreview />
         </div>
-      </div>
+      </section>
 
-      {/* Under-card mini stats */}
-      <div className="mt-4 grid grid-cols-3 gap-2 animate-slide-up" style={{ animationDelay: '80ms' }}>
-        <MiniCard Icon={CheckCircle2}   iconCls="text-emerald-600" label="Strong" value="62" />
-        <MiniCard Icon={Briefcase}      iconCls="text-amber-600"   label="Possible" value="184" />
-        <MiniCard Icon={AlertTriangle}  iconCls="text-rose-600"    label="Challenging" value="41" />
+      <section className="bg-sunset-500 px-5 py-20 text-navy-900 sm:px-10 lg:px-16 lg:py-28">
+        <div className="mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 border-y border-navy-900/35 py-10 lg:flex-row lg:items-center">
+          <h2 className="font-display text-[clamp(3.8rem,9vw,9rem)] font-black uppercase leading-[.75] tracking-[-.04em]">Begin here.</h2>
+          <Link href={primaryHref} className="signal-button !border-navy-900 !bg-navy-900 !text-white">
+            {AUTH_ENABLED ? 'Create your account' : 'Show my next step'} <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Promise({ Icon, children }: { Icon: typeof Check; children: React.ReactNode }) {
+  return <li className="flex items-start gap-3 border-t border-white/15 pt-4"><Icon className="mt-0.5 h-5 w-5 shrink-0 text-sunset-300" /><span>{children}</span></li>;
+}
+
+function ProductPreview() {
+  return (
+    <div className="product-preview" aria-label="Example navigator workspace">
+      <div className="product-preview__rail"><span>01 Start</span><span>02 Plan</span><span>03 Prepare</span><strong>04 Find work</strong></div>
+      <div className="product-preview__body">
+        <p className="section-kicker text-sunset-300">Do this next</p>
+        <div className="mt-5 grid gap-5 sm:grid-cols-[1fr_.65fr]">
+          <div>
+            <h3 className="text-2xl font-bold text-white">Review three nearby roles</h3>
+            <p className="mt-2 text-sm leading-relaxed text-teal-100">Ranked across the full search—not only the first page—and paired with the evidence behind each fit estimate.</p>
+          </div>
+          <div className="border border-sunset-300/60 p-4">
+            <p className="text-xs uppercase tracking-[.18em] text-sunset-200">Strong fit</p>
+            <p className="mt-2 text-lg font-semibold">Warehouse associate</p>
+            <p className="mt-1 text-xs text-teal-100">8 miles · posted today</p>
+          </div>
+        </div>
+        <div className="mt-8 grid grid-cols-3 border-t border-white/15 pt-5 text-xs text-teal-100">
+          <span>Evidence visible</span><span>Barriers named</span><span>Next action clear</span>
+        </div>
       </div>
     </div>
   );
 }
 
-function MiniCard({ Icon, iconCls, label, value }: { Icon: typeof CheckCircle2; iconCls: string; label: string; value: string }) {
+function Constellation() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-card">
-      <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${iconCls}`} />
-        <span className="text-lg font-bold text-navy-900">{value}</span>
-      </div>
-      <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-    </div>
+    <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-65" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <g fill="none" stroke="rgba(67,173,165,.48)" strokeWidth="1">
+        <path d="M-40 690 C190 590 280 740 470 620 S790 360 980 430 S1240 660 1650 370" />
+        <path d="M970 40 C1050 170 1180 180 1260 280 S1380 520 1580 490" stroke="rgba(173,226,221,.32)" />
+      </g>
+      {[[142,646],[466,621],[780,477],[980,430],[1255,565],[1518,417],[1085,154],[1260,280]].map(([cx,cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#ff7a3d" />)}
+    </svg>
   );
 }

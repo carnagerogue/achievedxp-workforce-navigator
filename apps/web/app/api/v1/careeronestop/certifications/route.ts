@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { mockCertifications } from '../../../../../lib/server-data';
+import { careerOneStopUnavailable, occupationalCertifications } from '../../../../../lib/careeronestop';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const kw = req.nextUrl.searchParams.get('keyword') ?? '';
-  return NextResponse.json(mockCertifications(kw));
+  const data = await occupationalCertifications(kw);
+  return NextResponse.json(data ?? careerOneStopUnavailable('certifications', kw));
 }
