@@ -10,50 +10,94 @@ const STEPS = [
   { n: '04', title: 'Find work', copy: 'Search real openings, with fit signals and possible barriers explained.' },
 ];
 
+const RIDE_SCENES = [
+  {
+    eyebrow: 'Start with what matters',
+    lead: 'One clear',
+    accent: 'next step.',
+    copy: 'Begin with the need that matters today. Share only what you are ready to share, and keep the whole route visible.',
+  },
+  {
+    eyebrow: 'Turn pressure into a sequence',
+    lead: 'Put life',
+    accent: 'in order.',
+    copy: 'Housing, documents, supervision, training, and work settle into one practical plan—without hiding how the order was chosen.',
+  },
+  {
+    eyebrow: 'Build momentum before applying',
+    lead: 'Prepare the',
+    accent: 'right pieces.',
+    copy: 'Strengthen your story, skills, and application materials while the next useful action comes into focus.',
+  },
+  {
+    eyebrow: 'Move toward work that fits',
+    lead: 'See the path',
+    accent: 'open up.',
+    copy: 'Explore real nearby roles with fit evidence, possible barriers, and a clear action you can take next.',
+  },
+] as const;
+
 export default function LandingPage() {
   const primaryHref = AUTH_ENABLED ? '/sign-up' : '/dashboard';
   const secondaryHref = AUTH_ENABLED ? '/sign-in' : '/jobs';
 
   return (
-    <div className="landing-constellation full-bleed -mt-10 overflow-hidden text-white" data-landing-scroll>
+    <div className="landing-constellation full-bleed -mt-10 overflow-x-clip text-white" data-landing-scroll>
       <LandingScrollEffects />
       <JourneyField />
-      <section className="constellation-hero motion-chapter relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16" data-scroll-hero data-motion-phase="1">
-        <div className="relative z-10 mx-auto grid min-h-[760px] max-w-[1500px] gap-14 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-          <div data-reveal="left">
-            <p className="section-kicker text-sunset-300">Achieve DXP · Workforce Navigator</p>
-            <h1 aria-label="One clear next step." className="hero-title display-outline mt-8 max-w-[950px] text-[clamp(4.8rem,12vw,11.5rem)] leading-[.72]">
-              <span className="hero-title__line">One clear</span>
-              <span className="hero-title__line">next step.</span>
-            </h1>
-            <p className="mt-10 max-w-xl text-lg leading-relaxed text-teal-100 sm:text-xl">
-              A calm, practical path through reentry—from the needs that come first to work that can move life forward.
-            </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={primaryHref} className="signal-button group">
-                {AUTH_ENABLED ? 'Create your account' : 'Open my navigator'}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link href={secondaryHref} className="signal-button signal-button--ghost">
-                {AUTH_ENABLED ? 'Sign in' : 'Browse jobs first'}
-              </Link>
+      <section className="constellation-hero ride-hero motion-chapter relative border-b border-white/15" data-scroll-hero data-motion-phase="1">
+        <div className="ride-hero__sticky px-5 sm:px-10 lg:px-16">
+          <div className="ride-tunnel" aria-hidden="true"><i /><i /><i /><i /></div>
+          <div className="ride-horizon" aria-hidden="true"><span /></div>
+          <div className="relative z-10 mx-auto grid h-full max-w-[1500px] gap-10 lg:grid-cols-[1.16fr_.84fr] lg:items-center">
+            <div className="ride-stage">
+              {RIDE_SCENES.map((scene, index) => {
+                const Heading = index === 0 ? 'h1' : 'h2';
+                return (
+                  <article key={scene.eyebrow} className={'ride-scene ' + (index === 0 ? 'is-current' : '')} data-ride-scene>
+                    <p className="ride-scene__count"><span>{String(index + 1).padStart(2, '0')}</span> / 04</p>
+                    <p className="section-kicker text-sunset-300">{scene.eyebrow}</p>
+                    <Heading className="ride-scene__title mt-6">
+                      <span>{scene.lead}</span>
+                      <strong>{scene.accent}</strong>
+                    </Heading>
+                    <p className="ride-scene__copy mt-8">{scene.copy}</p>
+                    {index === 0 ? (
+                      <div className="mt-9 flex flex-wrap gap-3">
+                        <Link href={primaryHref} className="signal-button group">
+                          {AUTH_ENABLED ? 'Create your account' : 'Open my navigator'}
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                        <Link href={secondaryHref} className="signal-button signal-button--ghost">
+                          {AUTH_ENABLED ? 'Sign in' : 'Browse jobs first'}
+                        </Link>
+                      </div>
+                    ) : null}
+                    {index === RIDE_SCENES.length - 1 ? (
+                      <Link href={primaryHref} className="ride-scene__continue mt-9 inline-flex items-center gap-3">
+                        Continue into the navigator <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
-          </div>
 
-          <ol className="journey-path" aria-label="How the navigator works">
-            {STEPS.map((step, index) => (
-              <li key={step.n} className="journey-node" data-reveal="step" style={{ marginLeft: `${index % 2 === 0 ? 0 : 36}px`, '--reveal-delay': `${160 + index * 110}ms` } as React.CSSProperties}>
-                <span className="journey-dot" aria-hidden="true" />
-                <span className="journey-number">{step.n}</span>
-                <div>
-                  <h2>{step.title}</h2>
-                  <p>{step.copy}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+            <ol className="journey-path" aria-label="How the navigator works">
+              {STEPS.map((step, index) => (
+                <li key={step.n} className={'journey-node ' + (index === 0 ? 'is-current is-reached' : '')} data-ride-node>
+                  <span className="journey-dot" aria-hidden="true" />
+                  <span className="journey-number">{step.n}</span>
+                  <div>
+                    <h2>{step.title}</h2>
+                    <p>{step.copy}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="scroll-cue" aria-hidden="true"><span>Keep scrolling to follow the route</span><i /></div>
         </div>
-        <div className="scroll-cue" aria-hidden="true"><span>Scroll to trace the route</span><i /></div>
       </section>
 
       <RouteTicker />
