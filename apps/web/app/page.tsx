@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Compass, MapPin, ShieldCheck } from 'lucide-react';
 import { AUTH_ENABLED } from '../lib/auth-config';
+import { LandingScrollEffects } from '../components/LandingScrollEffects';
 
 const STEPS = [
   { n: '01', title: 'Start', copy: 'Tell us what matters right now. Skip anything you are not ready to share.' },
@@ -14,13 +15,14 @@ export default function LandingPage() {
   const secondaryHref = AUTH_ENABLED ? '/sign-in' : '/jobs';
 
   return (
-    <div className="landing-constellation full-bleed -mt-10 overflow-hidden text-white">
-      <section className="constellation-hero relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16">
+    <div className="landing-constellation full-bleed -mt-10 overflow-hidden text-white" data-landing-scroll>
+      <LandingScrollEffects />
+      <section className="constellation-hero relative min-h-[calc(100vh-60px)] border-b border-white/15 px-5 py-16 sm:px-10 lg:px-16" data-scroll-hero>
         <Constellation />
         <div className="relative z-10 mx-auto grid min-h-[760px] max-w-[1500px] gap-14 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
-          <div>
+          <div data-reveal="left">
             <p className="section-kicker text-sunset-300">Achieve DXP · Workforce Navigator</p>
-            <h1 aria-label="One clear next step." className="display-outline mt-8 max-w-[950px] text-[clamp(4.8rem,12vw,11.5rem)] leading-[.72]">
+            <h1 aria-label="One clear next step." className="hero-title display-outline mt-8 max-w-[950px] text-[clamp(4.8rem,12vw,11.5rem)] leading-[.72]">
               One clear<br />next step.
             </h1>
             <p className="mt-10 max-w-xl text-lg leading-relaxed text-teal-100 sm:text-xl">
@@ -39,7 +41,7 @@ export default function LandingPage() {
 
           <ol className="journey-path" aria-label="How the navigator works">
             {STEPS.map((step, index) => (
-              <li key={step.n} className="journey-node" style={{ marginLeft: `${index % 2 === 0 ? 0 : 36}px` }}>
+              <li key={step.n} className="journey-node" data-reveal="step" style={{ marginLeft: `${index % 2 === 0 ? 0 : 36}px`, '--reveal-delay': `${160 + index * 110}ms` } as React.CSSProperties}>
                 <span className="journey-dot" aria-hidden="true" />
                 <span className="journey-number">{step.n}</span>
                 <div>
@@ -50,25 +52,26 @@ export default function LandingPage() {
             ))}
           </ol>
         </div>
+        <div className="scroll-cue" aria-hidden="true"><span>Scroll to trace the route</span><i /></div>
       </section>
 
       <section className="bg-navy-900 px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
         <div className="mx-auto max-w-[1500px]">
-          <div className="grid gap-12 border-y border-white/15 py-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end">
-            <div>
+          <div className="scroll-stage grid gap-12 border-y border-white/15 py-12 lg:grid-cols-[.7fr_1.3fr] lg:items-end" data-scroll-stage>
+            <div data-reveal="left">
               <p className="section-kicker text-sunset-300">Your route, not a maze</p>
               <h2 className="mt-5 font-display text-[clamp(3rem,7vw,7rem)] font-black uppercase leading-[.82] tracking-[-.04em]">
                 Four phases.<br /><span className="text-teal-300">One open path.</span>
               </h2>
             </div>
-            <p className="max-w-2xl text-lg leading-relaxed text-teal-100 lg:justify-self-end">
+            <p className="max-w-2xl text-lg leading-relaxed text-teal-100 lg:justify-self-end" data-reveal="right">
               The navigator keeps the whole journey visible while highlighting only the next useful action. Nothing is hidden behind a score: you can see the evidence, the uncertainty, and what to do next.
             </p>
           </div>
 
           <div className="phase-grid mt-16">
             {STEPS.slice(0, 3).map((step) => (
-              <article key={step.n}>
+              <article key={step.n} data-reveal="card" style={{ '--reveal-delay': `${indexDelay(step.n)}ms` } as React.CSSProperties}>
                 <span>{step.n}</span>
                 <h3>{step.title}</h3>
                 <p>{step.copy}</p>
@@ -79,32 +82,36 @@ export default function LandingPage() {
       </section>
 
       <section className="product-constellation px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
-        <div className="mx-auto grid max-w-[1500px] gap-14 lg:grid-cols-[.75fr_1.25fr] lg:items-center">
-          <div>
+        <div className="scroll-stage mx-auto grid max-w-[1500px] gap-14 lg:grid-cols-[.75fr_1.25fr] lg:items-center" data-scroll-stage>
+          <div data-reveal="left">
             <p className="section-kicker text-sunset-300">Explainable by design</p>
             <h2 className="mt-5 font-display text-[clamp(3.2rem,7vw,7.2rem)] font-black uppercase leading-[.8] tracking-[-.04em]">
               See why.<br /><span className="display-outline display-outline--small">Choose clearly.</span>
             </h2>
-            <ul className="mt-10 space-y-4 text-teal-100">
+            <ul className="mt-10 space-y-4 text-teal-100" data-reveal="rise" style={{ '--reveal-delay': '140ms' } as React.CSSProperties}>
               <Promise Icon={ShieldCheck}>Background details stay out of employer applications.</Promise>
               <Promise Icon={Compass}>Every recommendation includes a practical next action.</Promise>
               <Promise Icon={MapPin}>Local help and distance filters use real locations.</Promise>
             </ul>
           </div>
-          <ProductPreview />
+          <div data-reveal="preview"><ProductPreview /></div>
         </div>
       </section>
 
       <section className="bg-sunset-500 px-5 py-20 text-navy-900 sm:px-10 lg:px-16 lg:py-28">
-        <div className="mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 border-y border-navy-900/35 py-10 lg:flex-row lg:items-center">
-          <h2 className="font-display text-[clamp(3.8rem,9vw,9rem)] font-black uppercase leading-[.75] tracking-[-.04em]">Begin here.</h2>
-          <Link href={primaryHref} className="signal-button !border-navy-900 !bg-navy-900 !text-white">
+        <div className="scroll-stage mx-auto flex max-w-[1500px] flex-col items-start justify-between gap-8 border-y border-navy-900/35 py-10 lg:flex-row lg:items-center" data-scroll-stage>
+          <h2 className="font-display text-[clamp(3.8rem,9vw,9rem)] font-black uppercase leading-[.75] tracking-[-.04em]" data-reveal="left">Begin here.</h2>
+          <Link href={primaryHref} className="signal-button !border-navy-900 !bg-navy-900 !text-white" data-reveal="right">
             {AUTH_ENABLED ? 'Create your account' : 'Show my next step'} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
     </div>
   );
+}
+
+function indexDelay(stepNumber: string) {
+  return (Number(stepNumber) - 1) * 110;
 }
 
 function Promise({ Icon, children }: { Icon: typeof Check; children: React.ReactNode }) {
@@ -138,12 +145,14 @@ function ProductPreview() {
 
 function Constellation() {
   return (
-    <svg className="pointer-events-none absolute inset-0 h-full w-full opacity-65" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <g fill="none" stroke="rgba(67,173,165,.48)" strokeWidth="1">
-        <path d="M-40 690 C190 590 280 740 470 620 S790 360 980 430 S1240 660 1650 370" />
-        <path d="M970 40 C1050 170 1180 180 1260 280 S1380 520 1580 490" stroke="rgba(173,226,221,.32)" />
-      </g>
-      {[[142,646],[466,621],[780,477],[980,430],[1255,565],[1518,417],[1085,154],[1260,280]].map(([cx,cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#ff7a3d" />)}
-    </svg>
+    <div className="constellation-art pointer-events-none absolute inset-0 h-full w-full opacity-65" aria-hidden="true">
+      <svg className="h-full w-full" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+        <g fill="none" stroke="rgba(67,173,165,.48)" strokeWidth="1">
+          <path d="M-40 690 C190 590 280 740 470 620 S790 360 980 430 S1240 660 1650 370" />
+          <path d="M970 40 C1050 170 1180 180 1260 280 S1380 520 1580 490" stroke="rgba(173,226,221,.32)" />
+        </g>
+        {[[142,646],[466,621],[780,477],[980,430],[1255,565],[1518,417],[1085,154],[1260,280]].map(([cx,cy]) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="4" fill="#ff7a3d" />)}
+      </svg>
+    </div>
   );
 }
