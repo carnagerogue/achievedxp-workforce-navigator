@@ -166,7 +166,7 @@ export default function OnboardingPage() {
       skills: new Set(p.skills ?? []),
       certifications: new Set(p.certifications ?? []),
       desiredIndustries: new Set(p.desiredIndustries ?? []),
-      hasRecord: p.justiceSupportEnabled ?? (p.convictions?.length ?? 0) > 0,
+      hasRecord: p.justiceSupportEnabled === true,
       onParoleOrProbation: p.onParoleOrProbation ?? false,
       convictions: (p.convictions ?? []) as ConvictionDto[],
     });
