@@ -43,6 +43,7 @@ import { getUserId } from '../../lib/session';
 import { JourneyRail } from '../../components/JourneyRail';
 import { RemoteJobsToggle } from '../../components/RemoteJobsToggle';
 import { getJobSearchPreferences, setIncludeRemoteJobs as saveIncludeRemoteJobs } from '../../lib/job-search-preferences';
+import { onStoreChange } from '../../lib/scoped-storage';
 
 /**
  * Map between the legacy uppercase OffenseType (DB enum) and the lowercase
@@ -166,22 +167,27 @@ function JobsPage() {
   // the conviction filter from their record when the URL doesn't set one, and
   // seed the location filter from their saved city/region the same way.
   useEffect(() => {
-    const p = getLocalProfile();
-    setLocalProfile(p);
-    setCurrentUserId(getUserId());
-    if (!sp?.has('includeRemote')) {
-      setIncludeRemoteJobs(p?.includeRemoteJobs ?? getJobSearchPreferences().includeRemoteJobs);
-    }
-    const fromProfile = p?.convictions?.[0]?.offenseType;
-    if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
-    if (!sp?.get('region') && !sp?.get('postalCode')) {
-      // ZIP is the only profile value that supports an honest proximity
-      // radius. Prefer it over city/state, which otherwise expands to a broad
-      // statewide result set while looking like a "near me" search.
-      const loc = p?.locationPostalCode
-        ?? (p?.locationCity && p?.locationRegion ? `${p.locationCity}, ${p.locationRegion}` : p?.locationRegion ?? '');
-      if (loc) setLocationInput((cur) => (cur === '' ? loc : cur));
-    }
+    const hydrateScopedPreferences = () => {
+      const p = getLocalProfile();
+      setLocalProfile(p);
+      setCurrentUserId(getUserId());
+      if (!sp?.has('includeRemote')) {
+        setIncludeRemoteJobs(p?.includeRemoteJobs ?? getJobSearchPreferences().includeRemoteJobs);
+      }
+      const fromProfile = p?.convictions?.[0]?.offenseType;
+      if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
+      if (!sp?.get('region') && !sp?.get('postalCode')) {
+        // ZIP is the only profile value that supports an honest proximity
+        // radius. Prefer it over city/state, which otherwise expands to a broad
+        // statewide result set while looking like a "near me" search.
+        const loc = p?.locationPostalCode
+          ?? (p?.locationCity && p?.locationRegion ? `${p.locationCity}, ${p.locationRegion}` : p?.locationRegion ?? '');
+        if (loc) setLocationInput((cur) => (cur === '' ? loc : cur));
+      }
+    };
+
+    hydrateScopedPreferences();
+    return onStoreChange(hydrateScopedPreferences);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
