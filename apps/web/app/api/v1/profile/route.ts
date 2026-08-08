@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { PROFILE_COLLECTION, type StoredProfile } from '../../../../lib/profile-store';
-import { putPersonalDoc } from '../../../../lib/storage';
+import { getPersonalDoc, putPersonalDoc } from '../../../../lib/storage';
 import { resolveUserId } from '../../../../lib/auth-server';
 
 export const runtime = 'nodejs';
@@ -24,5 +24,28 @@ export async function POST(req: NextRequest) {
   const profile = { ...body, userId } as StoredProfile;
   await putPersonalDoc(PROFILE_COLLECTION, userId, profile);
 
+  return NextResponse.json({ ok: true, profile });
+}
+
+/** Update a single search preference without risking replacement of the profile. */
+export async function PATCH(req: NextRequest) {
+  const body = (await req.json().catch(() => ({}))) as {
+    userId?: string;
+    includeRemoteJobs?: boolean;
+  };
+  const userId = resolveUserId(typeof body.userId === 'string' ? body.userId : null);
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: 'userId is required' }, { status: 400 });
+  }
+  if (typeof body.includeRemoteJobs !== 'boolean') {
+    return NextResponse.json({ ok: false, error: 'includeRemoteJobs must be boolean' }, { status: 400 });
+  }
+
+  const current = await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
+  if (!current) {
+    return NextResponse.json({ ok: false, error: 'Complete onboarding before saving account preferences' }, { status: 404 });
+  }
+  const profile: StoredProfile = { ...current, userId, includeRemoteJobs: body.includeRemoteJobs };
+  await putPersonalDoc(PROFILE_COLLECTION, userId, profile);
   return NextResponse.json({ ok: true, profile });
 }

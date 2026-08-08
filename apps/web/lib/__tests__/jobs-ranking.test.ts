@@ -1,7 +1,8 @@
 import { describe, expect, it } from '@jest/globals';
 import type { JobDto } from '@dxp/shared';
-import { filterJobs } from '../server-data';
+import { filterJobs, matchesFor } from '../server-data';
 import type { ScoreInputs } from '../job-scoring';
+import { saveProfile } from '../profile-store';
 
 function makeJob(id: string, overrides: Partial<JobDto> = {}): JobDto {
   return {
@@ -77,5 +78,48 @@ describe('job search ordering and distance', () => {
     expect(near.results.map((job) => job.id)).toEqual(expect.arrayContaining(['seattle', 'tacoma']));
     expect(near.results.map((job) => job.id)).not.toContain('spokane');
     expect(tight.results.map((job) => job.id)).toEqual(['seattle']);
+  });
+
+  it('can exclude every remote job without affecting in-person results', () => {
+    const source = [
+      makeJob('local'),
+      makeJob('remote', { remote: true, locationCity: null, locationRegion: null, locationPostalCode: null }),
+    ];
+
+    expect(filterJobs({ includeRemote: true }, source).results.map((job) => job.id)).toEqual(
+      expect.arrayContaining(['local', 'remote']),
+    );
+    expect(filterJobs({ includeRemote: false }, source).results.map((job) => job.id)).toEqual(['local']);
+  });
+
+  it('includes remote jobs alongside geographically matching in-person jobs when enabled', () => {
+    const source = [
+      makeJob('seattle'),
+      makeJob('portland', { locationCity: 'Portland', locationRegion: 'OR', locationPostalCode: '97205' }),
+      makeJob('remote', { remote: true, locationCity: null, locationRegion: null, locationPostalCode: null }),
+    ];
+
+    const included = filterJobs({ region: 'WA', includeRemote: true }, source);
+    const excluded = filterJobs({ region: 'WA', includeRemote: false }, source);
+    expect(included.results.map((job) => job.id)).toEqual(expect.arrayContaining(['seattle', 'remote']));
+    expect(included.results.map((job) => job.id)).not.toContain('portland');
+    expect(excluded.results.map((job) => job.id)).toEqual(['seattle']);
+  });
+
+  it('honors the saved remote preference in personalized matches', async () => {
+    const userId = 'remote-pref-off';
+    saveProfile({ userId, includeRemoteJobs: false });
+    const source = [
+      makeJob('local', { title: 'Warehouse Associate', minYearsExperience: 0 }),
+      makeJob('remote', { remote: true, title: 'Remote Support Associate', minYearsExperience: 0 }),
+    ];
+
+    const matches = await matchesFor(userId, 10, source);
+    expect(matches.counts.pool).toBe(1);
+    expect([
+      ...matches.topMatches,
+      ...matches.mediumMatches,
+      ...matches.avoid,
+    ].map((match) => match.jobId)).toEqual(['local']);
   });
 });

@@ -14,6 +14,12 @@ export async function GET(req: NextRequest) {
     return Number.isFinite(n) ? n : undefined;
   };
   const bool = (k: string) => sp.get(k) === 'true' ? true : undefined;
+  const explicitBool = (k: string) => {
+    const value = sp.get(k);
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return undefined;
+  };
   const str = (k: string) => {
     const v = sp.get(k);
     return v && v !== '' ? v : undefined;
@@ -32,6 +38,7 @@ export async function GET(req: NextRequest) {
     hideFelonExclusions: bool('hideFelonExclusions'),
     minSalary: num('minSalary'),
     postedWithinDays: num('postedWithinDays'),
+    includeRemote: explicitBool('includeRemote'),
     remote: bool('remote'),
     apprenticeshipsOnly: bool('apprenticeshipsOnly'),
     limit: num('limit'),

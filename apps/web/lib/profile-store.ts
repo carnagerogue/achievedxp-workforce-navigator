@@ -52,6 +52,8 @@ export interface StoredProfile {
   yearsExperience?: number;
   hasTransportation?: boolean;
   willingToRelocate?: boolean;
+  /** Whether remote roles should appear in search and personalized matches. Defaults to true. */
+  includeRemoteJobs?: boolean;
   hasFelonyRecord?: boolean;
   /** User explicitly opted into record-aware guidance during onboarding. */
   justiceSupportEnabled?: boolean;
