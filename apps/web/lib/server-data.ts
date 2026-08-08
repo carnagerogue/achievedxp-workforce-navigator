@@ -1247,7 +1247,7 @@ const ASSESSMENT_COLLECTION = 'assessments';
 
 export type AssessmentResult = ReturnType<typeof buildAssessmentResult>;
 
-function buildAssessmentResult(userId: string, answers: Record<number, number>) {
+export function buildAssessmentResult(userId: string, answers: Record<number, number>) {
   const scores: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
   const counts: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
   for (const q of ASSESSMENT_QUESTIONS) {
@@ -1257,20 +1257,31 @@ function buildAssessmentResult(userId: string, answers: Record<number, number>) 
       counts[q.dimension] += 1;
     }
   }
-  // Normalize to a 0–100 percent per dimension.
+  // Keep the public score on the scale the UI promises: five 1–5 answers,
+  // therefore 5–25 per dimension. Percentages are derived separately and
+  // are used only for occupation-fit math.
   const normalized: Record<'R'|'I'|'A'|'S'|'E'|'C', number> = { R:0, I:0, A:0, S:0, E:0, C:0 };
   (Object.keys(scores) as Array<keyof typeof scores>).forEach((k) => {
     normalized[k] = counts[k] ? Math.round((scores[k] / (counts[k] * 5)) * 100) : 0;
   });
 
-  const ordered = (Object.keys(normalized) as Array<keyof typeof normalized>)
-    .sort((a, b) => normalized[b] - normalized[a]);
-  const hollandCode = ordered.slice(0, 3).join('');
-  const topDimensions = ordered.slice(0, 3).map((code) => ({
+  const rawScores = { ...scores };
+  const ordered = (Object.keys(rawScores) as Array<keyof typeof rawScores>)
+    .sort((a, b) => rawScores[b] - rawScores[a]);
+  // A three-letter code is not meaningful when all dimensions are tied (or
+  // when the third-place boundary is tied). Do not resolve ties by object-key
+  // order; describe the result as broad and invite differentiation instead.
+  const isBroadProfile = ordered.length > 0 && (
+    rawScores[ordered[0]] === rawScores[ordered[ordered.length - 1]] ||
+    rawScores[ordered[2]] === rawScores[ordered[3]]
+  );
+  const hollandCode = isBroadProfile ? 'BROAD' : ordered.slice(0, 3).join('');
+  const topCodes = isBroadProfile ? ordered : ordered.slice(0, 3);
+  const topDimensions = topCodes.map((code) => ({
     code,
     name:  ASSESSMENT_DIMENSIONS[code].name,
     blurb: ASSESSMENT_DIMENSIONS[code].blurb,
-    score: normalized[code],
+    score: rawScores[code],
   }));
 
   const industryMap: Record<keyof typeof normalized, string[]> = {
@@ -1312,8 +1323,9 @@ function buildAssessmentResult(userId: string, answers: Record<number, number>) 
 
   const result = {
     userId,
-    scores: normalized,
+    scores: rawScores,
     hollandCode,
+    isBroadProfile,
     topDimensions,
     recommendedIndustries: recommended,
     occupations: occupations.map((o) => {
@@ -1332,7 +1344,7 @@ function buildAssessmentResult(userId: string, answers: Record<number, number>) 
         ...o,
         fitPercent,
         liveJobCount,
-        jobsQuery: `?industry=${encodeURIComponent(o.industry)}`,
+        jobsQuery: new URLSearchParams({ industry: o.industry }).toString(),
       };
     }).sort((a, b) => b.fitPercent - a.fitPercent),
     completedAt: new Date().toISOString(),
@@ -1355,7 +1367,27 @@ export async function scoreAssessment(
 }
 
 export async function getAssessmentResultFor(userId: string): Promise<AssessmentResult | null> {
-  return getPersonalDoc<AssessmentResult>(ASSESSMENT_COLLECTION, userId);
+  const stored = await getPersonalDoc<AssessmentResult>(ASSESSMENT_COLLECTION, userId);
+  if (!stored) return null;
+  const codes = Object.keys(stored.scores) as Array<keyof typeof stored.scores>;
+  const legacyPercentScores = codes.some((code) => stored.scores[code] > 25);
+  if (!legacyPercentScores) return { ...stored, isBroadProfile: stored.isBroadProfile ?? false };
+  const scores = { ...stored.scores };
+  for (const code of codes) scores[code] = Math.max(5, Math.min(25, Math.round(scores[code] / 4)));
+  const values = codes.map((code) => scores[code]);
+  const broad = Math.max(...values) === Math.min(...values);
+  return {
+    ...stored,
+    scores,
+    hollandCode: broad ? 'BROAD' : stored.hollandCode,
+    isBroadProfile: broad,
+    topDimensions: (broad ? codes : stored.topDimensions.map((d) => d.code)).map((code) => ({
+      code,
+      name: ASSESSMENT_DIMENSIONS[code].name,
+      blurb: ASSESSMENT_DIMENSIONS[code].blurb,
+      score: scores[code],
+    })),
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────

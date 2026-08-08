@@ -167,10 +167,12 @@ function JobsPage() {
     setCurrentUserId(getUserId());
     const fromProfile = p?.convictions?.[0]?.offenseType;
     if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
-    if (!sp?.get('region')) {
-      const loc = p?.locationCity && p?.locationRegion
-        ? `${p.locationCity}, ${p.locationRegion}`
-        : p?.locationRegion ?? p?.locationPostalCode ?? '';
+    if (!sp?.get('region') && !sp?.get('postalCode')) {
+      // ZIP is the only profile value that supports an honest proximity
+      // radius. Prefer it over city/state, which otherwise expands to a broad
+      // statewide result set while looking like a "near me" search.
+      const loc = p?.locationPostalCode
+        ?? (p?.locationCity && p?.locationRegion ? `${p.locationCity}, ${p.locationRegion}` : p?.locationRegion ?? '');
       if (loc) setLocationInput((cur) => (cur === '' ? loc : cur));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

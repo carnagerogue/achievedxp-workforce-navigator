@@ -59,7 +59,7 @@ export default function ApprenticeshipsPage() {
         </div>
 
         <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Stat Icon={Wallet}       label="Paid training"     text="Full wages from day one, no tuition debt." />
+          <Stat Icon={Wallet}       label="Paid training"     text="A paid starting wage with progressive increases in registered programs." />
           <Stat Icon={ShieldCheck}  label="Fair-chance leaning" text="Many programs accept applicants with records." />
           <Stat Icon={GraduationCap} label="Credentialed exit" text="Finish with a portable, industry-recognized cert." />
         </dl>

@@ -57,12 +57,7 @@ export interface Provider {
   does: string[];
   /** Exactly what it does NOT do — no dark patterns, ever. */
   doesNot: string[];
-  /**
-   * For `oauth` providers: the NEXT_PUBLIC_* env flag that, when set at build
-   * time, turns on the real consent redirect. Absent/blank ⇒ gracefully off
-   * (the tile shows "ask your program to enable this"), mirroring how the rest
-   * of the app degrades without configuration.
-   */
+  /** For OAuth providers, the public Clerk key that enables account linking. */
   oauthEnvHint?: string;
 }
 
@@ -237,6 +232,7 @@ export interface Connection {
 
 type ConnMap = Record<string, Connection>;
 const KEY = 'connections';
+const EMPTY_CONNECTIONS: ConnMap = {};
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -286,7 +282,7 @@ export function disconnect(providerId: string) {
 export function connectedCount(): number { return Object.keys(conns).length; }
 
 export function useConnections(): ConnMap {
-  return useSyncExternalStore(subscribe, getConnections, () => ({}));
+  return useSyncExternalStore(subscribe, getConnections, () => EMPTY_CONNECTIONS);
 }
 
 // ---- job-board deep links ------------------------------------------------

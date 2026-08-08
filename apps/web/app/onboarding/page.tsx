@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   UserCircle2, MapPin, Scale, Wrench, Award, Factory, ArrowRight, ArrowLeft, Check, CheckCircle2,
+  ShieldCheck, Sparkles, LockKeyhole, Target, Radar, ChevronRight,
 } from 'lucide-react';
 import type { ConvictionDto } from '@dxp/shared';
 import { createUser, upsertProfile } from '../../lib/api';
@@ -18,18 +19,9 @@ import {
   INDUSTRY_CATEGORIES, INDUSTRY_INDEX,
 } from '../../lib/catalogs';
 import { useToast } from '../../components/Toast';
+import { AUTH_ENABLED } from '../../lib/auth-config';
+import { useUser } from '@clerk/nextjs';
 
-// Reference data — mirrors apps/api/prisma/seed.ts so skill/cert/industry
-// labels stay consistent end-to-end. Phase 6 will swap to live lookups.
-const SKILL_OPTIONS = [
-  'forklift_operation', 'commercial_driving', 'welding', 'carpentry', 'hvac',
-  'customer_service', 'food_service', 'warehouse_operations', 'computer_literacy',
-];
-const CERT_OPTIONS = ['osha_10', 'osha_30', 'cdl_a', 'cdl_b', 'servsafe', 'forklift'];
-const INDUSTRY_OPTIONS = [
-  'construction', 'warehousing', 'transportation', 'food_service',
-  'manufacturing', 'cleaning', 'services', 'healthcare',
-];
 // All 50 states + DC + U.S. territories. Sorted by full name (rendered as
 // "AL — Alabama") rather than code so users can scan it. Matches the USPS
 // 2-letter codes used everywhere else in the system.
@@ -83,6 +75,37 @@ const STEPS: Step[] = [
   { id: 'background', title: 'Background',           subtitle: 'Structured conviction history (optional)', Icon: Scale },
 ];
 
+type GoalPanel = 'skills' | 'certifications' | 'industries';
+
+const STEP_STORIES = [
+  {
+    kicker: 'Start with you',
+    title: 'A profile that works for you.',
+    copy: 'A few essentials create your private starting point. You stay in control of what comes next.',
+  },
+  {
+    kicker: 'Bring work closer',
+    title: 'Opportunity should meet you where you are.',
+    copy: 'Your area and logistics help us prioritize realistic routes—not just jobs that look good on paper.',
+  },
+  {
+    kicker: 'Build your signal',
+    title: 'Turn what you know into momentum.',
+    copy: 'Choose only what feels true. Each signal sharpens the roles, training, and next steps we bring forward.',
+  },
+  {
+    kicker: 'Your context, your choice',
+    title: 'See barriers before they become dead ends.',
+    copy: 'Optional background context helps us explain possible barriers privately. It is never sent to employers.',
+  },
+] as const;
+
+const GOAL_TABS: ReadonlyArray<{ id: GoalPanel; label: string; hint: string; Icon: LucideIcon }> = [
+  { id: 'skills', label: 'Skills', hint: 'What you can do', Icon: Wrench },
+  { id: 'certifications', label: 'Credentials', hint: 'What you have earned', Icon: Award },
+  { id: 'industries', label: 'Industries', hint: 'Where you want to go', Icon: Factory },
+];
+
 interface WizardState {
   email: string;
   displayName: string;
@@ -104,6 +127,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const toast = useToast();
   const [stepIdx, setStepIdx] = useState(0);
+  const [goalPanel, setGoalPanel] = useState<GoalPanel>('skills');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,6 +174,7 @@ export default function OnboardingPage() {
 
   const step = STEPS[stepIdx];
   const isLast = stepIdx === STEPS.length - 1;
+  const selectedSignals = state.skills.size + state.certifications.size + state.desiredIndustries.size;
 
   // Scroll to top on step change so the user lands at the heading rather
   // than mid-form. Honors prefers-reduced-motion.
@@ -247,252 +272,270 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl animate-fade-in">
-      {/* ─── Progress header ─── */}
-      <div className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-7 shadow-card sm:p-8">
-        <div className="flex items-center justify-between gap-2">
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-            <UserCircle2 className="h-3.5 w-3.5" /> Profile setup · step {stepIdx + 1} of {STEPS.length}
-          </p>
-          <Link href="/" className="text-xs font-semibold text-slate-400 hover:text-slate-600">Exit</Link>
-        </div>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">
-          {step.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{step.subtitle}</p>
+    <div className="onboarding-experience full-bleed animate-fade-in">
+      {AUTH_ENABLED && <AccountPrefill onValue={(email, displayName) => setState((current) => ({ ...current, email: current.email || email, displayName: current.displayName || displayName }))} />}
 
-        {/* Progress bar */}
-        <div className="mt-5">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-600 transition-[width] duration-500"
-              style={{ width: `${((stepIdx + 1) / STEPS.length) * 100}%` }}
-            />
+      <div className="onboarding-layout">
+        <aside className="onboarding-guidance" aria-label="Your profile route">
+          <div className="onboarding-guidance__glow" aria-hidden="true" />
+          <div className="relative z-10 flex h-full flex-col">
+            <div className="flex items-center justify-between">
+              <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-teal-200/75">
+                <Sparkles className="h-3.5 w-3.5" /> Achieve intelligence
+              </p>
+              <span className="font-mono text-[10px] tabular-nums tracking-[0.18em] text-white/35">0{stepIdx + 1} / 04</span>
+            </div>
+
+            <div key={step.id} className="onboarding-story mt-14">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sunset-300">{STEP_STORIES[stepIdx].kicker}</p>
+              <h2 className="mt-4 max-w-md text-4xl font-semibold leading-[1.02] tracking-[-0.045em] text-white xl:text-[3.25rem]">
+                {STEP_STORIES[stepIdx].title}
+              </h2>
+              <p className="mt-5 max-w-sm text-[15px] leading-7 text-teal-50/65">{STEP_STORIES[stepIdx].copy}</p>
+            </div>
+
+            <OnboardingTrajectory current={stepIdx} selectedSignals={selectedSignals} />
+
+            <div className="relative mt-auto flex items-start gap-3 border-t border-white/10 pt-5">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-teal-200/20 bg-teal-100/10 text-teal-200">
+                <LockKeyhole className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-white">Private by design</p>
+                <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-white/45">Your background context stays out of employer applications. You choose what to share.</p>
+              </div>
+            </div>
           </div>
+        </aside>
 
-          {/* Step pills */}
-          <ol className="mt-4 grid grid-cols-4 gap-2 text-xs">
-            {STEPS.map((s, i) => {
-              const state =
-                i < stepIdx ? 'done' :
-                i === stepIdx ? 'current' :
-                'upcoming';
-              return (
-                <li
-                  key={s.id}
-                  className={
-                    'flex items-center gap-1.5 truncate rounded-lg px-2 py-1.5 ' +
-                    (state === 'current' ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200' :
-                     state === 'done'    ? 'text-teal-700' :
-                     'text-slate-400')
-                  }
-                >
-                  <span className={
-                    'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ' +
-                    (state === 'current' ? 'bg-teal-600 text-white' :
-                     state === 'done'    ? 'bg-teal-100 text-teal-700' :
-                     'bg-slate-100 text-slate-500')
-                  }>
-                    {state === 'done' ? <Check className="h-3 w-3" /> : i + 1}
-                  </span>
-                  <span className="truncate font-medium">{s.title}</span>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      </div>
+        <section className="onboarding-workspace">
+          <header className="flex items-center justify-between gap-4 border-b border-slate-200/80 px-5 py-4 sm:px-8 lg:px-10">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white">{stepIdx + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-navy-900">Profile setup</p>
+                <p className="text-[10px] text-slate-400">About {Math.max(1, 4 - stepIdx)} min left</p>
+              </div>
+            </div>
+            <Link href="/" className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-navy-900">Exit setup</Link>
+          </header>
 
-      {/* ─── Step body ─── */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (isLast) handleSubmit();
-          else next();
-        }}
-        className="mt-5 space-y-5"
-      >
-        {step.id === 'account' && (
-          <FieldGroup title="Account" Icon={UserCircle2}>
-            <TextField label="Email"                         type="email" value={state.email}       onChange={(v) => update('email', v)} required />
-            <TextField label="Display name (optional)"        value={state.displayName} onChange={(v) => update('displayName', v)} />
-          </FieldGroup>
-        )}
+          <div className="px-5 pb-10 pt-6 sm:px-8 lg:px-10 lg:pb-12">
+            <ol className="onboarding-steps" aria-label="Profile setup progress">
+              {STEPS.map((s, i) => {
+                const status = i < stepIdx ? 'done' : i === stepIdx ? 'current' : 'upcoming';
+                return (
+                  <li key={s.id} className={`onboarding-steps__item is-${status}`}>
+                    <button
+                      type="button"
+                      onClick={() => { if (i < stepIdx) setStepIdx(i); }}
+                      disabled={i > stepIdx}
+                      aria-current={i === stepIdx ? 'step' : undefined}
+                      aria-label={`${s.title}${status === 'done' ? ', completed' : status === 'current' ? ', current step' : ', upcoming'}`}
+                    >
+                      <span>{status === 'done' ? <Check className="h-3 w-3" /> : i + 1}</span>
+                      <em>{s.title}</em>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
 
-        {step.id === 'location' && (
-          <FieldGroup title="Location & logistics" Icon={MapPin}>
-            <TextField label="City" value={state.locationCity} onChange={(v) => update('locationCity', v)} />
-            <RegionSelect
-              value={state.locationRegion}
-              onChange={(v) => update('locationRegion', v)}
-            />
-            <TextField
-              label="ZIP code"
-              value={state.locationPostalCode}
-              onChange={(v) => update('locationPostalCode', v.replace(/\D/g, '').slice(0, 5))}
-            />
-            <NumberField label="Years of work experience" value={state.yearsExperience} onChange={(v) => update('yearsExperience', v)} min={0} max={60} />
-            <CheckboxField label="I have reliable transportation"  checked={state.hasTransportation} onChange={(v) => update('hasTransportation', v)} />
-            <CheckboxField label="I'm open to relocating"          checked={state.willingToRelocate}  onChange={(v) => update('willingToRelocate', v)} />
-          </FieldGroup>
-        )}
+            <div key={step.id} className="onboarding-panel mx-auto mt-10 max-w-3xl">
+              <div className="lg:hidden">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sunset-600">{STEP_STORIES[stepIdx].kicker}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{STEP_STORIES[stepIdx].copy}</p>
+              </div>
 
-        {step.id === 'goals' && (
-          <>
-            <FieldGroup title="Skills you bring" Icon={Wrench}>
-              <RichChipPicker
-                categories={SKILL_CATEGORIES}
-                index={SKILL_INDEX}
-                selected={state.skills}
-                onToggle={(v) => toggle('skills', v)}
-                onClear={() => setState((p) => ({ ...p, skills: new Set() }))}
-                itemNoun="skill"
-                recommendedMax={8}
-              />
-            </FieldGroup>
-            <FieldGroup title="Certifications you've earned" Icon={Award}>
-              <RichChipPicker
-                categories={CERT_CATEGORIES}
-                index={CERT_INDEX}
-                selected={state.certifications}
-                onToggle={(v) => toggle('certifications', v)}
-                onClear={() => setState((p) => ({ ...p, certifications: new Set() }))}
-                itemNoun="certification"
-              />
-            </FieldGroup>
-            <FieldGroup title="Industries you want to work in" Icon={Factory}>
-              <RichChipPicker
-                categories={INDUSTRY_CATEGORIES}
-                index={INDUSTRY_INDEX}
-                selected={state.desiredIndustries}
-                onToggle={(v) => toggle('desiredIndustries', v)}
-                onClear={() => setState((p) => ({ ...p, desiredIndustries: new Set() }))}
-                itemNoun="industry"
-                allowCustom={false}
-                recommendedMax={4}
-              />
-            </FieldGroup>
-          </>
-        )}
+              <div className="mt-6 flex items-start gap-4 lg:mt-0">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-teal-200 bg-teal-50 text-teal-700">
+                  <step.Icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">Step {stepIdx + 1} · {step.subtitle}</p>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-navy-900 sm:text-4xl">{step.title}</h1>
+                </div>
+              </div>
 
-        {step.id === 'background' && (
-          <FieldGroup
-            title="Background context"
-            Icon={Scale}
-            subtitle="Used only to filter out roles unlikely to hire and surface ones that will — never shared with employers. Skip this section if it doesn't apply."
-          >
-            <CheckboxField
-              label="I have a criminal record"
-              checked={state.hasRecord}
-              onChange={(v) => update('hasRecord', v)}
-            />
-
-            {state.hasRecord && (
-              <div className="space-y-3">
-                <CheckboxField
-                  label="Currently on parole or probation"
-                  checked={state.onParoleOrProbation}
-                  onChange={(v) => update('onParoleOrProbation', v)}
-                />
-
-                {state.convictions.length === 0 && (
-                  <p className="rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
-                    Add at least one conviction so we can apply the right filters. Every field
-                    within each entry is optional — fill what you know.
-                  </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (isLast) handleSubmit();
+                  else next();
+                }}
+                className="mt-8"
+              >
+                {step.id === 'account' && (
+                  <FieldGroup title="Your starting point" subtitle="We use this to save your profile and make the experience feel like yours.">
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <TextField label="Email address" type="email" value={state.email} onChange={(v) => update('email', v)} required placeholder="you@example.com" />
+                      <TextField label="What should we call you?" value={state.displayName} onChange={(v) => update('displayName', v)} placeholder="First name or nickname" />
+                    </div>
+                  </FieldGroup>
                 )}
 
-                <div className="space-y-3">
-                  {state.convictions.map((c, i) => (
-                    <ConvictionForm
-                      key={i}
-                      conviction={c}
-                      index={i}
-                      onChange={(next) => updateConviction(i, next)}
-                      onRemove={() => removeConviction(i)}
-                    />
-                  ))}
+                {step.id === 'location' && (
+                  <FieldGroup title="Your opportunity radius" subtitle="Location improves nearby job, training, and support recommendations. Every field is optional.">
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <TextField label="City" value={state.locationCity} onChange={(v) => update('locationCity', v)} placeholder="e.g. Seattle" />
+                      <RegionSelect value={state.locationRegion} onChange={(v) => update('locationRegion', v)} />
+                      <TextField label="ZIP code" value={state.locationPostalCode} onChange={(v) => update('locationPostalCode', v.replace(/\D/g, '').slice(0, 5))} placeholder="5 digits" />
+                      <NumberField label="Years of work experience" value={state.yearsExperience} onChange={(v) => update('yearsExperience', v)} min={0} max={60} />
+                    </div>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      <CheckboxField label="I have reliable transportation" checked={state.hasTransportation} onChange={(v) => update('hasTransportation', v)} />
+                      <CheckboxField label="I'm open to relocating" checked={state.willingToRelocate} onChange={(v) => update('willingToRelocate', v)} />
+                    </div>
+                  </FieldGroup>
+                )}
+
+                {step.id === 'goals' && (
+                  <FieldGroup title="Shape your recommendations" subtitle="This is optional. Start with the signal that best represents you—you can add or change anything later.">
+                    <div className="grid grid-cols-3 gap-2" role="group" aria-label="Recommendation signals">
+                      {GOAL_TABS.map(({ id, label, hint, Icon }) => {
+                        const count = id === 'skills' ? state.skills.size : id === 'certifications' ? state.certifications.size : state.desiredIndustries.size;
+                        const active = goalPanel === id;
+                        return (
+                          <button key={id} type="button" onClick={() => setGoalPanel(id)} aria-pressed={active}
+                            className={`onboarding-signal-tab ${active ? 'is-active' : ''}`}>
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors"><Icon className="h-4 w-4" /></span>
+                            <span className="min-w-0 flex-1 text-left"><strong>{label}</strong><small>{hint}</small></span>
+                            {count > 0 ? <em>{count}</em> : <ChevronRight className="h-4 w-4 text-slate-300" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                      {goalPanel === 'skills' && (
+                        <RichChipPicker categories={SKILL_CATEGORIES} index={SKILL_INDEX} selected={state.skills}
+                          onToggle={(v) => toggle('skills', v)} onClear={() => setState((p) => ({ ...p, skills: new Set() }))}
+                          itemNoun="skill" recommendedMax={8} variant="onboarding" />
+                      )}
+                      {goalPanel === 'certifications' && (
+                        <RichChipPicker categories={CERT_CATEGORIES} index={CERT_INDEX} selected={state.certifications}
+                          onToggle={(v) => toggle('certifications', v)} onClear={() => setState((p) => ({ ...p, certifications: new Set() }))}
+                          itemNoun="certification" variant="onboarding" />
+                      )}
+                      {goalPanel === 'industries' && (
+                        <RichChipPicker categories={INDUSTRY_CATEGORIES} index={INDUSTRY_INDEX} selected={state.desiredIndustries}
+                          onToggle={(v) => toggle('desiredIndustries', v)} onClear={() => setState((p) => ({ ...p, desiredIndustries: new Set() }))}
+                          itemNoun="industry" allowCustom={false} recommendedMax={4} variant="onboarding" />
+                      )}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-teal-50 px-4 py-3 text-xs text-teal-900">
+                      <span className="inline-flex items-center gap-2"><Radar className="h-4 w-4 text-teal-600" /> {selectedSignals ? `${selectedSignals} matching signal${selectedSignals === 1 ? '' : 's'} active` : 'Your matches will start broad'}</span>
+                      <span className="hidden text-teal-700 sm:inline">Optional</span>
+                    </div>
+                  </FieldGroup>
+                )}
+
+                {step.id === 'background' && (
+                  <FieldGroup title="You decide what we account for" subtitle="This section is optional. It is used only to explain possible barriers and improve guidance inside Achieve.">
+                    <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-teal-700" />
+                        <div><p className="text-sm font-semibold text-teal-900">Never included in employer applications</p><p className="mt-1 text-xs leading-relaxed text-teal-800/75">Background context stays separate from the materials you use to apply.</p></div>
+                      </div>
+                    </div>
+                    <div className="mt-5">
+                      <CheckboxField label="I want guidance that accounts for a criminal record" checked={state.hasRecord} onChange={(v) => update('hasRecord', v)} />
+                    </div>
+
+                    {state.hasRecord && (
+                      <div className="mt-5 space-y-4 border-t border-slate-200 pt-5">
+                        <CheckboxField label="I'm currently on parole or probation" checked={state.onParoleOrProbation} onChange={(v) => update('onParoleOrProbation', v)} />
+                        {state.convictions.length === 0 && <p className="text-xs leading-relaxed text-slate-500">Add what you know. Every field inside an entry is optional.</p>}
+                        <div className="space-y-3">
+                          {state.convictions.map((c, i) => (
+                            <ConvictionForm key={i} conviction={c} index={i} onChange={(value) => updateConviction(i, value)} onRemove={() => removeConviction(i)} />
+                          ))}
+                        </div>
+                        <button type="button" onClick={addConviction} className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-800">+ Add background context</button>
+                      </div>
+                    )}
+                  </FieldGroup>
+                )}
+
+                {error && <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">{error}</div>}
+
+                <div className="mt-8 flex items-center justify-between gap-3 border-t border-slate-200 pt-5">
+                  <button type="button" onClick={back} disabled={stepIdx === 0}
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-navy-900 disabled:pointer-events-none disabled:opacity-0">
+                    <ArrowLeft className="h-4 w-4" /> Back
+                  </button>
+                  {!isLast ? (
+                    <button type="submit" disabled={!canAdvance()}
+                      className="group inline-flex min-w-[190px] items-center justify-center gap-2 rounded-full bg-navy-900 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(29,38,64,.18)] transition hover:-translate-y-0.5 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40">
+                      Continue to {STEPS[stepIdx + 1].title} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </button>
+                  ) : (
+                    <button type="submit" disabled={submitting}
+                      className="group inline-flex min-w-[210px] items-center justify-center gap-2 rounded-full bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(12,112,105,.22)] transition hover:-translate-y-0.5 hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60">
+                      {submitting ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Building your route…</> : <><CheckCircle2 className="h-4 w-4" /> Show my next step</>}
+                    </button>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={addConviction}
-                  className="w-full rounded-lg border border-dashed border-slate-400 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:border-teal-500 hover:text-teal-700"
-                >
-                  + Add a conviction
-                </button>
-              </div>
-            )}
-          </FieldGroup>
-        )}
-
-        {error && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
+              </form>
+            </div>
           </div>
-        )}
-
-        {/* ─── Nav ─── */}
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <button
-            type="button"
-            onClick={back}
-            disabled={stepIdx === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-          {!isLast ? (
-            <button
-              type="submit"
-              disabled={!canAdvance()}
-              className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Next <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={submitting}
-              className="group inline-flex items-center gap-2 rounded-xl bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700 hover:shadow-card-hover disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? (
-                <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Saving…</>
-              ) : (
-                <><CheckCircle2 className="h-4 w-4" /> Finish & see matches</>
-              )}
-            </button>
-          )}
-        </div>
-      </form>
+        </section>
+      </div>
     </div>
   );
 }
 
 // ───────── Form primitives ─────────
 
-function FieldGroup({
-  title, subtitle, Icon, children,
-}: { title: string; subtitle?: string; Icon?: LucideIcon; children: React.ReactNode }) {
+function OnboardingTrajectory({ current, selectedSignals }: { current: number; selectedSignals: number }) {
   return (
-    <fieldset className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-      <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-navy-900">
-        {Icon && (
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-            <Icon className="h-4 w-4" />
-          </span>
-        )}
-        {title}
-      </legend>
-      {subtitle && <p className="mb-3 px-1 text-xs text-slate-500">{subtitle}</p>}
-      <div className="mt-2 space-y-3">{children}</div>
+    <div className="onboarding-trajectory mt-12">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white"><Radar className="h-4 w-4 text-teal-300" /> Your matching route</span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/35">Live</span>
+      </div>
+      <div className="onboarding-trajectory__path mt-5">
+        <span className="onboarding-trajectory__track" aria-hidden="true"><i style={{ height: `${(current / (STEPS.length - 1)) * 100}%` }} /></span>
+        <ol>
+          {STEPS.map((step, index) => {
+            const reached = index <= current;
+            return (
+              <li key={step.id} className={index === current ? 'is-current' : reached ? 'is-reached' : ''}>
+                <span className="onboarding-trajectory__node" aria-hidden="true">{index < current ? <Check className="h-3 w-3" /> : index === current ? <span /> : index + 1}</span>
+                <div><strong>{step.title}</strong><small>{index === current ? 'In progress' : index < current ? 'Signal added' : 'Coming next'}</small></div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <div className="onboarding-destination mt-5">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sunset-400 text-white"><Target className="h-4 w-4" /></span>
+        <div className="min-w-0 flex-1"><small>Your destination</small><strong>{selectedSignals > 0 ? 'Focused matches, explained' : 'A clearer next step'}</strong></div>
+        {selectedSignals > 0 && <em>{selectedSignals} signals</em>}
+      </div>
+    </div>
+  );
+}
+
+function FieldGroup({
+  title, subtitle, children,
+}: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="onboarding-fieldset">
+      <legend className="sr-only">{title}</legend>
+      <div className="mb-6 border-b border-slate-200 pb-5">
+        <h2 className="text-base font-semibold tracking-tight text-navy-900">{title}</h2>
+        {subtitle && <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-500">{subtitle}</p>}
+      </div>
+      <div>{children}</div>
     </fieldset>
   );
 }
 
 function TextField({
-  label, value, onChange, type = 'text', required,
-}: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
+  label, value, onChange, type = 'text', required, placeholder,
+}: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
@@ -501,7 +544,8 @@ function TextField({
         required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        placeholder={placeholder}
+        className="block h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-navy-900 shadow-[0_1px_2px_rgba(15,23,42,.03)] transition placeholder:text-slate-300 hover:border-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
     </label>
   );
@@ -519,7 +563,7 @@ function NumberField({
         max={max}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="block w-32 rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="block h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,.03)] transition hover:border-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
     </label>
   );
@@ -532,8 +576,9 @@ function RegionSelect({ value, onChange }: { value: string; onChange: (v: string
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="block w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="block h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm shadow-[0_1px_2px_rgba(15,23,42,.03)] transition hover:border-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       >
+        <option value="" disabled>Select your state or territory</option>
         {US_REGIONS.map((r) => (
           <option key={r.code} value={r.code}>{r.code} — {r.name}</option>
         ))}
@@ -545,45 +590,33 @@ function RegionSelect({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+function AccountPrefill({ onValue }: { onValue: (email: string, displayName: string) => void }) {
+  const { isLoaded, user } = useUser();
+  const delivered = useRef(false);
+  useEffect(() => {
+    if (!isLoaded || !user || delivered.current) return;
+    delivered.current = true;
+    onValue(
+      user.primaryEmailAddress?.emailAddress ?? '',
+      user.fullName ?? user.username ?? '',
+    );
+  }, [isLoaded, user, onValue]);
+  return null;
+}
+
 function CheckboxField({
   label, checked, onChange,
 }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
+    <label className={`group flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3.5 text-sm transition ${checked ? 'border-teal-300 bg-teal-50 text-teal-900' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+        className="sr-only"
       />
-      {label}
+      <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${checked ? 'border-teal-600 bg-teal-600 text-white' : 'border-slate-300 bg-white text-transparent group-hover:border-teal-400'}`}><Check className="h-3 w-3" /></span>
+      <span className="font-medium">{label}</span>
     </label>
-  );
-}
-
-function ChipGroup({
-  options, selected, onToggle,
-}: { options: string[]; selected: Set<string>; onToggle: (v: string) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => {
-        const active = selected.has(opt);
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onToggle(opt)}
-            className={
-              'rounded-full border px-3 py-1 text-xs font-medium transition ' +
-              (active
-                ? 'border-teal-600 bg-teal-50 text-teal-700'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400')
-            }
-          >
-            {opt.replace(/_/g, ' ')}
-          </button>
-        );
-      })}
-    </div>
   );
 }

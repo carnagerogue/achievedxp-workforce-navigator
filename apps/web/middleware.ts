@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { clerkMiddleware } from '@clerk/nextjs/server';
-import { AUTH_ENABLED, isPublicPath } from './lib/auth-config';
+import { AUTH_ENABLED, AUTH_CONFIGURATION_SAFE, hasStaffRole, isPublicPath } from './lib/auth-config';
 
 /**
  * Two request-time gates, chosen once at module load:
@@ -77,12 +77,31 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 /** Accounts-on path: everything requires sign-in except the public allowlist. */
 const clerkGate = clerkMiddleware((auth, req) => {
-  if (!isPublicPath(req.nextUrl.pathname)) auth().protect();
+  if (!AUTH_CONFIGURATION_SAFE) {
+    return new NextResponse('Production authentication is not configured. Replace Clerk development keys with live production keys.', { status: 503 });
+  }
+  const pathname = req.nextUrl.pathname;
+  if (!isPublicPath(pathname)) auth().protect();
+  if (pathname === '/caseworker' || pathname.startsWith('/caseworker/')) {
+    const { sessionClaims } = auth();
+    if (!hasStaffRole(sessionClaims as unknown as Record<string, unknown>)) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.search = '?staffAccess=denied';
+      return NextResponse.redirect(url);
+    }
+  }
 });
 
 /** Accounts-off path: the original pre-launch site-password gate. */
 async function passwordGate(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // A shared preview password is not staff authorization. The caseworker
+  // surface is opt-in only for controlled demos when accounts are disabled.
+  if ((pathname === '/caseworker' || pathname.startsWith('/caseworker/')) && process.env.CASEWORKER_PREVIEW !== 'on') {
+    return new NextResponse('Staff access is not enabled.', { status: 403 });
+  }
 
   // Operator escape hatch: SITE_GATE=off disables the gate entirely.
   if (process.env.SITE_GATE === 'off') return NextResponse.next();

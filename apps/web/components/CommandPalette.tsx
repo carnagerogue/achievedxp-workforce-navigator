@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
@@ -91,12 +91,16 @@ export function CommandPalette() {
   useEffect(() => {
     if (!open) return;
     if (!dq.trim()) { setJobs([]); return; }
+    let cancelled = false;
     setLoading(true);
     listJobs({ q: dq, limit: 8 })
-      .then((d) => setJobs(d.results))
-      .catch(() => setJobs([]))
-      .finally(() => setLoading(false));
+      .then((d) => { if (!cancelled) setJobs(d.results); })
+      .catch(() => { if (!cancelled) setJobs([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [open, dq]);
+
+  const waitingForDebounce = q.trim() !== dq.trim();
 
   const items: CommandItem[] = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -171,8 +175,8 @@ export function CommandPalette() {
 
         <ul ref={listRef} id="cmdk-list" role="listbox" className="max-h-80 overflow-auto p-1.5">
           {items.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-slate-500">
-              {loading ? 'Searching…' : (q ? `No results for "${q}"` : 'Start typing to search jobs…')}
+            <li className="px-3 py-6 text-center text-sm text-slate-500" aria-live="polite">
+              {loading || waitingForDebounce ? 'Searching…' : (q ? `No results for "${q}"` : 'Start typing to search jobs…')}
             </li>
           ) : (
             <>
@@ -184,7 +188,7 @@ export function CommandPalette() {
                 const isFirstParticipant = item.kind === 'participant' && (i === 0 || items[i - 1].kind !== 'participant');
                 const key = (item.kind === 'job' ? item.job.id : item.kind === 'participant' ? item.pid : item.href) + i;
                 return (
-                  <>
+                  <Fragment key={key}>
                     {isFirstParticipant && (
                       <li key={`cw-heading`} className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                         Caseload
@@ -215,7 +219,7 @@ export function CommandPalette() {
                         <ArrowRight className={'mt-1 h-3.5 w-3.5 shrink-0 ' + (i === active ? 'text-teal-600' : 'text-slate-300')} />
                       </button>
                     </li>
-                  </>
+                  </Fragment>
                 );
               })}
             </>

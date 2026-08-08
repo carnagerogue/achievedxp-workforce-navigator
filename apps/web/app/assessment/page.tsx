@@ -164,11 +164,11 @@ function Quiz({
 
       <div className="mt-5 space-y-4">
         {slice.map((q, i) => (
-          <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-            <p className="text-base font-medium text-navy-900">
+          <fieldset key={q.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+            <legend className="w-full text-base font-medium text-navy-900">
               <span className="mr-2 text-slate-400">{page * PAGE_SIZE + i + 1}.</span>
               {q.prompt}
-            </p>
+            </legend>
             <div className="mt-3 grid grid-cols-5 gap-2">
               {questions.scale.map((s) => {
                 const selected = answers[q.id] === s.value;
@@ -177,6 +177,8 @@ function Quiz({
                     key={s.value}
                     type="button"
                     onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: s.value }))}
+                    aria-pressed={selected}
+                    aria-label={`${q.prompt}: ${s.label}`}
                     className={
                       'flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition ' +
                       (selected
@@ -190,7 +192,7 @@ function Quiz({
                 );
               })}
             </div>
-          </div>
+          </fieldset>
         ))}
       </div>
 
@@ -248,8 +250,15 @@ function Results({
         <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">
-              Holland code: <span className="bg-gradient-to-r from-teal-600 to-sunset-500 bg-clip-text text-transparent">{result.hollandCode}</span>
+              {result.isBroadProfile ? (
+                <>A <span className="bg-gradient-to-r from-teal-600 to-sunset-500 bg-clip-text text-transparent">broad interest profile</span></>
+              ) : (
+                <>Holland code: <span className="bg-gradient-to-r from-teal-600 to-sunset-500 bg-clip-text text-transparent">{result.hollandCode}</span></>
+              )}
             </h1>
+            {result.isBroadProfile && (
+              <p className="mt-2 max-w-xl text-sm text-slate-600">Your dimensions are tied, so a three-letter code would be arbitrary. Try a retake with more varied answers, or explore the full range below.</p>
+            )}
             <p className="mt-1 text-sm text-slate-600">
               Completed {new Date(result.completedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
@@ -332,7 +341,7 @@ function Results({
                       )}
                     </p>
                   </div>
-                  <FitBadge percent={o.fitPercent} />
+                  {!result.isBroadProfile && <FitBadge percent={o.fitPercent} />}
                 </div>
                 <p className="text-xs leading-relaxed text-slate-700">{o.description}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-slate-600">
@@ -341,7 +350,7 @@ function Results({
                 </div>
                 {o.liveJobCount > 0 ? (
                   <Link
-                    href={`/jobs?${o.jobsQuery}`}
+                    href={`/jobs?${o.jobsQuery.replace(/^\?+/, '')}`}
                     className="mt-1 inline-flex items-center gap-1 self-start rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
                   >
                     View {o.liveJobCount.toLocaleString()} open {o.liveJobCount === 1 ? 'role' : 'roles'} →
@@ -360,7 +369,7 @@ function Results({
       {/* All dimensions chart */}
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
         <h2 className="text-base font-semibold text-navy-900">All six dimensions</h2>
-        <p className="mt-1 text-xs text-slate-500">Each score is 0–25. Higher = more interest.</p>
+        <p className="mt-1 text-xs text-slate-500">Each score is 5–25 from five questions. Higher means more interest.</p>
         <ul className="mt-4 space-y-2.5">
           {dims.map((d) => {
             const Icon = DIMENSION_ICONS[d];

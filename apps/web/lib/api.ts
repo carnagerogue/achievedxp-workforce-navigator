@@ -123,6 +123,7 @@ export interface AssessmentResultDto {
   userId: string;
   scores: { R: number; I: number; A: number; S: number; E: number; C: number };
   hollandCode: string;
+  isBroadProfile?: boolean;
   topDimensions: Array<{ code: 'R' | 'I' | 'A' | 'S' | 'E' | 'C'; name: string; blurb: string; score: number }>;
   recommendedIndustries: string[];
   occupations: OccupationMatchDto[];

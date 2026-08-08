@@ -58,7 +58,7 @@ export function FocusHero({ entry }: { entry: FocusEntry | null }) {
         {entry.sub && <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-slate-500">{entry.sub}</p>}
         <div className="mt-5 flex flex-wrap gap-2.5">
           {markMet ? (
-            <button onClick={markMet} className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700">
+            <button onClick={markMet} aria-label={`Mark ${entry.title} met`} className="inline-flex items-center gap-1.5 rounded-full bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700">
               <Check className="h-4 w-4" /> Mark it met
             </button>
           ) : entry.href ? (

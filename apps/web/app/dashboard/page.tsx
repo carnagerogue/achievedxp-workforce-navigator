@@ -127,6 +127,10 @@ export default function HomePage() {
             <a href="#today" className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-amber-100 px-3.5 py-1.5 text-xs font-bold text-amber-700 ring-1 ring-inset ring-amber-200 hover:bg-amber-200">
               <CalendarClock className="h-3.5 w-3.5" /> {soon} {soon === 1 ? 'thing is' : 'things are'} coming up this week
             </a>
+          ) : fresh ? (
+            <span className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-inset ring-slate-200">
+              <Compass className="h-3.5 w-3.5" /> Let&apos;s set up your next step
+            </span>
           ) : (
             <span className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-teal-100 px-3.5 py-1.5 text-xs font-bold text-teal-700 ring-1 ring-inset ring-teal-200">
               <ShieldCheck className="h-3.5 w-3.5" /> You&apos;re on track
@@ -227,7 +231,7 @@ export default function HomePage() {
       {/* ─── The receipts ─── */}
       <EvidencePanel />
 
-      <p className="mb-2 mt-2 text-center text-[11px] text-slate-400">Private to this device. You decide what to share.</p>
+      <p className="mb-2 mt-2 text-center text-[11px] text-slate-400">Planning details stay in this browser. You decide what to export or share.</p>
     </div>
   );
 }

@@ -34,17 +34,22 @@ export function LandingScrollEffects() {
       if (nextStep === activeRideStep) return;
       activeRideStep = nextStep;
       root.dataset.rideStep = String(nextStep + 1);
-      rideScenes.forEach((scene, index) => scene.classList.toggle('is-current', index === nextStep));
+      rideScenes.forEach((scene, index) => {
+        scene.classList.toggle('is-current', index === nextStep);
+        scene.setAttribute('aria-hidden', index === nextStep ? 'false' : 'true');
+      });
       rideNodes.forEach((node, index) => {
         node.classList.toggle('is-current', index === nextStep);
         node.classList.toggle('is-reached', index <= nextStep);
         node.classList.toggle('is-past', index < nextStep);
       });
+      phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === nextStep));
     };
 
     if (reducedMotion) {
       revealItems.forEach((item) => item.classList.add('is-visible'));
       updateRideStep(0);
+      rideScenes.forEach((scene) => scene.setAttribute('aria-hidden', 'false'));
       root.style.setProperty('--hero-progress', '0');
       root.style.setProperty('--page-progress', '.35');
       stages.forEach((stage) => stage.style.setProperty('--section-progress', '1'));
@@ -97,7 +102,9 @@ export function LandingScrollEffects() {
           scene.style.setProperty('--ride-scale', `${(isPast ? 1 + depth * 0.28 : 1 - depth * 0.18).toFixed(4)}`);
           scene.style.setProperty('--ride-tilt', `${(delta * -7).toFixed(2)}deg`);
           scene.style.setProperty('--ride-opacity', clamp(1 - Math.abs(delta) * 1.08).toFixed(4));
-          scene.style.setProperty('--ride-blur', `${(depth * 8).toFixed(2)}px`);
+          // Depth is carried by position/scale; a light blur is enough to
+          // suggest motion without making the active narrative unreadable.
+          scene.style.setProperty('--ride-blur', `${(depth * 2).toFixed(2)}px`);
         });
       }
 
@@ -152,10 +159,11 @@ export function LandingScrollEffects() {
         }
       });
       root.dataset.activePhase = String(activePhase + 1);
-      const progressIndex = targetHero < 0.995 && rideScenes.length
-        ? Math.min(rideScenes.length - 1, Math.round(targetHero * (rideScenes.length - 1)))
-        : activePhase;
-      phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === progressIndex));
+      // During the hero ride, updateRideStep keeps the route rail synchronized
+      // with the eased scene users actually see. After the ride, chapters own it.
+      if (targetHero >= 0.995 || !rideScenes.length) {
+        phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === activePhase));
+      }
       requestRender();
     };
 

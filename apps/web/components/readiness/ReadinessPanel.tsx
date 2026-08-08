@@ -19,7 +19,7 @@ const STATUS_OPTS: { value: DomainStatus; label: string }[] = [
   { value: 'not_ready', label: 'Not ready' },
   { value: 'in_progress', label: 'In progress' },
   { value: 'ready', label: 'Ready' },
-  { value: 'na', label: 'N/A' },
+  { value: 'na', label: 'Not assessed / N/A' },
 ];
 const STATUS_CLS: Record<DomainStatus, string> = {
   not_ready: 'border-rose-300 bg-rose-50 text-rose-700',
@@ -55,8 +55,8 @@ export function ReadinessPanel({
             <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-200">
               <Gauge className="h-3.5 w-3.5" /> Readiness
             </p>
-            <h2 className={`mt-0.5 text-xl font-bold ${BAND_TONE[result.band]}`}>{BAND_LABEL[result.band]}</h2>
-            <p className="mt-0.5 text-xs text-teal-50/80">{readyCount} of {applicable} domains ready · {result.gaps.length} to work on</p>
+            <h2 className={`mt-0.5 text-xl font-bold ${BAND_TONE[result.band]}`}>{applicable === 0 ? 'Not assessed yet' : BAND_LABEL[result.band]}</h2>
+            <p className="mt-0.5 text-xs text-teal-50/80">{applicable === 0 ? 'Choose a status for each area to build your score.' : `${readyCount} of ${applicable} domains ready · ${result.gaps.length} to work on`}</p>
           </div>
         </div>
       </div>
@@ -78,6 +78,7 @@ export function ReadinessPanel({
                   <button
                     onClick={() => onAddGap(g)}
                     disabled={added}
+                    aria-label={`${added ? 'Already in plan' : 'Add to plan'}: ${g.gap?.label ?? g.label}`}
                     className={
                       'inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ' +
                       (added ? 'bg-teal-50 text-teal-700' : 'bg-navy-900 text-white hover:bg-navy-800')
@@ -115,6 +116,7 @@ export function ReadinessPanel({
               </div>
               <select
                 value={d.status}
+                aria-label={`${d.label} readiness status`}
                 onChange={(e) => onSetStatus(d.key, e.target.value as DomainStatus)}
                 className={'shrink-0 cursor-pointer rounded-full border px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 ' + STATUS_CLS[d.status]}
               >

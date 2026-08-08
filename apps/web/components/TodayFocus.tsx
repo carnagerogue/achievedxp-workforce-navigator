@@ -59,13 +59,14 @@ export function TodayFocus({ entries, totals }: { entries: FocusEntry[]; totals?
     const wins: string[] = [];
     if (stepsDone > 0) wins.push(`${stepsDone} step${stepsDone === 1 ? '' : 's'} done`);
     if (checkins.length > 0) wins.push(`${checkins.length} check-in${checkins.length === 1 ? '' : 's'} logged`);
+    const hasProgress = wins.length > 0;
     return (
       <section className="rounded-2xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-5 shadow-card">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 text-teal-700"><CheckCircle2 className="h-5 w-5" /></span>
           <div>
-            <h2 className="text-sm font-bold text-navy-900">You’re on track{wins.length ? ` — ${wins.join(' · ')}` : ''}</h2>
-            <p className="text-xs text-slate-600">No deadlines need you right now. Keep building your plan and applying to strong matches.</p>
+            <h2 className="text-sm font-bold text-navy-900">{hasProgress ? `You’re on track — ${wins.join(' · ')}` : 'Let’s set up your next step'}</h2>
+            <p className="text-xs text-slate-600">{hasProgress ? 'No deadlines need you right now. Keep building your plan and applying to strong matches.' : 'Add a plan step or answer a few readiness questions to get a useful daily focus.'}</p>
           </div>
         </div>
       </section>
@@ -102,7 +103,7 @@ export function TodayFocus({ entries, totals }: { entries: FocusEntry[]; totals?
                 {f.sub && <p className="text-[11px] text-slate-600">{f.sub}</p>}
               </div>
               {f.conditionId && (
-                <button onClick={() => markMet(f.conditionId!)} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-700">
+                <button onClick={() => markMet(f.conditionId!)} aria-label={`Mark ${f.title} met`} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-teal-600 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-700">
                   <Check className="h-3 w-3" /> Mark met
                 </button>
               )}

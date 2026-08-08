@@ -36,7 +36,7 @@ export function ApplyDialog({ job, onClose }: { job: JobDto; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Apply to ${job.title}`}>
-      <button className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" aria-label="Close" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" aria-hidden="true" onMouseDown={onClose} />
       <div className="animate-slide-up relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white shadow-pop sm:rounded-3xl">
         <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-slate-900/[0.06] bg-white/95 px-5 py-4 backdrop-blur">
           <div className="min-w-0">
@@ -44,7 +44,7 @@ export function ApplyDialog({ job, onClose }: { job: JobDto; onClose: () => void
             <h2 className="truncate text-lg font-semibold tracking-tight text-slate-900">{job.title}</h2>
             <p className="truncate text-sm text-slate-500">{job.company}</p>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-900/[0.05] hover:text-slate-700" aria-label="Close"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-900/[0.05] hover:text-slate-700" aria-label={`Close application dialog for ${job.title}`}><X className="h-5 w-5" /></button>
         </div>
 
         <div className="space-y-4 p-5">

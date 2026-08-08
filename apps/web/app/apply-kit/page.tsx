@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FileText, Plus, Trash2, Check, ArrowRight, Sparkles } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   type ShiftPref,
 } from '../../lib/apply-kit';
 import { getLocalProfile } from '../../lib/local-profile';
+import { Skeleton } from '../../components/Skeleton';
 
 const SHIFTS: { value: ShiftPref; label: string }[] = [
   { value: 'days', label: 'Days' },
@@ -20,13 +21,14 @@ const SHIFTS: { value: ShiftPref; label: string }[] = [
 
 export default function ApplyKitPage() {
   const kit = useApplyKit();
+  const [hydrated, setHydrated] = useState(false);
   const pct = kitCompleteness(kit);
 
   // Prefill the obvious fields from the saved profile the first time, so the
   // kit starts filled instead of blank — never overwrite what they've typed.
   useEffect(() => {
     const p = getLocalProfile();
-    if (!p) return;
+    if (!p) { setHydrated(true); return; }
     const patch: Record<string, string> = {};
     if (!kit.fullName && p.displayName) patch.fullName = p.displayName;
     if (!kit.email && p.email) patch.email = p.email;
@@ -37,8 +39,11 @@ export default function ApplyKitPage() {
       patchApplyKit({ hasTransportation: p.hasTransportation });
     }
     if (Object.keys(patch).length) patchApplyKit(patch);
+    setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (!hydrated) return <div aria-busy="true" aria-label="Loading Apply Kit" className="mx-auto max-w-2xl space-y-5"><Skeleton className="h-56 w-full rounded-3xl" /><Skeleton className="h-72 w-full rounded-2xl" /></div>;
 
   const toggleShift = (s: ShiftPref) => {
     patchApplyKit({ shifts: kit.shifts.includes(s) ? kit.shifts.filter((x) => x !== s) : [...kit.shifts, s] });
@@ -82,7 +87,7 @@ export default function ApplyKitPage() {
               {SHIFTS.map((s) => {
                 const on = kit.shifts.includes(s.value);
                 return (
-                  <button key={s.value} onClick={() => toggleShift(s.value)}
+                  <button key={s.value} onClick={() => toggleShift(s.value)} aria-pressed={on}
                     className={'inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition ' + (on ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-600 ring-slate-300 hover:ring-teal-400')}>
                     {on && <Check className="h-3 w-3" />} {s.label}
                   </button>
@@ -145,7 +150,7 @@ export default function ApplyKitPage() {
         </div>
       </div>
 
-      <p className="mb-2 mt-4 text-center text-[11px] text-slate-400">Private to your account. Nothing here is ever shared with employers unless you paste it in yourself.</p>
+      <p className="mb-2 mt-4 text-center text-[11px] text-slate-400">Saved in this browser. Nothing is shared with employers unless you paste it yourself.</p>
     </div>
   );
 }
@@ -211,8 +216,8 @@ function YesNo({ label, value, onChange }: { label: string; value: boolean | nul
     <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
       <span className="text-xs font-medium text-slate-700">{label}</span>
       <div className="flex gap-1">
-        <button onClick={() => onChange(true)} className={'rounded-md px-2 py-0.5 text-xs font-semibold ' + (value === true ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500')}>Yes</button>
-        <button onClick={() => onChange(false)} className={'rounded-md px-2 py-0.5 text-xs font-semibold ' + (value === false ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500')}>No</button>
+        <button onClick={() => onChange(true)} aria-pressed={value === true} aria-label={`${label}: Yes`} className={'rounded-md px-2 py-0.5 text-xs font-semibold ' + (value === true ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-500')}>Yes</button>
+        <button onClick={() => onChange(false)} aria-pressed={value === false} aria-label={`${label}: No`} className={'rounded-md px-2 py-0.5 text-xs font-semibold ' + (value === false ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-500')}>No</button>
       </div>
     </div>
   );

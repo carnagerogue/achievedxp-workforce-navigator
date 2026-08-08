@@ -17,7 +17,7 @@ export function JobCard({ match }: Props) {
   const location = [job.locationCity, job.locationRegion].filter(Boolean).join(', ') || 'Location TBD';
 
   return (
-    <article className="group relative flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
+    <article className="group relative flex h-full min-w-0 max-w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="truncate text-base font-semibold text-navy-900">
@@ -57,7 +57,7 @@ export function JobCard({ match }: Props) {
 
       <div className="mt-auto pt-4">
         <div className="flex items-center justify-between gap-3">
-          <RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} />
+          <div className="min-w-0"><RiskBadge tier={job.riskTier} backgroundCheckLikely={job.backgroundCheckLikely} /></div>
           <div className="relative z-10 flex gap-2">
             <Link
               href={`/jobs/${job.id}`}

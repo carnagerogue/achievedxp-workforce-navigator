@@ -22,3 +22,17 @@ export function dedupKey(j: Pick<JobDto, 'title' | 'company' | 'locationCity' | 
   const norm = (s: string | null | undefined) => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
   return `${norm(j.title)}|${norm(j.company)}|${norm(j.locationCity)}|${norm(j.locationRegion)}`;
 }
+
+/** Reject malformed, expired, implausibly future, and stale live postings. */
+export function isFreshJob(j: Pick<JobDto, 'postedAt' | 'expiresAt'>, now = Date.now(), maxAgeDays = 120): boolean {
+  const day = 86_400_000;
+  if (!j.postedAt) return false;
+  const posted = new Date(j.postedAt).getTime();
+  if (!Number.isFinite(posted)) return false;
+  if (posted > now + 2 * day || posted < now - maxAgeDays * day) return false;
+  if (j.expiresAt) {
+    const expires = new Date(j.expiresAt).getTime();
+    if (!Number.isFinite(expires) || expires < now) return false;
+  }
+  return true;
+}

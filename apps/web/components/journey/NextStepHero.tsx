@@ -38,7 +38,7 @@ export function NextStepHero({ phase, step, onDone }: { phase: JourneyPhase; ste
         <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-slate-500">{step.why}</p>
         <div className="mt-5 flex flex-wrap items-center gap-2.5">
           {step.action && <ActionButton action={step.action} primary />}
-          <button onClick={onDone} className="inline-flex items-center gap-1.5 rounded-full border border-slate-900/10 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-slate-900/20 hover:text-slate-900">
+          <button onClick={onDone} aria-label={`Mark ${step.title} done`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-900/10 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-slate-900/20 hover:text-slate-900">
             <Check className="h-4 w-4" /> Mark done
           </button>
         </div>

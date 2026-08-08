@@ -24,7 +24,7 @@ export default function PlanPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
           Your working plan — steps, readiness, supervision, and check-ins, all in one place.
-          Private to this device.
+          Saved only in this browser unless you export or share it.
         </p>
         <div className="mt-4"><CalendarExportButton /></div>
       </header>

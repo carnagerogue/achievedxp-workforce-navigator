@@ -57,7 +57,7 @@ export function ConnectionTile({ provider }: { provider: Provider }) {
           </button>
         ) : oauthOff ? (
           <span className="inline-flex items-center rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-medium text-slate-400" title="Your program can turn on sign-in with this provider.">
-            Enabled by your program
+            Not enabled by your program
           </span>
         ) : (
           <button onClick={() => setOpen(true)}

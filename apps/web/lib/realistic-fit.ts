@@ -58,23 +58,28 @@ const SENIORITY: Array<{ re: RegExp; years: number; level: RoleLevel }> = [
   { re: /\b(intern|internship|trainee|apprentice|entry[-\s]?level|junior|jr\.?|helper|\bi\b)\b/i, years: 0, level: 'entry' },
 ];
 
-function inferSeniority(title: string, haystack: string): { years: number; level: RoleLevel } {
+export function inferSeniority(title: string, haystack: string): { years: number; level: RoleLevel } {
   let level: RoleLevel = 'mid';
   let years = 2;
   for (const s of SENIORITY) {
     if (s.re.test(title)) { level = s.level; years = s.years; break; }
   }
-  // Raise (never lower) from explicit "N+ years" phrases in the body.
+  // Raise (never lower) only from experience REQUIREMENTS. A bare phrase such
+  // as "serving customers for 18 years" describes the company, not the role.
   let explicit = 0;
-  for (const m of haystack.matchAll(/(\d{1,2})\s*\+?\s*years?/g)) {
+  const requirementPatterns = [
+    /(?:minimum|min\.?|at least|requires?|required|must have|need(?:s|ed)?|with)\s+(\d{1,2})\s*\+?\s*years?(?:\s+of)?\s+(?:relevant\s+)?experience/gi,
+    /(\d{1,2})\s*\+?\s*years?(?:\s+of)?\s+(?:relevant\s+)?experience\s+(?:required|minimum|needed|preferred)/gi,
+  ];
+  for (const re of requirementPatterns) for (const m of haystack.matchAll(re)) {
     const n = Number(m[1]);
     if (Number.isFinite(n) && n <= 20 && n > explicit) explicit = n;
   }
   if (explicit > years) {
     years = explicit;
-    if (years >= 12) level = 'executive';
-    else if (years >= 8) level = 'director';
-    else if (years >= 5) level = 'senior';
+    // Years can raise the experience bar but do not turn a technician into an
+    // executive. Leadership level comes from the title itself.
+    if (years >= 5 && (level === 'entry' || level === 'mid')) level = 'senior';
   }
   return { years, level };
 }

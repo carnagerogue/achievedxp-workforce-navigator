@@ -16,11 +16,11 @@ export function CompareBar() {
   const pathname = usePathname() ?? '';
   // Hide on the compare page itself (redundant) and on a job detail, where it
   // would overlap the mobile "Apply" bar.
-  if (ids.length === 0 || pathname === '/jobs/compare' || /^\/jobs\/[^/]+$/.test(pathname)) return null;
+  if (ids.length === 0 || !pathname.startsWith('/jobs') || pathname === '/jobs/compare' || /^\/jobs\/[^/]+$/.test(pathname)) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 animate-slide-up">
-      <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 shadow-card-hover backdrop-blur">
+    <div className="fixed bottom-3 left-1/2 z-40 w-[calc(100%-1rem)] max-w-max -translate-x-1/2 animate-slide-up sm:bottom-4 sm:w-auto">
+      <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-2.5 py-1.5 shadow-card-hover backdrop-blur sm:gap-3 sm:rounded-full sm:px-3">
         <GitCompare className="h-4 w-4 text-sunset-600" />
         <span className="text-sm font-semibold text-navy-900">
           {ids.length} {ids.length === 1 ? 'job' : 'jobs'} in compare

@@ -66,7 +66,7 @@ export default function BenefitsPage() {
           <p className="mt-1 text-xs text-slate-500">Include anyone you buy and cook food with.</p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {[1, 2, 3, 4, 5, 6].map((n) => (
-              <button key={n} onClick={() => setHouseholdSize(n)}
+              <button key={n} onClick={() => setHouseholdSize(n)} aria-pressed={householdSize === n} aria-label={`${n === 6 ? '6 or more' : n} people in household`}
                 className={'h-12 w-12 rounded-xl text-base font-bold ring-1 ring-inset transition ' + (householdSize === n ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-700 ring-slate-300 hover:ring-teal-400')}>
                 {n}{n === 6 ? '+' : ''}
               </button>
@@ -86,6 +86,7 @@ export default function BenefitsPage() {
             <span className="text-lg text-slate-400">$</span>
             <input
               autoFocus type="number" min="0" inputMode="numeric"
+              aria-label="Monthly household income before taxes"
               value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') setStep(2); }}
               placeholder="0"
@@ -147,7 +148,7 @@ export default function BenefitsPage() {
         </div>
       )}
 
-      <p className="mt-4 mb-2 text-center text-[11px] text-slate-400">Private to this device. Nothing you enter is sent anywhere.</p>
+      <p className="mt-4 mb-2 text-center text-[11px] text-slate-400">Saved only in this browser. Nothing is sent to benefits agencies.</p>
     </div>
   );
 }
@@ -170,7 +171,7 @@ function Nav({ onBack, onNext, nextLabel = 'Next' }: { onBack?: () => void; onNe
 }
 function CheckRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
   return (
-    <button onClick={onToggle} className={'flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ' + (on ? 'border-teal-400 bg-teal-50/60' : 'border-slate-200 bg-white hover:border-teal-300')}>
+    <button onClick={onToggle} aria-pressed={on} className={'flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ' + (on ? 'border-teal-400 bg-teal-50/60' : 'border-slate-200 bg-white hover:border-teal-300')}>
       <span className={'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ' + (on ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-300 bg-white text-transparent')}><Check className="h-3.5 w-3.5" /></span>
       <span className="text-sm font-medium text-navy-900">{label}</span>
     </button>

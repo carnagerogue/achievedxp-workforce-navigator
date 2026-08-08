@@ -19,6 +19,16 @@ import {
 } from '../../lib/api';
 import { Skeleton } from '../../components/Skeleton';
 import { useDebounce } from '../../lib/use-debounce';
+
+function externalUrl(raw: string | null | undefined): string | undefined {
+  const value = (raw ?? '').trim();
+  if (!value) return undefined;
+  try {
+    const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    const url = new URL(candidate);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined;
+  } catch { return undefined; }
+}
 import { getLocalProfile } from '../../lib/local-profile';
 import {
   useChecklist, isInChecklist, toggleChecklist,
@@ -478,6 +488,7 @@ function ReentryResults({ location, radius }: { location: string; radius: number
 
 function AjcCard({ center }: { center: AjcCenter }) {
   const cleanPhone = (center.Phone ?? '').replace(/[^\d]/g, '');
+  const website = externalUrl(center.WebSiteUrl);
   return (
     <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
       <div className="flex items-start justify-between gap-3">
@@ -516,9 +527,9 @@ function AjcCard({ center }: { center: AjcCenter }) {
             <Phone className="h-3 w-3" /> {center.Phone}
           </a>
         )}
-        {center.WebSiteUrl && (
+        {website && (
           <a
-            href={center.WebSiteUrl}
+            href={website}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"
@@ -544,7 +555,7 @@ function AjcCard({ center }: { center: AjcCenter }) {
             address: [center.Address1, center.Address2].filter(Boolean).join(', '),
             cityState: [center.City, center.StateAbbr, center.Zip].filter(Boolean).join(', '),
             phone: center.Phone,
-            url: center.WebSiteUrl,
+            url: website,
             distance: center.Distance,
           }}
         />
@@ -562,7 +573,7 @@ function ReentryCard({ program }: { program: Record<string, unknown> }) {
   const state = String(program.StateAbbr ?? program.State ?? '');
   const zip = String(program.Zip ?? program.ZipCode ?? '');
   const phone = String(program.Phone ?? '');
-  const url = String(program.Url ?? program.WebSiteUrl ?? program.Website ?? '');
+  const url = externalUrl(String(program.Url ?? program.WebSiteUrl ?? program.Website ?? ''));
   const services = (program.Services as string[] | undefined) ?? [];
 
   const cleanPhone = phone.replace(/[^\d]/g, '');
@@ -613,7 +624,7 @@ function ReentryCard({ program }: { program: Record<string, unknown> }) {
         )}
         {url && (
           <a
-            href={url.startsWith('http') ? url : `https://${url}`}
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-700"

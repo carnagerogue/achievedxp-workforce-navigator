@@ -20,6 +20,7 @@ export const prettySalary = (
 export const prettyDate = (iso: string | null) => {
   if (!iso) return '';
   const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return 'date unavailable';
   const diffDays = Math.round((Date.now() - d.getTime()) / 86_400_000);
   if (diffDays <= 0) return 'today';
   if (diffDays === 1) return 'yesterday';

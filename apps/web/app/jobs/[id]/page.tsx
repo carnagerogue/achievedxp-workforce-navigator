@@ -177,7 +177,7 @@ export default function JobDetailPage() {
         </p>
 
         <dl className="mt-6 grid gap-x-6 gap-y-3 border-t border-slate-200 pt-5 text-sm sm:grid-cols-2">
-          <MetaField Icon={Calendar} label="Posted" value={job.postedAt ? new Date(job.postedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : '—'} />
+          <MetaField Icon={Calendar} label="Posted" value={job.postedAt && Number.isFinite(new Date(job.postedAt).getTime()) ? new Date(job.postedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'Date unavailable'} />
           <MetaField Icon={Briefcase} label="Employment type" value={job.employmentType.replace('_', ' ').toLowerCase()} />
           {job.industry && <MetaField Icon={Building2} label="Industry" value={prettyIndustry(job.industry)} />}
           {salary && <MetaField Icon={Wallet} label="Salary" value={salary} accent />}

@@ -13,7 +13,7 @@
  */
 
 import type { JobDto } from '@dxp/shared';
-import { dedupKey, type JobProvider } from './types';
+import { dedupKey, isFreshJob, type JobProvider } from './types';
 import { usajobsProvider } from './usajobs';
 import { adzunaProvider } from './adzuna';
 import { remotiveProvider } from './remotive';
@@ -91,6 +91,7 @@ export async function fetchLiveJobs(): Promise<{
       for (const r of settled) {
         if (r.status !== 'fulfilled') continue;
         for (const j of r.value) {
+          if (!isFreshJob(j)) continue;
           const k = dedupKey(j);
           if (seen.has(k)) continue;
           seen.add(k);

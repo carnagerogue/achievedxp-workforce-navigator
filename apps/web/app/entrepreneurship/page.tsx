@@ -34,9 +34,7 @@ export default function EntrepreneurshipPage() {
             </p>
             <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Could working for yourself be your path?</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-teal-50/85">
-              Your own business never runs a background check on you. For a lot of people with a record, that makes
-              self-employment one of the most open doors there is. Here&apos;s an honest look at whether it&apos;s for
-              you — and the free help to start.
+              Self-employment can reduce employer screening, but licensing, bonding, contracting, insurance, and customer checks vary by trade and state. Here&apos;s an honest look at whether it&apos;s for you — and the free help to start.
             </p>
           </div>
         </div>
@@ -47,7 +45,7 @@ export default function EntrepreneurshipPage() {
         <div className="rounded-2xl border border-teal-200 bg-teal-50/40 p-4">
           <p className="text-sm font-bold text-navy-900">Why it can be a great fit</p>
           <ul className="mt-2 space-y-1.5 text-xs text-slate-700">
-            {['No employer can reject you for your record','You set your own hours and rules','Many trades start small, with skills you may already have','Your income isn’t capped by a pay grade'].map((t) => (
+            {['You choose which customers and projects to pursue','You set your own hours and rules','Many trades start small, with skills you may already have','Your income isn’t capped by a pay grade'].map((t) => (
               <li key={t} className="flex items-start gap-1.5"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600" /> {t}</li>
             ))}
           </ul>

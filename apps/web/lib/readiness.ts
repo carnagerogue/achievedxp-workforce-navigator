@@ -69,19 +69,19 @@ const DOMAINS: DomainDef[] = [
     key: 'id_documents', label: 'ID & documents', weight: 10,
     whatReady: 'Has a valid state ID, Social Security card, and birth certificate.',
     gap: { label: 'Get / replace ID documents', taskTitle: 'Get state ID, SSN card, and birth certificate', category: 'legal', url: '/local-help?tab=community' },
-    suggest: (i, has, done) => has('id_documents') ? 'not_ready' : done('legal') ? 'ready' : 'in_progress',
+    suggest: (i, has, done) => has('id_documents') ? 'not_ready' : done('legal') ? 'ready' : 'na',
   },
   {
     key: 'housing', label: 'Housing stability', weight: 9,
     whatReady: 'Has stable, reliable housing (not at risk of losing it).',
     gap: { label: 'Stabilize housing', taskTitle: 'Connect with housing assistance', category: 'housing', url: '/resources?need=housing' },
-    suggest: (i, has, done) => has('housing') ? 'not_ready' : done('housing') ? 'ready' : 'in_progress',
+    suggest: (i, has, done) => has('housing') ? 'not_ready' : done('housing') ? 'ready' : 'na',
   },
   {
     key: 'transportation', label: 'Transportation', weight: 9,
     whatReady: 'Has a reliable way to get to work and appointments.',
     gap: { label: 'Arrange reliable transportation', taskTitle: 'Set up transportation help (bus pass / rides)', category: 'transit', url: '/local-help?tab=community' },
-    suggest: (i, has, done) => has('transportation') ? 'not_ready' : done('transit') ? 'ready' : 'in_progress',
+    suggest: (i, has, done) => has('transportation') ? 'not_ready' : done('transit') ? 'ready' : 'na',
   },
   {
     key: 'health_recovery', label: 'Health & recovery', weight: 8,
@@ -96,7 +96,7 @@ const DOMAINS: DomainDef[] = [
     suggest: (i, has) => {
       if (has('legal') || (i.conviction && HIGH_BAR_CONVICTIONS.has(i.conviction))) return 'not_ready';
       if (i.supervision && i.supervision !== 'none') return 'in_progress';
-      return 'ready';
+      return i.supervision === 'none' ? 'ready' : 'na';
     },
   },
   {
@@ -104,7 +104,7 @@ const DOMAINS: DomainDef[] = [
     whatReady: 'Has a high-school diploma or GED (or higher).',
     gap: { label: 'Earn HS diploma / GED', taskTitle: 'Enroll in GED / adult education', category: 'training', url: '/learn' },
     suggest: (i) => {
-      if (!i.education || i.education === 'unknown') return 'in_progress';
+      if (!i.education || i.education === 'unknown') return 'na';
       if (i.education === 'less_than_high_school') return 'not_ready';
       return EDU_READY.has(i.education) ? 'ready' : 'in_progress';
     },
@@ -114,7 +114,8 @@ const DOMAINS: DomainDef[] = [
     whatReady: 'Has the credentials and skills the target role requires.',
     gap: { label: 'Close credential gaps for the goal', taskTitle: 'Pursue a credential for the career goal', category: 'training', url: '/apprenticeships' },
     suggest: (i) => {
-      if (!i.careerGoal) return 'not_ready';
+      if (!i.careerGoal && (i.certifications?.length ?? 0) === 0) return 'na';
+      if (!i.careerGoal) return 'in_progress';
       if ((i.trainingGapCount ?? 0) > 0) return 'in_progress';
       return (i.certifications?.length ?? 0) > 0 ? 'ready' : 'in_progress';
     },
@@ -123,25 +124,25 @@ const DOMAINS: DomainDef[] = [
     key: 'work_readiness', label: 'Work readiness', weight: 8,
     whatReady: 'Has a current résumé, interview practice, and references.',
     gap: { label: 'Build résumé & interview skills', taskTitle: 'Get résumé + interview help at a Job Center', category: 'employment', url: '/local-help?tab=ajc' },
-    suggest: () => 'in_progress',
+    suggest: () => 'na',
   },
   {
     key: 'digital_literacy', label: 'Digital literacy', weight: 5,
     whatReady: 'Can use email, online applications, and basic computer tasks.',
     gap: { label: 'Build digital skills', taskTitle: 'Take a basic digital-skills class', category: 'training', url: '/learn' },
-    suggest: () => 'in_progress',
+    suggest: () => 'na',
   },
   {
     key: 'finances', label: 'Finances & benefits', weight: 5,
     whatReady: 'Has a bank account and any benefits they qualify for set up.',
     gap: { label: 'Set up finances & benefits', taskTitle: 'Open a bank account; apply for benefits (SNAP, etc.)', category: 'food', url: '/benefits' },
-    suggest: (i, has) => has('food') ? 'not_ready' : 'in_progress',
+    suggest: (i, has, done) => has('food') ? 'not_ready' : done('food') ? 'ready' : 'na',
   },
   {
     key: 'support_network', label: 'Support network', weight: 4,
     whatReady: 'Has people or a group they can rely on for support.',
     gap: { label: 'Strengthen support network', taskTitle: 'Identify a mentor or support group', category: 'family', url: '/dashboard#corner' },
-    suggest: () => 'in_progress',
+    suggest: () => 'na',
   },
 ];
 

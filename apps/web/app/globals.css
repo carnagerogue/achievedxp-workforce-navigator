@@ -84,15 +84,192 @@ body {
   background: transparent;
   box-shadow: none;
 }
-.workspace-shell:not(:has(.landing-constellation)) :where(.rounded-2xl, .rounded-3xl) {
+.workspace-shell:not(:has(.landing-constellation)):not(:has(.onboarding-experience)) :where(.rounded-2xl, .rounded-3xl) {
   border-radius: .75rem;
 }
-.workspace-shell:not(:has(.landing-constellation)) :where(.shadow-card, .shadow-card-hover) {
+.workspace-shell:not(:has(.landing-constellation)):not(:has(.onboarding-experience)) :where(.shadow-card, .shadow-card-hover) {
   box-shadow: none;
 }
-.workspace-shell:not(:has(.landing-constellation)) > div > header:first-child,
-.workspace-shell:not(:has(.landing-constellation)) > div > section:first-child {
+.workspace-shell:not(:has(.landing-constellation)):not(:has(.onboarding-experience)) > div > header:first-child,
+.workspace-shell:not(:has(.landing-constellation)):not(:has(.onboarding-experience)) > div > section:first-child {
   position: relative;
+}
+
+/* ── Precision trajectory onboarding ────────────────────────────────── */
+.workspace-shell:has(.onboarding-experience) {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body:has(.onboarding-experience) footer { display: none; }
+.onboarding-experience {
+  min-height: calc(100svh - 98px);
+  background: #edf1f4;
+}
+.onboarding-layout {
+  display: grid;
+  min-height: calc(100svh - 98px);
+  max-width: 1440px;
+  margin: 0 auto;
+  grid-template-columns: minmax(360px, .78fr) minmax(0, 1.32fr);
+  background: #fbfcfd;
+  box-shadow: 0 30px 100px rgba(15, 23, 42, .14);
+}
+.onboarding-guidance {
+  position: sticky;
+  top: 64px;
+  align-self: start;
+  height: calc(100svh - 64px);
+  min-height: 700px;
+  overflow: hidden;
+  padding: clamp(2rem, 4vw, 4rem);
+  background:
+    linear-gradient(150deg, rgba(29, 38, 64, .97), rgba(40, 53, 88, .96) 52%, rgba(11, 61, 58, .97));
+}
+.onboarding-guidance::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(121, 203, 196, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 203, 196, .045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 74%);
+  content: "";
+}
+.onboarding-guidance::after {
+  position: absolute;
+  right: -16rem;
+  bottom: -20rem;
+  width: 34rem;
+  height: 34rem;
+  border: 1px solid rgba(121, 203, 196, .12);
+  border-radius: 999px;
+  box-shadow: 0 0 0 5rem rgba(121, 203, 196, .025), 0 0 0 10rem rgba(121, 203, 196, .018);
+  content: "";
+}
+.onboarding-guidance__glow {
+  position: absolute;
+  top: 8%;
+  right: -30%;
+  width: 80%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(67, 173, 165, .2), transparent 68%);
+  animation: onboardingDrift 8s ease-in-out infinite alternate;
+}
+.onboarding-story { animation: onboardingStoryIn .55s cubic-bezier(.16,1,.3,1) both; }
+.onboarding-workspace { min-width: 0; background: linear-gradient(180deg, #fff, #fbfcfd 40%); }
+.onboarding-panel { animation: onboardingPanelIn .48s cubic-bezier(.16,1,.3,1) both; }
+.onboarding-fieldset {
+  margin: 0;
+  border: 0;
+  border-radius: 1.5rem;
+  background: rgba(255,255,255,.9);
+  padding: clamp(1.25rem, 2.6vw, 2rem);
+  box-shadow: 0 1px 1px rgba(15,23,42,.03), 0 18px 55px rgba(29,38,64,.07);
+}
+.onboarding-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 48rem;
+  margin-inline: auto;
+}
+.onboarding-steps::before {
+  position: absolute;
+  top: .75rem;
+  right: 10%;
+  left: 10%;
+  height: 1px;
+  background: #e2e8f0;
+  content: "";
+}
+.onboarding-steps__item { position: relative; z-index: 1; min-width: 0; }
+.onboarding-steps__item button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: .45rem;
+  color: #94a3b8;
+}
+.onboarding-steps__item button > span {
+  display: inline-flex;
+  width: 1.55rem;
+  height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #fff;
+  font-size: .63rem;
+  font-weight: 750;
+  transition: all .3s cubic-bezier(.16,1,.3,1);
+}
+.onboarding-steps__item em { overflow: hidden; max-width: 100%; font-size: .65rem; font-style: normal; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.onboarding-steps__item.is-done button { color: #0c7069; }
+.onboarding-steps__item.is-done button > span { border-color: #ade2dd; background: #d7f1ee; }
+.onboarding-steps__item.is-current button { color: #1d2640; }
+.onboarding-steps__item.is-current button > span { border-color: #1d2640; background: #1d2640; color: #fff; box-shadow: 0 0 0 5px rgba(29,38,64,.07); transform: scale(1.08); }
+.onboarding-signal-tab {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  padding: .75rem;
+  color: #475569;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.onboarding-signal-tab:hover { border-color: #ade2dd; transform: translateY(-1px); }
+.onboarding-signal-tab strong { display: block; color: #1d2640; font-size: .76rem; line-height: 1.1; }
+.onboarding-signal-tab small { display: block; overflow: hidden; margin-top: .2rem; color: #94a3b8; font-size: .61rem; text-overflow: ellipsis; white-space: nowrap; }
+.onboarding-signal-tab em { display: inline-flex; min-width: 1.35rem; height: 1.35rem; align-items: center; justify-content: center; border-radius: 999px; background: #d7f1ee; color: #0a5b55; font-size: .63rem; font-style: normal; font-weight: 800; }
+.onboarding-signal-tab.is-active { border-color: #79cbc4; background: #f0faf9; box-shadow: 0 8px 25px rgba(12,112,105,.08); }
+.onboarding-signal-tab.is-active > span:first-child { background: #0c7069; color: #fff; }
+.onboarding-chip-picker .rich-chip-categories { display: grid; gap: .5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.onboarding-chip-picker .rich-chip-category { align-self: start; overflow: hidden; }
+.onboarding-chip-picker .rich-chip-options { max-height: 12rem; overflow-y: auto; scrollbar-width: thin; }
+.onboarding-trajectory { max-width: 25rem; border-top: 1px solid rgba(255,255,255,.1); padding-top: 1.25rem; }
+.onboarding-trajectory__path { position: relative; }
+.onboarding-trajectory__track { position: absolute; top: .75rem; bottom: .75rem; left: .75rem; width: 1px; background: rgba(255,255,255,.12); }
+.onboarding-trajectory__track i { display: block; width: 1px; background: linear-gradient(#79cbc4, #ff7a3d); box-shadow: 0 0 12px rgba(121,203,196,.4); transition: height .7s cubic-bezier(.16,1,.3,1); }
+.onboarding-trajectory ol { position: relative; display: grid; gap: .75rem; }
+.onboarding-trajectory li { display: flex; align-items: center; gap: .8rem; color: rgba(255,255,255,.35); }
+.onboarding-trajectory__node { display: inline-flex; width: 1.55rem; height: 1.55rem; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.16); border-radius: 999px; background: #283558; font-size: .58rem; }
+.onboarding-trajectory li strong { display: block; font-size: .72rem; }
+.onboarding-trajectory li small { display: block; margin-top: .1rem; font-size: .58rem; }
+.onboarding-trajectory li.is-reached { color: rgba(215,241,238,.72); }
+.onboarding-trajectory li.is-reached .onboarding-trajectory__node { border-color: rgba(121,203,196,.45); background: #0c7069; color: #fff; }
+.onboarding-trajectory li.is-current { color: #fff; }
+.onboarding-trajectory li.is-current .onboarding-trajectory__node { border-color: #79cbc4; background: #d7f1ee; color: #0b3d3a; box-shadow: 0 0 0 5px rgba(121,203,196,.1), 0 0 24px rgba(121,203,196,.25); }
+.onboarding-trajectory li.is-current .onboarding-trajectory__node > span { width: .4rem; height: .4rem; border-radius: 999px; background: #0c7069; animation: onboardingPulse 1.8s ease-out infinite; }
+.onboarding-destination { display: flex; align-items: center; gap: .75rem; border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; background: rgba(255,255,255,.055); padding: .75rem; backdrop-filter: blur(10px); }
+.onboarding-destination small { display: block; color: rgba(255,255,255,.38); font-size: .57rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.onboarding-destination strong { display: block; overflow: hidden; margin-top: .15rem; color: #fff; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.onboarding-destination em { flex: 0 0 auto; color: #ffa272; font-size: .6rem; font-style: normal; font-weight: 750; }
+@keyframes onboardingStoryIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes onboardingPanelIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes onboardingDrift { to { transform: translate3d(-8%, 5%, 0) scale(1.08); } }
+@keyframes onboardingPulse { 0% { box-shadow: 0 0 0 0 rgba(12,112,105,.5); } 75%,100% { box-shadow: 0 0 0 8px rgba(12,112,105,0); } }
+
+@media (max-width: 1023px) {
+  .onboarding-layout { display: block; min-height: calc(100svh - 98px); }
+  .onboarding-guidance { display: none; }
+  .onboarding-workspace { min-height: calc(100svh - 98px); }
+}
+@media (max-width: 639px) {
+  .onboarding-chip-picker .rich-chip-categories { grid-template-columns: 1fr; }
+  .onboarding-fieldset { border-radius: 1.15rem; padding: 1.1rem; }
+  .onboarding-steps__item em { display: none; }
+  .onboarding-steps::before { right: 12%; left: 12%; }
+  .onboarding-signal-tab { padding: .65rem; }
+  .onboarding-signal-tab > span:first-child { display: none; }
+  .onboarding-signal-tab small { display: none; }
 }
 
 .constellation-hero {
@@ -122,7 +299,7 @@ body {
   --ride-scale: .82;
   --ride-tilt: -7deg;
   --ride-opacity: 0;
-  --ride-blur: 8px;
+  --ride-blur: 2px;
   position: absolute;
   top: 50%;
   left: 0;

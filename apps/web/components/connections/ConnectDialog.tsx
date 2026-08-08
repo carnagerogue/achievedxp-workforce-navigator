@@ -48,7 +48,7 @@ export function ConnectDialog({ provider, onClose }: { provider: Provider; onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Connect ${provider.name}`}>
-      <button className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" aria-label="Close" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]" aria-hidden="true" onMouseDown={onClose} />
       <div className="animate-slide-up relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white shadow-pop sm:rounded-3xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-900/[0.06] px-5 py-4">
@@ -59,7 +59,7 @@ export function ConnectDialog({ provider, onClose }: { provider: Provider; onClo
               <p className="text-sm text-slate-500">{provider.blurb}</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-900/[0.05] hover:text-slate-700" aria-label="Close"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-900/[0.05] hover:text-slate-700" aria-label={`Close ${provider.name} connection dialog`}><X className="h-5 w-5" /></button>
         </div>
 
         {step === 'consent' ? (

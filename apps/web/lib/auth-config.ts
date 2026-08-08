@@ -13,6 +13,27 @@ export const AUTH_ENABLED = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.length > 0,
 );
 
+export const CLERK_USES_DEVELOPMENT_KEY =
+  (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '').startsWith('pk_test_');
+
+/** Production must never run on Clerk's relaxed development instance. */
+export const AUTH_CONFIGURATION_SAFE =
+  !AUTH_ENABLED || process.env.NODE_ENV !== 'production' || !CLERK_USES_DEVELOPMENT_KEY;
+
+export function staffRoleFromClaims(claims: Record<string, unknown> | null | undefined): string | null {
+  if (!claims) return null;
+  const nested = (key: string) => {
+    const value = claims[key];
+    return value && typeof value === 'object' ? (value as Record<string, unknown>).role : undefined;
+  };
+  const value = claims.role ?? nested('metadata') ?? nested('publicMetadata');
+  return typeof value === 'string' ? value.toLowerCase() : null;
+}
+
+export function hasStaffRole(claims: Record<string, unknown> | null | undefined): boolean {
+  return ['staff', 'caseworker', 'admin'].includes(staffRoleFromClaims(claims) ?? '');
+}
+
 /**
  * The ONLY routes viewable without signing in, when accounts are enabled.
  * Everything else in the app requires a signed-in user — login or account

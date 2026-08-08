@@ -107,7 +107,11 @@ export default function ParticipantWorkspace() {
 
   // ── Autosave (debounced), never clobbering store-managed tasks ──
   const debouncedDraft = useDebounce(draft, 500);
-  function persist(d: Participant) {
+  function persist(d: Participant): boolean {
+    // A participant record must have an explicit identity before anything is
+    // written. This prevents an abandoned /new workspace from becoming a
+    // stale, default-filled record in the caseload.
+    if (!d.name.trim()) return false;
     const live = getParticipant(pid);
     getRepo().save({
       ...d,
@@ -118,14 +122,15 @@ export default function ParticipantWorkspace() {
       window.history.replaceState(null, '', `/caseworker/${pid}`);
       urlReplaced.current = true;
     }
+    return true;
   }
   useEffect(() => {
     if (dirty.current) { persist(debouncedDraft); dirty.current = false; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedDraft]);
 
-  function ensurePersist() {
-    if (!getParticipant(pid)) persist(draft);
+  function ensurePersist(): boolean {
+    return Boolean(getParticipant(pid) || persist(draft));
   }
 
   // ── Jobs + scoring (shared across panels) ──

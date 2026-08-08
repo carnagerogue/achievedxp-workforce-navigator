@@ -51,8 +51,8 @@ another user's data by editing the URL.
 3. Copy the keys and redirect URLs into the web service's environment
    (Railway → web → Variables) — all six are listed in
    `apps/web/.env.local.example`:
-   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (starts `pk_...`)
-   - `CLERK_SECRET_KEY` (starts `sk_...`)
+   - production `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (starts `pk_live_...`)
+   - production `CLERK_SECRET_KEY` (starts `sk_live_...`)
    - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`, `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
    - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard`,
      `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard`
@@ -60,6 +60,13 @@ another user's data by editing the URL.
    with the new build, and the sign-in wall goes up in front of the whole app.
    The site-password gate is then redundant (auth replaces it); you can remove
    `SITE_PASSWORD`, or set `SITE_GATE=off`.
+
+Production requests fail closed with HTTP 503 when a `pk_test_` development
+key is present. Before enabling the caseworker surface, add a `role` claim to
+the Clerk session token. Accepted values are `staff`, `caseworker`, and
+`admin`; participant or missing roles are redirected away before the staff UI
+loads. When accounts are off, staff preview access additionally requires
+`CASEWORKER_PREVIEW=on` and should be used only for a controlled demo.
 
 ## Cross-device data
 

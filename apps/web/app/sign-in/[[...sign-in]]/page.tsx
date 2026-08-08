@@ -13,7 +13,7 @@ export default function SignInPage() {
       </h1>
       <SignIn signUpUrl="/sign-up" />
       <p className="mt-8 max-w-xs text-center text-xs leading-relaxed text-slate-400">
-        Your account keeps your plan private and yours — on any device. Nothing is ever shared with employers.
+        Signing in protects access to your navigator. Planning tools are saved in this browser unless you explicitly export or share them; nothing is shared with employers automatically.
       </p>
     </div>
   );

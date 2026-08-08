@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="preview-notice__short">Guest data may reset. Avoid sensitive case notes.</span>
               </div>
             )}
-            <main id="main-content" className="mx-auto w-full max-w-[1440px] flex-1 px-5 sm:px-8">
+            <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-5 outline-none sm:px-8">
               <div className="workspace-shell"><ErrorBoundary>{children}</ErrorBoundary></div>
             </main>
             <SiteFooter />

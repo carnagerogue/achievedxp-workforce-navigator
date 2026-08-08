@@ -119,18 +119,14 @@ export function decisionFor(job: JobDto, ctx: DecisionContext = {}): DecisionSup
     band = 'good_next_step';
     reason = 'This employer states fair-chance hiring, and no exclusion was detected.';
     nextAction = 'Strong next step — get your résumé ready and apply.';
-  } else if (!excludes.value && excludes.confidence !== 'uncertain' && (job.riskTier === 'LOW')) {
-    band = 'good_next_step';
-    reason = ctx.convictionSelected
-      ? 'No clean-record language detected; the duties don’t appear related to your selected background context.'
-      : 'No clean-record language detected; this is a lower-barrier role.';
-    nextAction = 'Looks like a good fit to pursue — verify anything below, then apply.';
   } else {
     band = 'worth_checking';
-    reason = (c && !c.dataComplete)
+    reason = fairChance.confidence === 'uncertain' && !excludes.value
+      ? 'The posting does not state its fair-chance or record policy.'
+      : (c && !c.dataComplete)
       ? 'The posting is missing key details — verify the items below before applying.'
       : 'Mixed signals — a few things are worth checking before you apply.';
-    nextAction = 'Check the “what to verify” items, then apply if they clear.';
+    nextAction = 'Confirm the employer’s record and background-check policy, then apply if it works for you.';
   }
 
   return { band, label: DECISION_LABEL[band], reason, why, verify, unknowns, nextAction, evidence, disclaimer: DISCLAIMER };

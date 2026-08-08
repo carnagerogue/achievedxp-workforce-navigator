@@ -37,6 +37,8 @@ export interface ReentryInputs {
   onSupervision?: boolean;
   /** Life-safety: lowered tolerance after time inside raises overdose risk. */
   opioidHistory?: boolean;
+  /** Continuity-of-care prompt selected by the person; never presumed. */
+  medicationNeeds?: boolean;
   /** Provider-pressure: returning to people who depend on them. */
   hasDependents?: boolean;
   needsId?: boolean;
@@ -94,6 +96,7 @@ export const PHASES: JourneyPhase[] = [
         why: 'About half of people lose their prescriptions after release. Book a clinic visit before your release supply runs out.',
         evidence: 'JAMA Network Open, 2025 (medication continuity after release).',
         action: route('Find a clinic near you', '/resources?need=health'),
+        appliesIf: (i) => i.medicationNeeds === true,
       },
       {
         id: 'id',
@@ -205,7 +208,7 @@ export const PHASES: JourneyPhase[] = [
       {
         id: 'apprenticeship',
         title: 'Earn while you learn',
-        why: 'Apprenticeships pay from day one and many welcome people with records — a paid path into the trades.',
+        why: 'Registered apprenticeships provide paid work with progressive wage increases; eligibility and background review vary by sponsor and trade.',
         evidence: 'RAND correctional-education meta-analysis; Urban Institute (apprenticeship in reentry).',
         action: route('Browse apprenticeships', '/apprenticeships'),
       },
@@ -256,7 +259,7 @@ export const PHASES: JourneyPhase[] = [
       {
         id: 'self-employment',
         title: 'Consider working for yourself',
-        why: 'Your own business never runs a background check on you. For many people with a record, self-employment is one of the most open doors there is.',
+        why: 'Self-employment can reduce employer screening, but licensing, bonding, insurance, contracting, and customer checks still vary by trade and state.',
         evidence: 'Self-employment is a recognized path around hiring discrimination; free mentoring (SCORE/SBDC) and 0% microloans (Kiva) lower the barrier.',
         action: route('Explore being your own boss', '/entrepreneurship'),
       },

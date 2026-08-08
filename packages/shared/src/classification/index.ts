@@ -289,7 +289,9 @@ export function classifyEligibility(input: ClassifyJobInput, industry: string | 
 
   if (industry && LOW_RISK_INDUSTRY.has(industry)) {
     return {
-      excludesFelons: { value: false, confidence: 'inferred', basis: `${industry} has common fair-chance hiring` },
+      // Industry patterns may suggest review intensity, but silence in a
+      // posting is never evidence that a clean record is not required.
+      excludesFelons: { value: false, confidence: 'uncertain', basis: 'posting does not state a record policy' },
       fairChance: { value: false, confidence: 'uncertain', basis: 'no barrier detected, but fair-chance not confirmed' },
       backgroundCheckLikely: { value: bg, confidence: 'inferred', basis: bg ? 'mentions background check' : `${industry} industry` },
       riskTier: { value: 'LOW', confidence: 'inferred', basis: `${industry} industry` },

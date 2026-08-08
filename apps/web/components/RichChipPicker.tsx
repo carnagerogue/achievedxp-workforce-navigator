@@ -36,6 +36,8 @@ interface Props {
   allowCustom?: boolean;
   /** Optional max items the user is encouraged to choose. UI hint only. */
   recommendedMax?: number;
+  /** A more spacious, progressive presentation for the profile wizard. */
+  variant?: 'default' | 'onboarding';
 }
 
 export function RichChipPicker({
@@ -47,10 +49,11 @@ export function RichChipPicker({
   itemNoun,
   allowCustom = true,
   recommendedMax,
+  variant = 'default',
 }: Props) {
   const [query, setQuery] = useState('');
   const [openCats, setOpenCats] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(categories.map((c) => [c.key, true]))
+    Object.fromEntries(categories.map((c) => [c.key, false]))
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -88,11 +91,11 @@ export function RichChipPicker({
   };
 
   return (
-    <div className="space-y-3">
+    <div className={`space-y-3 ${variant === 'onboarding' ? 'onboarding-chip-picker' : ''}`}>
       {/* Selected row + counter */}
       <div className="flex flex-wrap items-center gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${selected.size > 0 ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200' : 'bg-slate-100 text-slate-600'}`}>
-          {selected.size} selected{recommendedMax ? ` (recommended: ${recommendedMax})` : ''}
+          {selected.size} selected{recommendedMax ? (variant === 'onboarding' ? ` · choose up to ${recommendedMax}` : ` (optional; up to ${recommendedMax} helps focus matches)`) : (variant === 'onboarding' ? '' : ' (optional)')}
         </span>
         {selected.size > 0 && onClear && (
           <button
@@ -115,6 +118,7 @@ export function RichChipPicker({
               onClick={() => onToggle(code)}
               className="group inline-flex items-center gap-1.5 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-800 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
               title="Remove"
+              aria-label={`Remove ${labelFor(code, index)}`}
             >
               <span className="capitalize">{labelFor(code, index)}</span>
               <X className="h-3 w-3 opacity-60 transition group-hover:opacity-100" />
@@ -132,8 +136,8 @@ export function RichChipPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKey}
-          placeholder={`Search or add a ${itemNoun}…`}
-          className="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          placeholder={`${allowCustom ? 'Search or add' : 'Search'} ${itemNoun === 'industry' ? 'industries' : `a ${itemNoun}`}…`}
+          className="block w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-9 text-sm placeholder:text-slate-400 hover:border-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
         {query && (
           <button
@@ -160,7 +164,7 @@ export function RichChipPicker({
       )}
 
       {/* Categories */}
-      <div className="space-y-2">
+      <div className="rich-chip-categories space-y-2">
         {filteredByCat.length === 0 ? (
           <p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
             Nothing matches &ldquo;{query}&rdquo;. Press Enter to add it as a custom entry.
@@ -169,11 +173,11 @@ export function RichChipPicker({
           filteredByCat.map((cat) => {
             const isOpen = !!openCats[cat.key] || !!query.trim();
             return (
-              <section key={cat.key} className="rounded-lg border border-slate-200 bg-white">
+              <section key={cat.key} className="rich-chip-category rounded-xl border border-slate-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setOpenCats((s) => ({ ...s, [cat.key]: !s[cat.key] }))}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-slate-700 hover:bg-slate-50"
+                  className="flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-700 transition hover:bg-slate-50"
                   aria-expanded={isOpen}
                 >
                   <span>{cat.label} <span className="ml-1 font-normal text-slate-400">· {cat.items.length}</span></span>
@@ -182,7 +186,7 @@ export function RichChipPicker({
                   />
                 </button>
                 {isOpen && (
-                  <div className="flex flex-wrap gap-1.5 border-t border-slate-200 px-3 py-2.5">
+                  <div className="rich-chip-options flex flex-wrap gap-1.5 border-t border-slate-200 px-3 py-3">
                     {cat.items.map((item) => {
                       const isSelected = selected.has(item.code);
                       return (

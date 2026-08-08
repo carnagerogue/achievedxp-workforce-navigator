@@ -91,7 +91,7 @@ export default function ConnectionsPage() {
       </Link>
 
       <p className="mb-2 mt-6 text-center text-[11px] text-slate-400">
-        Connections are private to your account and only link accounts on your side. Disconnecting never touches your account on the other site.
+        Connection status is saved in this browser and only links accounts on your side. Disconnecting never changes the account on the other site.
       </p>
     </div>
   );

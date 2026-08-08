@@ -206,7 +206,9 @@ export default function ComparePage() {
                   <Cell key={j.id}>
                     {j.excludesFelons
                       ? <span className="text-rose-700 font-medium">Required</span>
-                      : <span className="text-teal-700 font-medium">Not required</span>}
+                      : j.classification?.excludesFelons.confidence === 'verified'
+                        ? <span className="text-teal-700 font-medium">Not required in posting</span>
+                        : <span className="text-slate-600 font-medium">Not stated — verify</span>}
                   </Cell>
                 ))}
               </Row>

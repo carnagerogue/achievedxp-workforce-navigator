@@ -32,7 +32,7 @@ const DOMAIN_ICON: Record<string, typeof Home> = {
 
 const D_STATUS: { value: DomainStatus; label: string }[] = [
   { value: 'not_ready', label: 'Not ready' }, { value: 'in_progress', label: 'In progress' },
-  { value: 'ready', label: 'Ready' }, { value: 'na', label: 'N/A' },
+  { value: 'ready', label: 'Ready' }, { value: 'na', label: 'Not assessed / N/A' },
 ];
 const D_STATUS_CLS: Record<DomainStatus, string> = {
   not_ready: 'border-rose-300 bg-rose-50 text-rose-700',
@@ -78,12 +78,12 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
             <Avatar name={model.ownerName || 'You'} size={52} />
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-bold text-white">{model.ownerName ? `${model.ownerName}’s plan` : 'My plan'}</h2>
-              <p className="mt-0.5 text-xs text-teal-50/80">{BAND_LABEL[readiness.band]} · {readyCount}/{applicable} areas ready · {openSteps} open step{openSteps === 1 ? '' : 's'}</p>
+              <p className="mt-0.5 text-xs text-teal-50/80">{applicable === 0 ? 'Readiness not assessed' : `${BAND_LABEL[readiness.band]} · ${readyCount}/${applicable} areas ready`} · {openSteps} open step{openSteps === 1 ? '' : 's'}</p>
             </div>
-            <div className="hidden sm:block text-center">
+            {applicable > 0 && <div className="hidden sm:block text-center">
               <ProgressRing pct={readiness.score} size={58} stroke={5} />
               <p className="mt-1 text-[9px] font-semibold uppercase tracking-wider text-teal-100/70">Readiness</p>
-            </div>
+            </div>}
           </div>
           {(actions.onShare || actions.onImport || actions.onPrint) && (
             <div className="relative mt-4 flex flex-wrap gap-2">
@@ -150,7 +150,7 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
       )}
 
       <p className="text-center text-[11px] text-slate-400">
-        {model.isCaseworker ? 'Saved to this device.' : 'Private to this device — share a copy with your caseworker anytime.'}
+        {model.isCaseworker ? 'Saved only in this browser.' : 'Saved only in this browser — export or share a copy when you choose.'}
       </p>
     </div>
   );
@@ -274,11 +274,11 @@ function ConditionRow({ c, actions }: { c: SupervisionCondition; actions: PlanAc
       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${COND_PILL[status]}`}>{COND_PILL_LABEL[status]}</span>
       <span className="min-w-0 flex-1 text-sm font-semibold text-navy-900">{c.label} <span className="font-normal text-slate-400">· {CADENCE_LABEL[c.cadence]}</span></span>
       {showDue && (
-        <input type="date" value={c.dueDate ?? ''} onChange={(e) => actions.setConditionDue!(c.id, e.target.value)}
+        <input type="date" value={c.dueDate ?? ''} onChange={(e) => actions.setConditionDue!(c.id, e.target.value)} aria-label={`${c.label} due date`}
           className={'rounded-md border px-1.5 py-1 text-[11px] focus:border-teal-500 focus:outline-none ' + (status === 'overdue' ? 'border-rose-300 text-rose-700' : 'border-slate-300 text-slate-600')} />
       )}
-      <button onClick={() => actions.markConditionMet!(c.id)} className="inline-flex items-center gap-1 rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700"><Check className="h-3 w-3" /> {c.cadence === 'once' ? 'Done' : 'Mark met'}</button>
-      <button onClick={() => actions.removeCondition!(c.id)} className="text-slate-300 hover:text-rose-500" aria-label="Remove condition"><Trash2 className="h-3.5 w-3.5" /></button>
+      <button onClick={() => actions.markConditionMet!(c.id)} aria-label={`Mark ${c.label} met`} className="inline-flex items-center gap-1 rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700"><Check className="h-3 w-3" /> {c.cadence === 'once' ? 'Done' : 'Mark met'}</button>
+      <button onClick={() => actions.removeCondition!(c.id)} className="text-slate-300 hover:text-rose-500" aria-label={`Remove condition: ${c.label}`}><Trash2 className="h-3.5 w-3.5" /></button>
     </li>
   );
 }
@@ -396,7 +396,7 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
             <button onClick={saveTotal} className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700">Save</button>
           </span>
         )}
-        <button onClick={() => actions.removeFee!(o.id)} className="text-slate-300 hover:text-rose-500" aria-label="Remove obligation"><Trash2 className="h-3.5 w-3.5" /></button>
+        <button onClick={() => actions.removeFee!(o.id)} className="text-slate-300 hover:text-rose-500" aria-label={`Remove obligation: ${o.label}`}><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
 
       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
@@ -410,7 +410,7 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
             className="w-20 rounded-md px-1.5 py-1 text-xs focus:outline-none" />
         </div>
         <button onClick={logPay} className="inline-flex items-center gap-1 rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700"><Plus className="h-3 w-3" /> Log payment</button>
-        <input type="date" value={o.dueDate ?? ''} onChange={(e) => actions.setFeeDue!(o.id, e.target.value)} title="Next payment due"
+        <input type="date" value={o.dueDate ?? ''} onChange={(e) => actions.setFeeDue!(o.id, e.target.value)} title="Next payment due" aria-label={`${o.label} next payment due`}
           className={'rounded-md border px-1.5 py-1 text-[11px] focus:border-teal-500 focus:outline-none ' + (behind ? 'border-rose-300 text-rose-700' : 'border-slate-300 text-slate-600')} />
         <span className="text-[11px] text-slate-400">{fmtMoney(paid)} paid</span>
         {payments.length > 0 && (
@@ -426,7 +426,7 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
             <span className="font-semibold text-navy-900">{fmtMoney(p.amount)}</span>
             <span className="text-slate-400">{p.date}</span>
             {p.note && <span className="truncate">— {p.note}</span>}
-            <button onClick={() => actions.removePayment!(o.id, p.id)} className="ml-auto text-slate-300 hover:text-rose-500" aria-label="Remove payment"><Trash2 className="h-3 w-3" /></button>
+            <button onClick={() => actions.removePayment!(o.id, p.id)} className="ml-auto text-slate-300 hover:text-rose-500" aria-label={`Remove ${fmtMoney(p.amount)} payment for ${o.label}`}><Trash2 className="h-3 w-3" /></button>
           </li>
         ))}</ul>
       )}
@@ -457,7 +457,7 @@ function DomainCard({
           </div>
           <p className="mt-0.5 text-xs text-slate-500">{whatReady}</p>
         </div>
-        <select value={res.status} onChange={(e) => actions.setDomainStatus(domainKey, e.target.value as DomainStatus)}
+        <select value={res.status} onChange={(e) => actions.setDomainStatus(domainKey, e.target.value as DomainStatus)} aria-label={`${label} readiness status`}
           className={'shrink-0 cursor-pointer rounded-full border px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 ' + D_STATUS_CLS[res.status]}>
           {D_STATUS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -481,7 +481,7 @@ function DomainCard({
             <Sparkles className="h-3 w-3" /> Add recommended step
           </button>
         )}
-        <AddStep onAdd={(t) => actions.addStep(domainKey, t)} />
+        <AddStep context={label} onAdd={(t) => actions.addStep(domainKey, t)} />
       </div>
     </section>
   );
@@ -496,7 +496,7 @@ function BucketCard({ domain, label, whatReady, steps, actions }: { domain: Plan
         <div className="min-w-0 flex-1"><h3 className="text-sm font-bold text-navy-900">{label}</h3><p className="text-xs text-slate-500">{whatReady}</p></div>
       </div>
       {steps.length > 0 && <ul className="mt-3 space-y-2">{steps.map((s) => <StepRow key={s.id} step={s} actions={actions} />)}</ul>}
-      <div className="mt-2.5"><AddStep onAdd={(t) => actions.addStep(domain, t)} /></div>
+      <div className="mt-2.5"><AddStep context={label} onAdd={(t) => actions.addStep(domain, t)} /></div>
     </section>
   );
 }
@@ -507,25 +507,25 @@ function StepRow({ step, actions }: { step: PlanStep; actions: PlanActions }) {
   return (
     <li className="rounded-xl border border-slate-200 p-3">
       <div className="flex items-start gap-2">
-        <button onClick={() => actions.setStepStatus(step.id, done ? 'planned' : 'completed')} aria-label={done ? 'Mark not done' : 'Mark done'}
+        <button onClick={() => actions.setStepStatus(step.id, done ? 'planned' : 'completed')} aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${step.title}`}
           className={'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ' + (done ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-300 bg-white text-transparent hover:border-teal-400')}>
           <Check className="h-3 w-3" />
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className={'text-sm font-semibold text-navy-900 ' + (done ? 'line-through opacity-60' : '')}>{step.title}</p>
-            <button onClick={() => actions.removeStep(step.id)} className="shrink-0 text-slate-300 hover:text-rose-500" aria-label="Remove step"><Trash2 className="h-3.5 w-3.5" /></button>
+            <button onClick={() => actions.removeStep(step.id)} className="shrink-0 text-slate-300 hover:text-rose-500" aria-label={`Remove step: ${step.title}`}><Trash2 className="h-3.5 w-3.5" /></button>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <select value={step.status} onChange={(e) => actions.setStepStatus(step.id, e.target.value as PlanStepStatus)}
+            <select value={step.status} onChange={(e) => actions.setStepStatus(step.id, e.target.value as PlanStepStatus)} aria-label={`${step.title} status`}
               className={'cursor-pointer rounded-full border px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 ' + S_STATUS_CLS[step.status]}>
               {S_STATUS.map((s) => <option key={s} value={s}>{S_STATUS_LABEL[s]}</option>)}
             </select>
-            <input type="date" value={step.dueDate ?? ''} onChange={(e) => actions.setStepDue(step.id, e.target.value)}
+            <input type="date" value={step.dueDate ?? ''} onChange={(e) => actions.setStepDue(step.id, e.target.value)} aria-label={`${step.title} due date`}
               className="rounded-md border border-slate-300 px-1.5 py-1 text-[11px] text-slate-600 focus:border-teal-500 focus:outline-none" />
             {step.url && <a href={step.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:underline"><ExternalLink className="h-3 w-3" /> Open</a>}
             {step.jobId && <a href={`/jobs/${step.jobId}`} className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 hover:underline"><Briefcase className="h-3 w-3" /> Job</a>}
-            <button onClick={() => setNotesOpen((v) => !v)} className="text-[11px] font-semibold text-slate-400 hover:text-slate-600">{step.notes ? 'Notes ✎' : '+ note'}</button>
+            <button onClick={() => setNotesOpen((v) => !v)} aria-expanded={notesOpen} aria-label={`${notesOpen ? 'Hide' : 'Edit'} notes for: ${step.title}`} className="text-[11px] font-semibold text-slate-400 hover:text-slate-600">{step.notes ? 'Notes ✎' : '+ note'}</button>
           </div>
           {notesOpen && (
             <textarea defaultValue={step.notes ?? ''} rows={2} onBlur={(e) => actions.setStepNotes(step.id, e.target.value)} placeholder="Notes…"
@@ -537,16 +537,16 @@ function StepRow({ step, actions }: { step: PlanStep; actions: PlanActions }) {
   );
 }
 
-function AddStep({ onAdd }: { onAdd: (title: string) => void }) {
+function AddStep({ context, onAdd }: { context: string; onAdd: (title: string) => void }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const add = () => { const t = title.trim(); if (!t) return; onAdd(t); setTitle(''); setOpen(false); };
-  if (!open) return <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700"><Plus className="h-3 w-3" /> Add step</button>;
+  if (!open) return <button onClick={() => setOpen(true)} aria-label={`Add step to ${context}`} className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-teal-400 hover:text-teal-700"><Plus className="h-3 w-3" /> Add step</button>;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setOpen(false); }} placeholder="Step…"
+      <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') setOpen(false); }} placeholder="Step…" aria-label={`New step for ${context}`}
         className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-      <button onClick={add} className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700">Add</button>
+      <button onClick={add} aria-label={`Add step to ${context}`} className="rounded-md bg-teal-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-teal-700">Add</button>
       <button onClick={() => setOpen(false)} className="text-[11px] text-slate-400">Cancel</button>
     </span>
   );
