@@ -136,9 +136,9 @@ export function useNavigatorProfile(): NavigatorProfile {
     (supervision.supervisionType != null && supervision.supervisionType !== 'none') ||
     conditions.length > 0 || fees.length > 0 || reentryInputs.onSupervision === true ||
     profile?.onParoleOrProbation === true;
-  const justiceSupport = Boolean(
-    profile?.justiceSupportEnabled === true || (profile?.convictions?.length ?? 0) > 0 || onSupervision,
-  );
+  // Specialized background-aware guidance is consent-gated. Legacy record or
+  // supervision fields must never silently reactivate it for an existing user.
+  const justiceSupport = profile?.justiceSupportEnabled === true;
   const journeyInputs: ReentryInputs = {
     ...reentryInputs,
     justiceSupport,
