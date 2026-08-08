@@ -680,6 +680,20 @@ export interface JobsQuery {
   offset?: number;
 }
 
+/**
+ * Provider feeds are not consistent about their remote flag. Treat explicit
+ * remote locations and clearly remote titles as remote too, so a user who
+ * turns remote work off does not receive mislabeled postings.
+ */
+export function isRemoteJob(job: JobDto): boolean {
+  if (job.remote) return true;
+  const location = [job.locationCity, job.locationRegion, job.locationCountry]
+    .filter(Boolean)
+    .join(' ');
+  return /\b(remote|work from anywhere|work from home|wfh|virtual position)\b/i.test(location)
+    || /\b(remote|work from home|wfh|fully remote)\b/i.test(job.title);
+}
+
 function jobZip(job: JobDto): string | null {
   const exact = (job.locationPostalCode ?? '').match(/^\d{5}/)?.[0];
   if (exact && zipcodes.lookup(exact)) return exact;
@@ -773,12 +787,12 @@ export function filterJobs(
   // available unless the user explicitly turns them off.
   if (!query.remote) {
     if (query.region) {
-      pool = pool.filter((j) => (query.includeRemote !== false && j.remote) || j.locationRegion === query.region);
+      pool = pool.filter((j) => (query.includeRemote !== false && isRemoteJob(j)) || j.locationRegion === query.region);
     }
 
     if (query.city) {
       const needle = query.city.toLowerCase();
-      pool = pool.filter((j) => (query.includeRemote !== false && j.remote) || (j.locationCity ?? '').toLowerCase().includes(needle));
+      pool = pool.filter((j) => (query.includeRemote !== false && isRemoteJob(j)) || (j.locationCity ?? '').toLowerCase().includes(needle));
     }
 
     if (query.postalCode) {
@@ -786,7 +800,7 @@ export function filterJobs(
       const radius = Math.max(1, Math.min(250, query.radiusMiles ?? 25));
       pool = origin && zipcodes.lookup(origin)
         ? pool.filter((job) => {
-            if (query.includeRemote !== false && job.remote) return true;
+            if (query.includeRemote !== false && isRemoteJob(job)) return true;
             const destination = jobZip(job);
             if (!destination) return false;
             const miles = zipcodes.distance(origin, destination);
@@ -810,9 +824,9 @@ export function filterJobs(
   }
 
   if (query.remote) {
-    pool = pool.filter((j) => j.remote);
+    pool = pool.filter(isRemoteJob);
   } else if (query.includeRemote === false) {
-    pool = pool.filter((j) => !j.remote);
+    pool = pool.filter((j) => !isRemoteJob(j));
   }
 
   if (query.apprenticeshipsOnly) {
@@ -1038,7 +1052,7 @@ export async function matchesFor(
   const inputs = scoreInputsFor(profile);
 
   const eligibleSource = profile?.includeRemoteJobs === false
-    ? source.filter((job) => !job.remote)
+    ? source.filter((job) => !isRemoteJob(job))
     : source;
 
   const scored = eligibleSource
@@ -1112,7 +1126,7 @@ const prettyCode = (code: string) =>
 export async function insightsFor(userId: string, source: JobDto[] = JOBS): Promise<InsightsResponseDto> {
   const profile = await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
   const eligibleSource = profile?.includeRemoteJobs === false
-    ? source.filter((job) => !job.remote)
+    ? source.filter((job) => !isRemoteJob(job))
     : source;
   const inputs = scoreInputsFor(profile);
   const baseline = await matchesFor(userId, eligibleSource.length, eligibleSource, profile);
@@ -1428,6 +1442,7 @@ export function enrichJob(j: JobDto): JobDto {
   });
   return {
     ...j,
+    remote: isRemoteJob(j),
     locationCity: city,
     locationRegion: region,
     isApprenticeship: isApprenticeshipType(classification.apprenticeship.value),

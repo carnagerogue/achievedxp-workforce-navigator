@@ -84,10 +84,11 @@ describe('job search ordering and distance', () => {
     const source = [
       makeJob('local'),
       makeJob('remote', { remote: true, locationCity: null, locationRegion: null, locationPostalCode: null }),
+      makeJob('mislabeled-remote', { remote: false, locationCity: 'Remote', locationRegion: null, locationPostalCode: null }),
     ];
 
     expect(filterJobs({ includeRemote: true }, source).results.map((job) => job.id)).toEqual(
-      expect.arrayContaining(['local', 'remote']),
+      expect.arrayContaining(['local', 'remote', 'mislabeled-remote']),
     );
     expect(filterJobs({ includeRemote: false }, source).results.map((job) => job.id)).toEqual(['local']);
   });
