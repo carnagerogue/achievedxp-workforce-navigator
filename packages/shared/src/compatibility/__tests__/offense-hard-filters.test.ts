@@ -1,71 +1,61 @@
 import { describe, it, expect } from '@jest/globals';
-import {
-  isOffenseHardBlocked,
-  convictionForOffenseType,
-  OFFENSE_HARD_FILTERS,
-} from '../offense-hard-filters';
+import { isOffenseHardBlocked, convictionForOffenseType, OFFENSE_HARD_FILTERS } from '../offense-hard-filters';
 import { CONVICTION_TYPE_ORDER } from '../types';
 
-describe('offense hard filters', () => {
-  it('has exactly one entry per conviction type', () => {
-    const keys = Object.keys(OFFENSE_HARD_FILTERS).sort();
-    expect(keys).toEqual([...CONVICTION_TYPE_ORDER].sort());
+describe('evidence-backed hard filters', () => {
+  it('retains one compatibility entry per conviction type', () => {
+    expect(Object.keys(OFFENSE_HARD_FILTERS).sort()).toEqual([...CONVICTION_TYPE_ORDER].sort());
   });
 
-  it('registry-related is barred from school/childcare roles by industry', () => {
-    expect(isOffenseHardBlocked('registry_related', { industry: 'education', title: 'Custodian' }).blocked).toBe(true);
+  it('does not turn a broad school category into a universal legal ban', () => {
+    expect(isOffenseHardBlocked(
+      { convictionType: 'violent_offense', convictionCategory: 'FELONY' },
+      { industry: 'education', title: 'School Custodian' },
+    ).blocked).toBe(false);
   });
 
-  it('registry-related is barred from a school custodian by title even when industry is generic', () => {
-    expect(isOffenseHardBlocked('registry_related', { industry: 'cleaning', title: 'School Custodian' }).blocked).toBe(true);
+  it('does flag registry status for covered child-care work', () => {
+    const result = isOffenseHardBlocked(
+      { convictionType: 'registry_related', convictionCategory: 'FELONY' },
+      { industry: 'childcare', title: 'Daycare Teacher' },
+    );
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toMatch(/child-care/i);
   });
 
-  it('registry-related is NOT barred from a warehouse role', () => {
-    expect(isOffenseHardBlocked('registry_related', { industry: 'warehousing', title: 'Forklift Operator' }).blocked).toBe(false);
+  it('does not treat a broad fraud label as an automatic ban from every bank job', () => {
+    expect(isOffenseHardBlocked(
+      { convictionType: 'financial_fraud', convictionCategory: 'FELONY', convictionDate: 2025 },
+      { industry: 'finance', title: 'Bank Teller' },
+    ).blocked).toBe(false);
   });
 
-  it('financial-fraud is barred from a bank teller', () => {
-    expect(isOffenseHardBlocked('financial_fraud', { industry: 'services', title: 'Bank Teller' }).blocked).toBe(true);
+  it('flags firearm possession duties for a felony unless restoration is known', () => {
+    const result = isOffenseHardBlocked(
+      { convictionType: 'property_theft', convictionCategory: 'FELONY' },
+      { industry: 'security', title: 'Armed Security Guard', description: 'Must carry a firearm.' },
+    );
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toMatch(/firearm/i);
   });
 
-  it('weapons-related is barred from armed security', () => {
-    expect(isOffenseHardBlocked('weapons_related', { industry: 'security', title: 'Armed Security Guard' }).blocked).toBe(true);
+  it('does not treat every DUI as a permanent commercial-driving ban', () => {
+    expect(isOffenseHardBlocked(
+      { convictionType: 'dui_dwi', convictionCategory: 'FELONY', convictionDate: 2015 },
+      { industry: 'transportation', title: 'CDL Truck Driver' },
+    ).blocked).toBe(false);
   });
 
-  it('DUI is barred from a CDL driver', () => {
-    expect(isOffenseHardBlocked('dui_dwi', { industry: 'transportation', title: 'CDL Truck Driver' }).blocked).toBe(true);
+  it('does not infer an HHS-OIG exclusion from a broad drug category alone', () => {
+    expect(isOffenseHardBlocked(
+      { convictionType: 'drug_distribution', convictionCategory: 'FELONY' },
+      { industry: 'healthcare', title: 'Pharmacy Technician' },
+    ).blocked).toBe(false);
   });
 
-  it('drug-distribution is barred from a pharmacy tech', () => {
-    expect(isOffenseHardBlocked('drug_distribution', { industry: 'healthcare', title: 'Pharmacy Technician' }).blocked).toBe(true);
-  });
-
-  it('`other` never hard-blocks', () => {
-    expect(isOffenseHardBlocked('other', { industry: 'security', title: 'Armed Security Guard' }).blocked).toBe(false);
-  });
-
-  it('null/undefined conviction never blocks', () => {
+  it('null and undefined convictions never block', () => {
     expect(isOffenseHardBlocked(null, { industry: 'education', title: 'Teacher' }).blocked).toBe(false);
     expect(isOffenseHardBlocked(undefined, { industry: 'education', title: 'Teacher' }).blocked).toBe(false);
-  });
-
-  it('is case-insensitive on industry and title', () => {
-    expect(isOffenseHardBlocked('financial_fraud', { industry: 'FINANCE', title: 'PAYROLL Clerk' }).blocked).toBe(true);
-  });
-
-  it('matches keywords on word boundaries, not substrings', () => {
-    // "welder" contains "elder", "minority" contains "minor" — neither should trip.
-    expect(isOffenseHardBlocked('registry_related', { industry: 'manufacturing', title: 'Welder — Structural Steel' }).blocked).toBe(false);
-    expect(isOffenseHardBlocked('registry_related', { industry: 'services', title: 'Minority Outreach Associate' }).blocked).toBe(false);
-    // but a real "Elder Care Aide" still trips.
-    expect(isOffenseHardBlocked('registry_related', { industry: 'services', title: 'Elder Care Aide' }).blocked).toBe(true);
-  });
-
-  it('returns a non-empty reason when blocked', () => {
-    const r = isOffenseHardBlocked('weapons_related', { industry: 'security', title: 'Guard' });
-    expect(r.blocked).toBe(true);
-    expect(typeof r.reason).toBe('string');
-    expect((r.reason ?? '').length).toBeGreaterThan(0);
   });
 });
 
@@ -81,7 +71,7 @@ describe('convictionForOffenseType', () => {
     expect(convictionForOffenseType('SEX_OFFENSE')).toBe('registry_related');
   });
 
-  it('defaults unknown / empty values to other', () => {
+  it('defaults unknown or empty values to other', () => {
     expect(convictionForOffenseType(null)).toBe('other');
     expect(convictionForOffenseType('')).toBe('other');
     expect(convictionForOffenseType('NONSENSE')).toBe('other');

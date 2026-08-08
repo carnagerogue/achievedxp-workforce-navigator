@@ -94,12 +94,22 @@ export type EducationLevel =
  */
 export interface CandidateProfile {
   convictionType?: ConvictionType;
+  /** Broad court classification. Required for rules that apply only to felonies. */
+  convictionCategory?: 'FELONY' | 'MISDEMEANOR' | 'INFRACTION';
+  /** Exact charge/statute as shown on court paperwork, when the person knows it. */
+  exactOffense?: string | null;
+  /** State/territory code where the conviction occurred. */
+  convictionJurisdiction?: string | null;
   /** ISO yyyy-mm-dd or just yyyy. */
   convictionDate?: string | number | null;
   /** ISO yyyy-mm-dd or just yyyy. Preferred over convictionDate when present. */
   releaseDate?: string | number | null;
   supervisionStatus?: SupervisionStatus;
   expungedOrSealed?: boolean;
+  /** A legally effective restoration applicable to firearm possession. */
+  firearmRightsRestored?: boolean;
+  /** Known current HHS-OIG exclusion; never inferred solely from offense category. */
+  currentlyExcludedFromFederalHealthcare?: boolean;
   hasPendingCharges?: boolean;
   certifications?: string[];
   workExperienceIndustries?: string[];
@@ -212,6 +222,8 @@ export interface CompatibilityRating {
   caseworkerNotes: string[];
   /** Full deterministic rule trail — every rule that fired, with its impact. */
   auditTrail: AuditItem[];
+  /** Evidence-backed federal/state/employer eligibility screening. */
+  eligibility: import('./regulated-eligibility').EligibilityAssessment;
 }
 
 // ════════════════════════════════════════════════════════════════════

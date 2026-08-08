@@ -188,7 +188,7 @@ function buildCaseworkerNotes(input: {
     out.push(`Active supervision (${input.candidate.supervisionStatus}). Confirm probation/parole conditions allow the work environment, hours, and travel.`);
   }
   if (input.signals.hardBarriers.some((s) => s.id === 'cjis' || s.id === 'security_clearance' || s.id === 'top_secret_clearance' || s.id === 'public_trust_clearance')) {
-    out.push('Federal suitability / clearance language detected. OPM 5 CFR 731 (and similar agency rules) commonly disqualify recent felony convictions.');
+    out.push('Federal suitability / clearance language detected. OPM and national-security adjudicators use job relevance, recency, circumstances, rehabilitation, and whole-person review; a record is not an automatic bar to most federal roles.');
   }
   if (input.signals.hardBarriers.some((s) => s.id === 'school_setting' || s.id === 'children_or_minors')) {
     out.push('Role environment includes minors. Confirm any state fingerprint-based clearance and the applicable disqualifying-conviction list.');

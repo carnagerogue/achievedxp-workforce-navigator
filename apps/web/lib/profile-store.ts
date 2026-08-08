@@ -29,12 +29,17 @@ import { memGetDoc, memPutDoc } from './storage/memory';
 export interface StoredConviction {
   category?: 'FELONY' | 'MISDEMEANOR' | 'INFRACTION';
   offenseType?: string;
+  exactOffense?: string;
+  jurisdictionRegion?: string;
   convictionYear?: number;
   releaseYear?: number;
+  sentenceCompletionYear?: number;
   currentlyIncarcerated?: boolean;
   onParole?: boolean;
   onProbation?: boolean;
   registryStatus?: boolean;
+  firearmRightsRestored?: boolean;
+  currentlyExcludedFromFederalHealthcare?: boolean;
   /** @deprecated legacy alias for registryStatus */
   sexOffenderRegistry?: boolean;
 }
@@ -124,17 +129,27 @@ export function candidateProfilesFromStored(profile: StoredProfile | null): Cand
     out.push({
       ...common,
       convictionType: convictionForOffenseType(c.offenseType),
+      convictionCategory: c.category,
+      exactOffense: c.exactOffense ?? null,
+      convictionJurisdiction: c.jurisdictionRegion ?? null,
       convictionDate: c.convictionYear ?? null,
-      releaseDate: c.releaseYear ?? null,
+      releaseDate: c.releaseYear ?? c.sentenceCompletionYear ?? null,
       supervisionStatus: supervisionFor(c),
+      firearmRightsRestored: c.firearmRightsRestored,
+      currentlyExcludedFromFederalHealthcare: c.currentlyExcludedFromFederalHealthcare,
     });
     if (isRegistry && convictionForOffenseType(c.offenseType) !== 'registry_related') {
       out.push({
         ...common,
         convictionType: 'registry_related',
+        convictionCategory: c.category,
+        exactOffense: c.exactOffense ?? null,
+        convictionJurisdiction: c.jurisdictionRegion ?? null,
         convictionDate: c.convictionYear ?? null,
-        releaseDate: c.releaseYear ?? null,
+        releaseDate: c.releaseYear ?? c.sentenceCompletionYear ?? null,
         supervisionStatus: supervisionFor(c),
+        firearmRightsRestored: c.firearmRightsRestored,
+        currentlyExcludedFromFederalHealthcare: c.currentlyExcludedFromFederalHealthcare,
       });
     }
   }

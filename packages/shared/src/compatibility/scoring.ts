@@ -48,6 +48,7 @@ import {
   generateExplanations,
   recommendNextStep,
 } from './explanations';
+import { assessRegulatedEligibility, statusScoreCap } from './regulated-eligibility';
 
 // ────────────────────────────────────────────────────────────────────
 // Internal helpers
@@ -344,42 +345,29 @@ function scoreCandidateStrength(
   return makeComponent(raw, max, 'Candidate strength offset', explanation, positives);
 }
 
-/** 7. Location protections — placeholder stub for state-specific rules. */
+/** 7. Location protections — neutral until a current, scoped law is verified. */
 function scoreLocationProtections(
   job: JobInput,
   trail: AuditItem[],
 ): ScoreComponent {
   const max = SCORE_WEIGHTS.locationProtections;
-  // TODO(state-rules): expand with state ban-the-box / fair-chance laws,
-  //   licensing-board rules, expungement statutes, and timing requirements.
-  //   For now we return:
-  //     - "some_protection" for ~12 states + DC with codified Fair Chance
-  //       hiring laws covering private employers.
-  //     - "strong_protection" for CA, NY, IL, MA, WA which have the
-  //       most expansive rules.
-  //     - "unknown" otherwise.
   const region = (job.locationRegion ?? '').toUpperCase();
-  const strongStates = new Set(['CA', 'NY', 'IL', 'MA', 'WA']);
-  const someStates = new Set(['CT', 'CO', 'DC', 'HI', 'MD', 'MN', 'NJ', 'OR', 'RI', 'VT', 'NM']);
-
-  let bucket: 'unknown' | 'some_protection' | 'strong_protection' = 'unknown';
-  if (strongStates.has(region)) bucket = 'strong_protection';
-  else if (someStates.has(region)) bucket = 'some_protection';
-
-  const raw = bucket === 'strong_protection' ? 1 : bucket === 'some_protection' ? 0.7 : 0.5;
+  // Fair-chance coverage can depend on city/county, employer size, public vs.
+  // private employer, job duties, and the stage of hiring. A state abbreviation
+  // alone is not enough to award points safely, so the scorer stays neutral.
+  const raw = 0.5;
   trail.push({
-    ruleId: `location.${bucket}`,
-    impact: Math.round(raw * max) - Math.round(0.5 * max),
-    reason: `Location "${region || 'unknown'}" → ${bucket}.`,
+    ruleId: 'location.current_law_verification_required',
+    impact: 0,
+    reason: `Current state/local fair-chance coverage requires scoped verification for ${region || 'the job location'}.`,
   });
-
-  const explanation = bucket === 'strong_protection'
-    ? `${region} has strong fair-chance hiring protections.`
-    : bucket === 'some_protection'
-      ? `${region} has some fair-chance hiring protections.`
-      : 'Location-specific protections unknown for this region.';
-
-  return makeComponent(raw, max, 'Location protections', explanation, [`bucket=${bucket}`]);
+  return makeComponent(
+    raw,
+    max,
+    'Location protections',
+    `Current fair-chance and licensing protections must be verified for ${region || 'this location'} and employer type.`,
+    ['neutral_pending_current_law_check'],
+  );
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -413,6 +401,7 @@ export function scoreJobCompatibility(
 
   const signals = detectSignals({ title: job.title, company: job.company, description: job.description });
   const posture = classifyEmployerPosture(signals, { excludesFelons: job.excludesFelons, riskTier: job.riskTier, description: job.description });
+  const eligibility = assessRegulatedEligibility(candidate, job);
 
   // Per-component scoring.
   const dutyResult = scoreConvictionToDuty(candidate, job, auditTrail);
@@ -470,6 +459,17 @@ export function scoreJobCompatibility(
     auditTrail.push({ ruleId: 'floor.high_duty_general', impact: 0, reason: 'High duty conflict caps the score below the strong-match band.' });
   }
 
+  const regulatoryCap = statusScoreCap(eligibility.highestStatus);
+  if (regulatoryCap !== null && total > regulatoryCap) {
+    const before = total;
+    total = regulatoryCap;
+    auditTrail.push({
+      ruleId: `eligibility.${eligibility.highestStatus}`,
+      impact: regulatoryCap - before,
+      reason: `Evidence-backed eligibility status "${eligibility.highestStatus}" capped the score pending verification.`,
+    });
+  }
+
   // Excluded-industries hard fail (user explicitly blacklisted this industry).
   if (job.industry && (candidate.excludedIndustries ?? []).map((s) => s.toLowerCase()).includes(job.industry.toLowerCase())) {
     total = Math.min(total, 30);
@@ -494,20 +494,35 @@ export function scoreJobCompatibility(
     matrixAll: dutyResult.allMatches,
   });
 
+  const leadingEligibility = eligibility.findings.find((item) => item.status === eligibility.highestStatus);
+  const summary = leadingEligibility && ['likely_disqualified', 'waiver_or_approval_required'].includes(eligibility.highestStatus)
+    ? leadingEligibility.title + '. ' + leadingEligibility.explanation
+    : explanations.summary;
+  const possibleBarriers = [
+    ...eligibility.findings
+      .filter((item) => item.status !== 'individualized_review')
+      .map((item) => `${item.title}: ${item.explanation}`),
+    ...explanations.possibleBarriers,
+  ].filter((value, index, all) => all.indexOf(value) === index);
+  const recommendedNextStep = leadingEligibility && eligibility.highestStatus !== 'individualized_review'
+    ? leadingEligibility.whatToVerify
+    : recommendNextStep(chance, candidate.convictionType, dutyResult.worst, signals);
+
   return {
     score: total,
     chance,
     label,
     riskLevel,
-    summary: explanations.summary,
+    summary,
     scoreBreakdown: breakdown,
     riskFactors: explanations.riskFactors,
     positiveFactors: explanations.positiveFactors,
-    possibleBarriers: explanations.possibleBarriers,
+    possibleBarriers,
     chanceImprovers: explanations.chanceImprovers,
-    recommendedNextStep: recommendNextStep(chance, candidate.convictionType, dutyResult.worst, signals),
+    recommendedNextStep,
     caseworkerNotes: explanations.caseworkerNotes,
     auditTrail,
+    eligibility,
   };
 }
 
