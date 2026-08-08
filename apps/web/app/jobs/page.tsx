@@ -242,8 +242,13 @@ function JobsPage() {
     [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, includeRemoteJobs, apprenticeshipsOnly, userId],
   );
   const prevQueryKey = useRef(queryKey);
+  const requestSequence = useRef(0);
 
   useEffect(() => {
+    // Provider aggregation can take several seconds. If a preference or
+    // filter changes during that time, invalidate the older request so its
+    // response can never overwrite the newer result set.
+    const requestId = ++requestSequence.current;
     const queryChanged = prevQueryKey.current !== queryKey;
     // Filter changed while paged past the first page: reset to page 0 and let
     // the offset change re-run this effect once. No fetch on this pass.
@@ -279,11 +284,15 @@ function JobsPage() {
       offset,
     })
       .then((data) => {
+        if (requestId !== requestSequence.current) return;
         setTotal(data.total);
         setResults((prev) => (isFirstPage ? data.results : [...prev, ...data.results]));
       })
-      .catch((e: Error) => setError(e.message))
+      .catch((e: Error) => {
+        if (requestId === requestSequence.current) setError(e.message);
+      })
       .finally(() => {
+        if (requestId !== requestSequence.current) return;
         setLoading(false);
         setLoadingMore(false);
       });
