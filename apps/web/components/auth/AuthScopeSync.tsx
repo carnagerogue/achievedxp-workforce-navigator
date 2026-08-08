@@ -9,11 +9,31 @@
  * Two stable variants chosen by the build-time AUTH_ENABLED constant, so the
  * Clerk hook only ever runs when a ClerkProvider is present.
  */
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { AUTH_ENABLED } from '../../lib/auth-config';
 import { setScope } from '../../lib/scoped-storage';
 import { setUserId, clearUserId } from '../../lib/session';
+
+type ScopeListener = () => void;
+const scopeListeners = new Set<ScopeListener>();
+let scopeReady = false;
+
+function markScopeReady() {
+  if (scopeReady) return;
+  scopeReady = true;
+  scopeListeners.forEach((listener) => listener());
+}
+
+function subscribeToScope(listener: ScopeListener) {
+  scopeListeners.add(listener);
+  return () => scopeListeners.delete(listener);
+}
+
+/** Prevent personal surfaces from reading the guest namespace before Clerk resolves. */
+export function useAuthScopeReady(): boolean {
+  return useSyncExternalStore(subscribeToScope, () => scopeReady, () => false);
+}
 
 function ClerkScopeSync() {
   const { isLoaded, userId } = useAuth();
@@ -27,12 +47,16 @@ function ClerkScopeSync() {
       setScope('guest');
       clearUserId();
     }
+    markScopeReady();
   }, [isLoaded, userId]);
   return null;
 }
 
 function GuestScopeSync() {
-  useEffect(() => { setScope('guest'); }, []);
+  useEffect(() => {
+    setScope('guest');
+    markScopeReady();
+  }, []);
   return null;
 }
 

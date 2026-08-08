@@ -4,6 +4,7 @@ import { inferSeniority } from '../realistic-fit';
 import { isFreshJob } from '../providers/types';
 import { assessReadiness, selfToReadinessInput } from '../readiness';
 import { hasStaffRole } from '../auth-config';
+import { dashboardState } from '../dashboard-state';
 
 const answersAt = (value: number) => Object.fromEntries(Array.from({ length: 30 }, (_, i) => [i + 1, value]));
 
@@ -60,5 +61,12 @@ describe('QA trust regressions', () => {
     expect(hasStaffRole({ metadata: { role: 'admin' } })).toBe(true);
     expect(hasStaffRole({ role: 'participant' })).toBe(false);
     expect(hasStaffRole({})).toBe(false);
+  });
+
+  it('does not show personalized dashboard content before onboarding', () => {
+    expect(dashboardState(false, false, false)).toBe('loading');
+    expect(dashboardState(true, false, false)).toBe('loading');
+    expect(dashboardState(true, true, false)).toBe('onboarding');
+    expect(dashboardState(true, true, true)).toBe('ready');
   });
 });

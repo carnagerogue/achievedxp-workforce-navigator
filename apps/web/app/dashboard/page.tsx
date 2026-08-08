@@ -39,6 +39,8 @@ import {
   phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow,
 } from '../../lib/reentry-journey';
 import { buildFocusQueue, focusCounts } from '../../lib/focus';
+import { useAuthScopeReady } from '../../components/auth/AuthScopeSync';
+import { dashboardState } from '../../lib/dashboard-state';
 
 /**
  * HOME — the one guided surface. The old /start (Reentry Compass) and
@@ -50,6 +52,7 @@ import { buildFocusQueue, focusCounts } from '../../lib/focus';
  */
 export default function HomePage() {
   const p = useNavigatorProfile();
+  const scopeReady = useAuthScopeReady();
   const inputs = useReentryInputs();
   const completedArr = useCompletedSteps();
   const contacts = useContacts();
@@ -87,6 +90,10 @@ export default function HomePage() {
   const { overdue, soon } = focusCounts(queue);
   const hero = queue[0] ?? null;
   const rest = queue.slice(1);
+
+  const state = dashboardState(scopeReady, p.profileHydrated, p.onboardingComplete);
+  if (state === 'loading') return <DashboardLoading />;
+  if (state === 'onboarding') return <DashboardOnboardingState />;
 
   const fresh = !p.hasAnyData;
   const heroTone = overdue > 0 ? 'from-rose-50 to-white' : soon > 0 ? 'from-amber-50 to-white' : 'from-teal-50 to-white';
@@ -232,6 +239,64 @@ export default function HomePage() {
       <EvidencePanel />
 
       <p className="mb-2 mt-2 text-center text-[11px] text-slate-400">Planning details stay in this browser. You decide what to export or share.</p>
+    </div>
+  );
+}
+
+function DashboardLoading() {
+  return (
+    <div className="animate-pulse space-y-4 py-8" aria-busy="true" aria-label="Loading your workspace">
+      <div className="h-14 rounded-2xl bg-slate-100" />
+      <div className="h-[28rem] rounded-3xl bg-slate-100" />
+    </div>
+  );
+}
+
+function DashboardOnboardingState() {
+  return (
+    <div className="constellation-workspace animate-fade-in py-8 sm:py-14" data-testid="dashboard-onboarding-required">
+      <section className="relative isolate mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-navy-900/15 bg-navy-900 px-6 py-12 text-white shadow-pop sm:px-12 sm:py-16 lg:px-16">
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+          <div className="absolute -right-24 -top-32 h-96 w-96 rounded-full bg-teal-400/20 blur-3xl" />
+          <div className="absolute -bottom-44 -left-24 h-96 w-96 rounded-full bg-sunset-500/15 blur-3xl" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-teal-300/70 to-transparent" />
+        </div>
+
+        <div className="max-w-2xl">
+          <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-teal-200">
+            <Sparkles className="h-4 w-4" /> Your workspace is ready
+          </p>
+          <h1 className="mt-5 text-4xl font-bold tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+            Let&apos;s build your Navigator.
+          </h1>
+          <p className="mt-5 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
+            Nothing has been filled in yet. Complete the four-step onboarding wizard so your plan, recommendations, and job matches are based only on what you choose to share.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/onboarding" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-teal-300 px-6 py-3 text-sm font-bold text-navy-900 transition hover:-translate-y-0.5 hover:bg-teal-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal-200">
+              Start onboarding <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link href="/jobs" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/25 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/45 hover:bg-white/10">
+              <Briefcase className="h-4 w-4" /> Browse jobs first
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-12 grid gap-3 border-t border-white/10 pt-6 sm:grid-cols-3">
+          {[
+            ['01', 'Your answers', 'No assumptions or prefilled personal details.'],
+            ['02', 'Your control', 'Skip anything you are not ready to share.'],
+            ['03', 'Your path', 'Recommendations appear only after setup.'],
+          ].map(([number, title, detail]) => (
+            <div key={number} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <span className="text-xs font-bold tracking-[0.18em] text-sunset-300">{number}</span>
+              <h2 className="mt-3 text-sm font-bold text-white">{title}</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

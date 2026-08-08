@@ -9,6 +9,7 @@ import { useCompletedSteps, useReentryInputs, useFutureSelf } from './reentry-st
 import { useContacts, supportCount, staleSupportContacts } from './support-network';
 import { useSavedJobIds, useApplications, useRecentJobIds } from './personal-store';
 import { getLocalProfile, type LocalProfile } from './local-profile';
+import { onStoreChange } from './scoped-storage';
 import { assessReadiness, selfToReadinessInput, BAND_LABEL } from './readiness';
 import {
   overallProgress, activePhaseKey, nextStep, inCriticalWindow, PHASES,
@@ -58,6 +59,8 @@ export interface NavigatorProfile {
   onSupervision: boolean;
   inCriticalWindow: boolean;
   hasAnyData: boolean;
+  profileHydrated: boolean;
+  onboardingComplete: boolean;
 
   journey: { pct: number; done: number; total: number; phaseKey: string; phaseTitle: string; next: { phase: JourneyPhase; step: JourneyStep } | null };
   readiness: { score: number; band: string; engaged: boolean; gaps: { label: string; url: string }[] };
@@ -95,7 +98,15 @@ export function useNavigatorProfile(): NavigatorProfile {
   const recentIds = useRecentJobIds();
 
   const [profile, setProfile] = useState<LocalProfile | null>(null);
-  useEffect(() => { setProfile(getLocalProfile()); }, []);
+  const [profileHydrated, setProfileHydrated] = useState(false);
+  useEffect(() => {
+    const syncProfile = () => {
+      setProfile(getLocalProfile());
+      setProfileHydrated(true);
+    };
+    syncProfile();
+    return onStoreChange(syncProfile);
+  }, []);
 
   // ── Identity (reconcile name/goal across stores; plan-typed values win) ──
   const displayName = (ownerName || profile?.displayName || profile?.email?.split('@')[0] || '').trim();
@@ -183,6 +194,7 @@ export function useNavigatorProfile(): NavigatorProfile {
   return {
     firstName, displayName, location: profile?.locationCity || profile?.locationPostalCode, careerGoal, futureSelf: (futureSelf || '').trim(),
     onSupervision, inCriticalWindow: inCriticalWindow(reentryInputs), hasAnyData,
+    profileHydrated, onboardingComplete: profile !== null,
     journey: { pct: journeyProg.pct, done: journeyProg.done, total: journeyProg.total, phaseKey, phaseTitle, next },
     readiness: {
       score: readiness.score, band: BAND_LABEL[readiness.band], engaged: readinessEngaged,
