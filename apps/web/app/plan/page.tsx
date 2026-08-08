@@ -1,6 +1,6 @@
 'use client';
 
-import { ListChecks } from 'lucide-react';
+import { ListChecks, LockKeyhole } from 'lucide-react';
 import { MyPlan } from '../../components/plan/MyPlan';
 import { CalendarExportButton } from '../../components/CalendarExportButton';
 import { JourneyRail } from '../../components/JourneyRail';
@@ -15,21 +15,21 @@ export default function PlanPage() {
   return (
     <div className="constellation-workspace animate-fade-in">
       <JourneyRail active="plan" />
-      <header className="border-y border-navy-900/20 bg-transparent py-8 sm:py-10">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sunset-600">
-          <ListChecks className="h-3.5 w-3.5" /> Plan &amp; progress
-        </p>
-        <h1 className="mt-2 font-display text-5xl font-black uppercase leading-[.85] tracking-[-.04em] text-navy-900 sm:text-7xl">
-          My plan
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          Your working plan — steps, readiness, supervision, and check-ins, all in one place.
-          Saved only in this browser unless you export or share it.
-        </p>
-        <div className="mt-4"><CalendarExportButton /></div>
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-navy-900/15 py-5 sm:py-6">
+        <div>
+          <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sunset-600">
+            <ListChecks className="h-3.5 w-3.5" /> Plan &amp; progress
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-black uppercase tracking-[-.035em] text-navy-900 sm:text-4xl">My plan</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">Turn what matters now into a clear, manageable next step.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400"><LockKeyhole className="h-3.5 w-3.5" /> Private on this device</span>
+          <CalendarExportButton />
+        </div>
       </header>
 
-      <div className="mt-6">
+      <div className="mt-5">
         <MyPlan />
       </div>
     </div>

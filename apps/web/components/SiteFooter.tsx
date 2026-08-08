@@ -18,7 +18,7 @@ export function SiteFooter() {
             <p className="mt-4 max-w-sm font-display text-4xl font-black uppercase leading-[.9]">A clearer route forward.</p>
           </div>
           <div className="grid gap-5 sm:grid-cols-3">
-            <Promise Icon={Shield} title="Private by default">Background details never go to employers.</Promise>
+            <Promise Icon={Shield} title="Private by default">Your personal details stay in your workspace until you choose to share.</Promise>
             <Promise Icon={Scale} title="Evidence, not mystery">Every fit signal can be inspected.</Promise>
             <Promise Icon={Waypoints} title="One useful action">The full path stays visible.</Promise>
           </div>

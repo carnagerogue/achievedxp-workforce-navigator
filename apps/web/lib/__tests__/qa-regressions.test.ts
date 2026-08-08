@@ -5,6 +5,8 @@ import { isFreshJob } from '../providers/types';
 import { assessReadiness, selfToReadinessInput } from '../readiness';
 import { hasStaffRole } from '../auth-config';
 import { dashboardState } from '../dashboard-state';
+import { applicableSteps, inCriticalWindow, nextStep, PHASES } from '../reentry-journey';
+import { accountDisplayName, accountImageUrl } from '../account-identity';
 
 const answersAt = (value: number) => Object.fromEntries(Array.from({ length: 30 }, (_, i) => [i + 1, value]));
 
@@ -68,5 +70,40 @@ describe('QA trust regressions', () => {
     expect(dashboardState(true, false, false)).toBe('loading');
     expect(dashboardState(true, true, false)).toBe('onboarding');
     expect(dashboardState(true, true, true)).toBe('ready');
+  });
+
+  it('starts every user with universal career guidance, not identity-document or record assumptions', () => {
+    const visible = PHASES.flatMap((phase) => applicableSteps(phase, {}));
+    expect(nextStep({}, new Set())?.step.id).toBe('career-fit');
+    expect(visible.map((step) => step.id)).not.toContain('id');
+    expect(visible.map((step) => step.id)).not.toContain('supervision');
+    expect(visible.map((step) => step.id)).not.toContain('employer-case');
+  });
+
+  it('shows specialized support only after the user asks for it', () => {
+    const firstPhase = PHASES[0];
+    expect(applicableSteps(firstPhase, { needsId: true }).map((step) => step.id)).toContain('id');
+    expect(applicableSteps(firstPhase, { onSupervision: true }).map((step) => step.id)).not.toContain('supervision');
+    expect(applicableSteps(firstPhase, { justiceSupport: true, onSupervision: true }).map((step) => step.id)).toContain('supervision');
+    expect(inCriticalWindow({ daysSinceRelease: 30 })).toBe(false);
+    expect(inCriticalWindow({ justiceSupport: true, daysSinceRelease: 30 })).toBe(true);
+  });
+
+  it('prefers the signed-in provider profile image over Clerk fallback artwork', () => {
+    const user = {
+      fullName: 'Christopher Aro',
+      hasImage: false,
+      imageUrl: 'https://clerk.example/fallback.svg',
+      externalAccounts: [
+        { provider: 'oauth_microsoft', imageUrl: 'https://microsoft.example/christopher.jpg' },
+        { provider: 'oauth_google', imageUrl: 'https://google.example/christopher.jpg' },
+      ],
+    };
+    expect(accountDisplayName(user)).toBe('Christopher Aro');
+    expect(accountImageUrl(user)).toBe('https://google.example/christopher.jpg');
+  });
+
+  it('falls back to initials when neither the account nor provider has a real image', () => {
+    expect(accountImageUrl({ hasImage: false, imageUrl: 'https://clerk.example/fallback.svg' })).toBeUndefined();
   });
 });

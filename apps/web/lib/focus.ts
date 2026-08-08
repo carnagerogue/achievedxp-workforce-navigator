@@ -1,6 +1,6 @@
 /**
  * The ONE next-step engine. Before this existed there were three competing
- * "what should I do next" producers (reentry-journey.nextStep,
+ * "what should I do next" producers (the Navigator journey,
  * plan-progress.nextStep, and TodayFocus's inline deadline scan) that never
  * reconciled. This module merges every signal the app holds into a single
  * prioritized queue; the home page renders queue[0] as the hero and the rest
@@ -9,7 +9,7 @@
  * Priority (evidence-first — a preventable violation beats everything):
  *   1. overdue   — supervision report, conditions, fees behind, plan steps
  *   2. soon      — the same, due within a week
- *   3. compass   — the current Reentry Compass step (the guided spine)
+ *   3. compass   — the current Navigator guide step (the guided spine)
  *   4. plan nudge — a started plan item that needs its next move
  *   5. check-in  — weekly reflection when nothing else needs attention
  *

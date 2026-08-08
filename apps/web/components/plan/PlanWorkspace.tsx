@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   FileText, Home, Bus, HeartPulse, Scale, GraduationCap, Award, Briefcase, Laptop, Wallet,
   Users, ListChecks, Check, Trash2, Plus, ExternalLink, Sparkles, AlertTriangle, ChevronDown,
-  Share2, FileDown, Printer, HeartHandshake, ShieldCheck, ScrollText, CalendarClock,
+  Share2, FileDown, Printer, HeartHandshake, ShieldCheck, ScrollText, CalendarClock, ChevronRight,
 } from 'lucide-react';
 import {
   reportDueState, conditionStatus, complianceFromConditions, CONDITION_TEMPLATES, CADENCE_LABEL,
@@ -19,7 +19,7 @@ import {
   type ReadinessDomainKey, type DomainStatus, type DomainResult,
 } from '../../lib/readiness';
 import {
-  PLAN_BUCKETS, stepDomainCounts,
+  PLAN_BUCKETS,
   type PlanModel, type PlanActions, type PlanStep, type PlanDomain, type PlanStepStatus,
 } from '../../lib/plan-model';
 
@@ -55,12 +55,19 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
   const { readiness, steps } = model;
   const domainResultByKey = new Map(readiness.domains.map((d) => [d.key, d]));
   const stepsByDomain = (d: PlanDomain) => steps.filter((s) => s.domain === d);
-  const counts = stepDomainCounts(steps);
   const openSteps = steps.filter((s) => s.status !== 'completed').length;
   const readyCount = readiness.domains.filter((d) => d.status === 'ready').length;
   const applicable = readiness.domains.filter((d) => d.status !== 'na').length;
-  const planPct = steps.length ? Math.round((steps.filter((s) => s.status === 'completed').length / steps.length) * 100) : 0;
   const topGap = readiness.gaps[0];
+  const displayName = (model.ownerName || model.ownerIdentity?.displayName || '').trim();
+  const firstName = displayName.split(/\s+/)[0] || '';
+  const hasSupervision = Boolean(
+    model.supervision?.officerName || model.supervision?.nextReportDate ||
+    (model.supervision?.supervisionType && model.supervision.supervisionType !== 'none') ||
+    model.conditions?.length || model.fees?.length
+  );
+  const hasPlanActivity = steps.length > 0 || applicable > 0 || Boolean(model.goals.trim()) || Boolean(model.checkins?.length);
+  const [supervisionOpen, setSupervisionOpen] = useState(hasSupervision);
 
   // Domains sorted by attention; N/A with no steps hidden.
   const domains = [...READINESS_DOMAINS]
@@ -69,16 +76,17 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
     .sort((a, b) => STATUS_RANK[a.res.status] - STATUS_RANK[b.res.status]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-        <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-5 py-5">
+      <section className="overflow-hidden rounded-[24px] border border-navy-900/10 bg-white shadow-card">
+        <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-5 py-5 sm:px-6">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_90%_-20%,rgba(45,212,229,0.25),transparent)]" />
-          <div className="relative flex items-center gap-4">
-            <Avatar name={model.ownerName || 'You'} size={52} />
+          <div className="relative flex flex-wrap items-center gap-4">
+            <Avatar name={displayName || 'Account'} imageUrl={model.ownerIdentity?.imageUrl} size={60} />
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-white">{model.ownerName ? `${model.ownerName}’s plan` : 'My plan'}</h2>
-              <p className="mt-0.5 text-xs text-teal-50/80">{applicable === 0 ? 'Readiness not assessed' : `${BAND_LABEL[readiness.band]} · ${readyCount}/${applicable} areas ready`} · {openSteps} open step{openSteps === 1 ? '' : 's'}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-100/70">Personal action plan</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-white">{firstName ? `${firstName}’s plan` : 'My plan'}</h2>
+              <p className="mt-1 text-xs text-teal-50/80">{applicable === 0 ? 'Ready when you are' : `${BAND_LABEL[readiness.band]} · ${readyCount}/${applicable} areas ready`} · {openSteps} open step{openSteps === 1 ? '' : 's'}</p>
             </div>
             {applicable > 0 && <div className="hidden sm:block text-center">
               <ProgressRing pct={readiness.score} size={58} stroke={5} />
@@ -86,11 +94,12 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
             </div>}
           </div>
           {(actions.onShare || actions.onImport || actions.onPrint) && (
-            <div className="relative mt-4 flex flex-wrap gap-2">
+            <div className="relative mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
               {actions.onShare && <HdrBtn onClick={actions.onShare} Icon={Share2} label={model.isCaseworker ? 'Give to participant' : 'Share'} />}
               {actions.onImport && <HdrBtn onClick={actions.onImport} Icon={FileDown} label="Import" />}
-              {actions.onSupervisionSummary && <HdrBtn onClick={actions.onSupervisionSummary} Icon={ScrollText} label="Supervision summary" />}
+              {actions.onSupervisionSummary && hasSupervision && <HdrBtn onClick={actions.onSupervisionSummary} Icon={ScrollText} label="Supervision summary" />}
               {actions.onPrint && <HdrBtn onClick={actions.onPrint} Icon={Printer} label="Print" primary />}
+              {!model.isCaseworker && <span className="ml-auto hidden text-[10px] text-teal-50/60 sm:inline">Private on this device</span>}
             </div>
           )}
         </div>
@@ -108,19 +117,24 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
         )}
       </section>
 
-      {/* Name + goals (individual only) */}
+      {/* Plan identity + goal */}
       {(actions.setOwnerName || actions.setGoals) && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {actions.setOwnerName && (
-              <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Your name (on the report)</span>
-                <input value={model.ownerName} onChange={(e) => actions.setOwnerName!(e.target.value)} placeholder="e.g. Jordan Smith"
-                  className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" /></label>
-            )}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div><h3 className="text-sm font-bold text-navy-900">What are you working toward?</h3><p className="mt-0.5 text-xs text-slate-500">Keep it simple. You can change this at any time.</p></div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[1.5fr_1fr]">
             {actions.setGoals && (
               <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">My goal</span>
-                <input value={model.goals} onChange={(e) => actions.setGoals!(e.target.value)} placeholder="e.g. Stable work + housing in 90 days"
-                  className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" /></label>
+                <input value={model.goals} onChange={(e) => actions.setGoals!(e.target.value)} placeholder="Stable work, reliable transportation, a safe home…"
+                  className="block h-11 w-full rounded-xl border border-slate-300 px-3 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" /></label>
+            )}
+            {actions.setOwnerName && (
+              <label className="text-sm"><span className="mb-1 block text-xs font-medium text-slate-700">Name on shared reports</span>
+                <input value={model.ownerName} onChange={(e) => actions.setOwnerName!(e.target.value)} placeholder={model.ownerIdentity?.displayName || 'Your name'}
+                  className="block h-11 w-full rounded-xl border border-slate-300 px-3 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+                {!model.ownerName && model.ownerIdentity?.displayName && <span className="mt-1 block text-[10px] text-slate-400">Using {model.ownerIdentity.displayName} from your account</span>}
+              </label>
             )}
           </div>
         </section>
@@ -128,7 +142,15 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
 
       {/* Supervision */}
       {model.supervision && actions.setSupervision && (
-        <SupervisionCard model={model} actions={actions} />
+        supervisionOpen ? (
+          <SupervisionCard model={model} actions={actions} onCollapse={!hasSupervision ? () => setSupervisionOpen(false) : undefined} />
+        ) : (
+          <button onClick={() => setSupervisionOpen(true)} className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-card transition hover:border-teal-300 hover:shadow-md">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><ShieldCheck className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-navy-900">Track probation or parole requirements</span><span className="mt-0.5 block text-xs text-slate-500">Optional — add check-ins, conditions, fees, and report dates only if they apply to you.</span></span>
+            <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600" />
+          </button>
+        )
       )}
 
       {/* Domain sections */}
@@ -145,7 +167,7 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
       })}
 
       {/* Weekly check-in (individual) */}
-      {model.checkins && actions.addCheckin && (
+      {model.checkins && actions.addCheckin && (hasPlanActivity || model.checkins.length > 0) && (
         <CheckinCard checkins={model.checkins} onAdd={actions.addCheckin} onRemove={actions.removeCheckin} />
       )}
 
@@ -165,7 +187,7 @@ function HdrBtn({ onClick, Icon, label, primary }: { onClick: () => void; Icon: 
   );
 }
 
-function SupervisionCard({ model, actions }: { model: PlanModel; actions: PlanActions }) {
+function SupervisionCard({ model, actions, onCollapse }: { model: PlanModel; actions: PlanActions; onCollapse?: () => void }) {
   const sup = model.supervision ?? {};
   const due = reportDueState(sup.nextReportDate);
   const dueCls = due === 'overdue' ? 'border-rose-200 bg-rose-50 text-rose-700'
@@ -178,9 +200,12 @@ function SupervisionCard({ model, actions }: { model: PlanModel; actions: PlanAc
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-navy-900"><ShieldCheck className="h-4 w-4 text-teal-600" /> Supervision</h3>
-        {actions.onSupervisionSummary && (
-          <button onClick={actions.onSupervisionSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-800"><ScrollText className="h-3.5 w-3.5" /> Supervision summary</button>
-        )}
+        <div className="flex items-center gap-2">
+          {onCollapse && <button onClick={onCollapse} className="text-xs font-semibold text-slate-400 hover:text-slate-600">Not for me</button>}
+          {actions.onSupervisionSummary && (
+            <button onClick={actions.onSupervisionSummary} className="inline-flex items-center gap-1.5 rounded-lg bg-navy-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-800"><ScrollText className="h-3.5 w-3.5" /> Summary</button>
+          )}
+        </div>
       </div>
       <p className="mt-0.5 text-xs text-slate-500">Stay ahead of check-ins and prove your effort — generate a clean summary for your officer anytime.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">

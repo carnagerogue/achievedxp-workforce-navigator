@@ -268,15 +268,14 @@ function ApprenticeshipEmptyState() {
             <li>• Driver&rsquo;s license review and clean driving record where required</li>
             <li>• Resume preparation (highlight transferable skills)</li>
             <li>• Interview practice (common questions, calm tone)</li>
-            <li>• Background explanation statement (see <Link href="/background-statement" className="font-medium text-teal-700 hover:underline">Prepare Background Explanation</Link>)</li>
           </ul>
         </NextStepCard>
 
         {/* 4. Caseworker action */}
         <NextStepCard
           eyebrow="Step 4"
-          title="Caseworker action"
-          body="If you&rsquo;re working with a caseworker or reentry coordinator, document this pathway and review it together."
+          title="Bring in support if you want it"
+          body="If you&rsquo;re working with a coach, mentor, caseworker, or coordinator, document this pathway and review it together."
         >
           <ul className="mt-2 space-y-1 text-xs text-slate-700">
             <li>• Save this readiness plan</li>

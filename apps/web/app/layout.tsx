@@ -11,6 +11,7 @@ import { KeyboardHelp } from '../components/KeyboardHelp';
 import { AuthProvider } from '../components/auth/AuthProvider';
 import { AuthScopeSync } from '../components/auth/AuthScopeSync';
 import { AUTH_ENABLED } from '../lib/auth-config';
+import { AppExperience } from '../components/AppExperience';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -21,7 +22,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Achieve DXP · Workforce Navigator',
   description:
-    'Real-world jobs matched to you — with the full picture on background-check risk and fair-chance employers.',
+    'A guided workforce navigator for discovering your direction, building a plan, preparing, and finding work.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <AuthProvider>
           <AuthScopeSync />
+          <AppExperience />
           <ToastProvider>
             <SiteHeader />
             {!AUTH_ENABLED && (

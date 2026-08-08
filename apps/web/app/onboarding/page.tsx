@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  UserCircle2, MapPin, Scale, Wrench, Award, Factory, ArrowRight, ArrowLeft, Check, CheckCircle2,
+  UserCircle2, MapPin, Wrench, Award, Factory, ArrowRight, ArrowLeft, Check, CheckCircle2,
   ShieldCheck, Sparkles, LockKeyhole, Target, Radar, ChevronRight,
 } from 'lucide-react';
 import type { ConvictionDto } from '@dxp/shared';
@@ -72,7 +72,7 @@ const STEPS: Step[] = [
   { id: 'account',    title: 'Account',              subtitle: 'Email + display name',                  Icon: UserCircle2 },
   { id: 'location',   title: 'Location',             subtitle: 'Where you\'re looking + logistics',     Icon: MapPin },
   { id: 'goals',      title: 'Skills & Industries',  subtitle: 'What you bring, what you want',         Icon: Wrench },
-  { id: 'background', title: 'Background',           subtitle: 'Structured conviction history (optional)', Icon: Scale },
+  { id: 'background', title: 'Support options',      subtitle: 'Personalize only what applies',            Icon: ShieldCheck },
 ];
 
 type GoalPanel = 'skills' | 'certifications' | 'industries';
@@ -94,9 +94,9 @@ const STEP_STORIES = [
     copy: 'Choose only what feels true. Each signal sharpens the roles, training, and next steps we bring forward.',
   },
   {
-    kicker: 'Your context, your choice',
-    title: 'See barriers before they become dead ends.',
-    copy: 'Optional background context helps us explain possible barriers privately. It is never sent to employers.',
+    kicker: 'Only what applies',
+    title: 'Choose any extra support you want.',
+    copy: 'This step is optional. Record-aware guidance stays private and appears only when you request it.',
   },
 ] as const;
 
@@ -166,7 +166,7 @@ export default function OnboardingPage() {
       skills: new Set(p.skills ?? []),
       certifications: new Set(p.certifications ?? []),
       desiredIndustries: new Set(p.desiredIndustries ?? []),
-      hasRecord: (p.convictions?.length ?? 0) > 0,
+      hasRecord: p.justiceSupportEnabled ?? (p.convictions?.length ?? 0) > 0,
       onParoleOrProbation: p.onParoleOrProbation ?? false,
       convictions: (p.convictions ?? []) as ConvictionDto[],
     });
@@ -239,7 +239,7 @@ export default function OnboardingPage() {
         setUserId(userId);
       }
 
-      const hasFelonyRecord = state.convictions.some((c) => c.category === 'FELONY');
+      const hasFelonyRecord = state.hasRecord && state.convictions.some((c) => c.category === 'FELONY');
       const profilePayload = {
         userId,
         locationCity: state.locationCity || undefined,
@@ -249,7 +249,8 @@ export default function OnboardingPage() {
         hasTransportation: state.hasTransportation,
         willingToRelocate: state.willingToRelocate,
         hasFelonyRecord,
-        onParoleOrProbation: state.onParoleOrProbation,
+        justiceSupportEnabled: state.hasRecord,
+        onParoleOrProbation: state.hasRecord && state.onParoleOrProbation,
         convictions: state.hasRecord ? state.convictions : [],
         skills: [...state.skills],
         certifications: [...state.certifications],
@@ -432,7 +433,7 @@ export default function OnboardingPage() {
                 )}
 
                 {step.id === 'background' && (
-                  <FieldGroup title="You decide what we account for" subtitle="This section is optional. It is used only to explain possible barriers and improve guidance inside Achieve.">
+                  <FieldGroup title="Support, only if you want it" subtitle="This optional section is for people who want record-aware guidance. Skip it and Achieve stays a general workforce navigator.">
                     <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
                       <div className="flex items-start gap-3">
                         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-teal-700" />
@@ -440,7 +441,7 @@ export default function OnboardingPage() {
                       </div>
                     </div>
                     <div className="mt-5">
-                      <CheckboxField label="I want guidance that accounts for a criminal record" checked={state.hasRecord} onChange={(v) => update('hasRecord', v)} />
+                      <CheckboxField label="I want optional guidance for background-related barriers" checked={state.hasRecord} onChange={(v) => update('hasRecord', v)} />
                     </div>
 
                     {state.hasRecord && (

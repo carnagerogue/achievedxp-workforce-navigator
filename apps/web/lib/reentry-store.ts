@@ -5,9 +5,8 @@ import type { ReentryInputs } from './reentry-journey';
 import { lsGet, lsSet, onStoreChange } from './scoped-storage';
 
 /**
- * Reentry Compass state — the user's light self-reported context (for
- * risk/responsivity tailoring), the steps they've completed, and a short
- * "future self" goal (a desistance/hope lever). Browser-local, same
+ * Navigator guide state — the user's optional self-reported context, the
+ * steps they've completed, and a short future goal. Browser-local, same
  * subscribe/notify pattern as the other stores.
  */
 

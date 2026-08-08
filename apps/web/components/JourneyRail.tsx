@@ -1,15 +1,15 @@
 import Link from 'next/link';
 
 const PHASES = [
-  { key: 'start', n: '01', label: 'Start', href: '/dashboard' },
+  { key: 'start', n: '01', label: 'Start', href: '/onboarding' },
   { key: 'plan', n: '02', label: 'Plan', href: '/plan' },
   { key: 'prepare', n: '03', label: 'Prepare', href: '/apply-kit' },
   { key: 'work', n: '04', label: 'Find work', href: '/jobs' },
 ] as const;
 
-export function JourneyRail({ active }: { active: typeof PHASES[number]['key'] }) {
+export function JourneyRail({ active }: { active?: typeof PHASES[number]['key'] }) {
   return (
-    <nav className="mb-8 grid grid-cols-2 border border-navy-900/15 bg-teal-50 sm:grid-cols-4" aria-label="Navigator phases">
+    <nav className="journey-rail mb-8 grid grid-cols-2 border border-navy-900/15 bg-teal-50 sm:grid-cols-4" aria-label="Navigator phases">
       {PHASES.map((phase) => {
         const current = phase.key === active;
         return (

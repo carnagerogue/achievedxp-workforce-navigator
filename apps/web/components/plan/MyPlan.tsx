@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Gauge, Globe, HeartHandshake, HeartPulse, Phone, Trash2 } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import { accountDisplayName, accountImageUrl } from '../../lib/account-identity';
+import { Check, Gauge, Globe, HeartPulse, Phone, Trash2 } from 'lucide-react';
 import {
   useChecklist, useOwnerName, usePlanGoals, toggleChecklist, removeFromChecklist,
   setChecklistStatus, setChecklistNotes, setChecklistTargetDate, setOwnerName, setPlanGoals,
@@ -26,6 +28,7 @@ import {
 import { ReadinessPanel } from '../readiness/ReadinessPanel';
 import { PlanWorkspace } from './PlanWorkspace';
 import { deriveStepDomain, type PlanModel, type PlanActions, type PlanStep } from '../../lib/plan-model';
+import { AUTH_ENABLED } from '../../lib/auth-config';
 
 /**
  * "My Plan" — the person's full plan workspace: steps, readiness, supervision
@@ -174,7 +177,19 @@ const MOMENTUM_META = {
   stalled: { label: 'Let’s get moving', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
 } as const;
 
+type AccountIdentity = { displayName: string; imageUrl?: string };
+
 export function MyPlan() {
+  return AUTH_ENABLED ? <AccountPlan /> : <PlanContent />;
+}
+
+function AccountPlan() {
+  const { isLoaded, user } = useUser();
+  const identity = isLoaded && user ? { displayName: accountDisplayName(user), imageUrl: accountImageUrl(user) } : undefined;
+  return <PlanContent identity={identity} />;
+}
+
+function PlanContent({ identity }: { identity?: AccountIdentity }) {
   const items = useChecklist();
   const owner = useOwnerName();
   const goals = usePlanGoals();
@@ -206,8 +221,9 @@ export function MyPlan() {
 
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
+  const reportName = owner.trim() || identity?.displayName || '';
   const model: PlanModel = {
-    ownerName: owner, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList, fees: feeList,
+    ownerName: owner, ownerIdentity: identity, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList, fees: feeList,
     steps: items.map((i): PlanStep => ({
       id: i.id, title: i.name, status: i.status,
       domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
@@ -241,27 +257,17 @@ export function MyPlan() {
     onSupervisionSummary: () => printSupervisionSummary(buildSupervisionSummary(model, supervision)),
     onShare: () => setShowShare(true),
     onImport: () => setShowImport(true),
-    onPrint: () => printPlan(owner, goals, items, checkins, rdSummary),
+    onPrint: () => printPlan(reportName, goals, items, checkins, rdSummary),
   };
 
   return (
     <div className="space-y-4">
       {showShare && (
-        <PlanShareDialog plan={checklistToPortable(items, owner, goals, rdAnswers, supervision, conditionList, feeList)} audience="caseworker" onClose={() => setShowShare(false)} />
+        <PlanShareDialog plan={checklistToPortable(items, reportName, goals, rdAnswers, supervision, conditionList, feeList)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />
       )}
-      <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
-        <HeartHandshake className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
-        <span>
-          Working with a caseworker or probation officer? Build your plan here, then{' '}
-          <button onClick={() => setShowShare(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">share</button>{' '}
-          it — or{' '}
-          <button onClick={() => setShowImport(true)} className="font-semibold underline underline-offset-2 hover:text-teal-700">import</button>{' '}
-          one they sent you. Everything stays private on your device.
-        </span>
-      </div>
       <PlanWorkspace model={model} actions={actions} />
     </div>
   );

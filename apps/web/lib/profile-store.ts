@@ -48,6 +48,8 @@ export interface StoredProfile {
   hasTransportation?: boolean;
   willingToRelocate?: boolean;
   hasFelonyRecord?: boolean;
+  /** User explicitly opted into record-aware guidance during onboarding. */
+  justiceSupportEnabled?: boolean;
   onParoleOrProbation?: boolean;
   restrictedIndustries?: string[];
   skills?: string[];

@@ -27,6 +27,7 @@ export interface PlanStep {
 
 export interface PlanModel {
   ownerName: string;
+  ownerIdentity?: { displayName: string; imageUrl?: string };
   goals: string;
   readiness: ReadinessResult;
   steps: PlanStep[];

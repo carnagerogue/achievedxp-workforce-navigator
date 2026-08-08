@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileText, Plus, Trash2, Check, ArrowRight, Sparkles } from 'lucide-react';
+import { FileText, Plus, Trash2, Check, ArrowRight } from 'lucide-react';
 import {
   useApplyKit, patchApplyKit, addReference, removeReference,
   addAnswer, updateAnswer, removeAnswer, kitCompleteness,
@@ -105,9 +105,6 @@ export default function ApplyKitPage() {
           <Field label="A sentence or two about your strengths">
             <Textarea value={kit.pitch} onChange={(v) => patchApplyKit({ pitch: v })} placeholder="Dependable, show up early, and I learn fast. Two years of warehouse experience and a clean safety record." />
           </Field>
-          <Link href="/background-statement" className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50/50 px-3 py-2 text-xs font-semibold text-teal-700 transition hover:border-teal-400">
-            <Sparkles className="h-3.5 w-3.5" /> Need words for talking about your record? Use the statement helper <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
           {kit.backgroundStatement ? (
             <Field label="Your saved disclosure statement"><Textarea value={kit.backgroundStatement} onChange={(v) => patchApplyKit({ backgroundStatement: v })} /></Field>
           ) : null}

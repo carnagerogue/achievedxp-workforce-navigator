@@ -26,26 +26,21 @@ import {
   CompassSection, CornerSection, FutureSelfSection, EvidencePanel,
 } from '../../components/journey/CompassSections';
 import { ApplicationStatusPicker, statusLabel } from '../../components/ApplicationStatusPicker';
-import { Avatar } from '../../components/common/Avatar';
+import { ProfileAvatar } from '../../components/auth/ProfileAvatar';
 import { ProgressRing } from '../../components/common/ProgressRing';
 import { useSavedJobIds, useRecentJobIds, useApplications } from '../../lib/personal-store';
-import { useReentryInputs, useCompletedSteps, useFutureSelf, setReentryInputs } from '../../lib/reentry-store';
-import { getLocalProfile } from '../../lib/local-profile';
+import { useCompletedSteps, useFutureSelf } from '../../lib/reentry-store';
 import { useContacts } from '../../lib/support-network';
 import {
   useChecklist, useCheckins, useConditions, useFees, useSupervisionInfo,
 } from '../../lib/checklist-store';
-import {
-  phaseProgress, activePhaseKey, nextStep, overallProgress, inCriticalWindow,
-} from '../../lib/reentry-journey';
+import { phaseProgress } from '../../lib/reentry-journey';
 import { buildFocusQueue, focusCounts } from '../../lib/focus';
 import { useAuthScopeReady } from '../../components/auth/AuthScopeSync';
 import { dashboardState } from '../../lib/dashboard-state';
 
 /**
- * HOME — the one guided surface. The old /start (Reentry Compass) and
- * /dashboard were two competing homes with two competing "next step"
- * engines; this page is their merge. Everything hangs off a single
+ * HOME — the one guided surface after onboarding. Everything hangs off a single
  * prioritized focus queue (lib/focus.ts): the hero shows the one thing to
  * do now, "staying on track" shows what's behind it, and the compass,
  * plan, matches, and support sections follow in journey order.
@@ -53,7 +48,6 @@ import { dashboardState } from '../../lib/dashboard-state';
 export default function HomePage() {
   const p = useNavigatorProfile();
   const scopeReady = useAuthScopeReady();
-  const inputs = useReentryInputs();
   const completedArr = useCompletedSteps();
   const contacts = useContacts();
   const futureSelf = useFutureSelf();
@@ -69,22 +63,13 @@ export default function HomePage() {
     setGreet(h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
   }, []);
 
-  // Never ask twice: if onboarding already captured supervision status and the
-  // compass context hasn't been answered, seed it once from the profile.
-  useEffect(() => {
-    const prof = getLocalProfile();
-    if (prof?.onParoleOrProbation != null && inputs.onSupervision === undefined) {
-      setReentryInputs({ onSupervision: prof.onParoleOrProbation });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const completed = new Set(completedArr);
+  const inputs = p.journey.inputs;
   const progress = phaseProgress(inputs, completed);
-  const activeKey = activePhaseKey(inputs, completed);
-  const overall = overallProgress(inputs, completed);
-  const critical = inCriticalWindow(inputs);
-  const journeyNext = nextStep(inputs, completed);
+  const activeKey = p.journey.phaseKey;
+  const overall = p.journey;
+  const critical = p.inCriticalWindow;
+  const journeyNext = p.journey.next;
 
   const queue = buildFocusQueue({ supervision, conditions, fees, items, checkins, journeyNext });
   const { overdue, soon } = focusCounts(queue);
@@ -100,12 +85,12 @@ export default function HomePage() {
 
   return (
     <div className="constellation-workspace animate-fade-in space-y-4">
-      <JourneyRail active="start" />
+      <JourneyRail />
       {/* ─── Hero: greeting + Steady score ─── */}
       <section className={'overflow-hidden rounded-3xl border border-navy-900/20 bg-gradient-to-br p-6 shadow-card sm:p-8 ' + heroTone}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Avatar name={p.displayName || 'You'} size={56} />
+            <ProfileAvatar name={p.displayName || 'You'} size={56} />
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-navy-900 sm:text-3xl">{greet}{p.firstName ? `, ${p.firstName}` : ''}.</h1>
               {fresh
@@ -171,7 +156,7 @@ export default function HomePage() {
         <section>
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">How you&apos;re doing</h2>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-            <StatusTile href="#compass" Icon={Compass} label="Reentry compass" ring={p.journey.pct} state={p.journey.phaseTitle} tone="ok" />
+            <StatusTile href="#compass" Icon={Compass} label="Navigator guide" ring={p.journey.pct} state={p.journey.phaseTitle} tone="ok" />
             {p.readiness.engaged ? (
               <StatusTile href="/plan" Icon={Gauge} label="Readiness" ring={p.readiness.score} state={p.readiness.band}
                 tone={p.readiness.score >= 65 ? 'ok' : 'attention'} />
