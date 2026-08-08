@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { X, AlertTriangle, CheckCircle2, ShieldAlert, Lightbulb, ClipboardList, ListChecks, Wrench, Building2 } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, ShieldAlert, Lightbulb, ClipboardList, ListChecks, Wrench, Building2, Scale, ExternalLink } from 'lucide-react';
 import type { CompatibilityRating, ConvictionType, JobInput, CandidateProfile, TrainingBridgeStep } from '@dxp/shared';
 import { CONVICTION_LABELS as LABELS, buildTrainingBridge } from '@dxp/shared';
 
@@ -122,6 +122,52 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
 
         {/* Body */}
         <div className="px-6 pt-5 pb-12 space-y-6">
+          {/* Evidence-backed eligibility checks */}
+          <Section title="Eligibility checks" icon={<Scale className="h-4 w-4 text-teal-700" />} tone="slate">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <EligibilityStatusBadge status={rating.eligibility.highestStatus} />
+              {rating.eligibility.jurisdiction && (
+                <span className="text-xs text-slate-500">Job state: {rating.eligibility.jurisdiction}</span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {rating.eligibility.findings.map((item) => (
+                <div key={item.ruleId} className="rounded-md border border-slate-200 bg-white p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                      {item.scope.replaceAll('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">{item.explanation}</p>
+                  <p className="mt-2 text-xs text-slate-700">
+                    <span className="font-semibold">Verify:</span> {item.whatToVerify}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {item.sources.map((source) => (
+                      <a
+                        key={`${item.ruleId}-${source.url}`}
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 hover:underline"
+                      >
+                        {source.citation} <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {rating.eligibility.missingFacts.length > 0 && (
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                <span className="font-semibold">Accuracy is limited without:</span>{' '}
+                {rating.eligibility.missingFacts.join(', ')}.
+              </div>
+            )}
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">{rating.eligibility.disclaimer}</p>
+          </Section>
+
           {/* Recommended next step */}
           <Section title="Recommended next step" icon={<Lightbulb className="h-4 w-4" />}>
             <p className="text-sm text-slate-700">{rating.recommendedNextStep}</p>
@@ -216,13 +262,31 @@ export function CompatibilityDrawer({ open, onClose, rating, jobTitle, company, 
           </Section>
 
           <p className="pt-2 text-[11px] text-slate-500">
-            This score is informational and does not predict any specific employer&rsquo;s decision. Always confirm
-            background-check requirements with the employer before applying.
+            This score is informational, is not legal advice, and does not predict an employer&rsquo;s decision.
+            Official statutes, licensing agencies, court records, relief orders, and current employer duties control.
           </p>
         </div>
       </div>
     </div>
   );
+}
+
+function EligibilityStatusBadge({ status }: { status: CompatibilityRating['eligibility']['highestStatus'] }) {
+  const styles = {
+    likely_disqualified: 'border-rose-200 bg-rose-50 text-rose-800',
+    waiver_or_approval_required: 'border-amber-200 bg-amber-50 text-amber-900',
+    license_or_agency_review: 'border-amber-200 bg-amber-50 text-amber-900',
+    individualized_review: 'border-sky-200 bg-sky-50 text-sky-800',
+    no_occupation_specific_bar_found: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  }[status];
+  const labels = {
+    likely_disqualified: 'Likely regulated restriction',
+    waiver_or_approval_required: 'Approval or waiver path',
+    license_or_agency_review: 'Agency verification needed',
+    individualized_review: 'Individualized review',
+    no_occupation_specific_bar_found: 'No specific bar found',
+  }[status];
+  return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${styles}`}>{labels}</span>;
 }
 
 // ─── small helpers ─────────────────────────────────────────────────

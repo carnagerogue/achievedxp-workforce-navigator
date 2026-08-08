@@ -1,31 +1,15 @@
 /**
- * Offense × duty HARD filters — the categorical, legal-bar layer.
+ * Legacy offense × duty concern catalog plus the compatibility hard-check API.
  *
- * This is intentionally NARROWER than the nuanced `scoreJobCompatibility`
- * engine. The compatibility engine produces a graded 0–100 chance for
- * *every* job; this module answers a different, blunter question:
- *
- *   "Is there a categorical legal / licensing bar that makes this
- *    conviction × this role a non-starter, regardless of the candidate's
- *    strengths?"
- *
- * It exists as a single source of truth so three consumers stay in sync:
- *   1. The NestJS API RuleScorer hard filters (apps/api/.../rule.scorer.ts)
- *   2. The NestJS API browse-by-offense Prisma filter (offense-filters.ts)
- *   3. The deployed web app's in-app backend (apps/web/lib/server-data.ts)
- *
- * Previously (1) and (2) carried their own copy that only covered 4 of the
- * 10 conviction types, and (3) had no offense filtering at all — so the
- * `offenseType` query param was silently ignored. Centralising here closes
- * that gap and removes the divergence.
- *
- * Wording rules mirror explanations.ts: dignity-centered, never absolute,
- * always pointing toward caseworker review rather than a flat rejection.
+ * The exported catalog remains for API compatibility. The public hard-check
+ * function no longer interprets broad industry buckets as law; it delegates
+ * to the sourced, fact-sensitive regulated-eligibility engine below.
  */
-import { ConvictionType } from './types';
+import type { CandidateProfile, ConvictionType, JobInput } from './types';
+import { assessRegulatedEligibility } from './regulated-eligibility';
 
 export interface OffenseHardFilter {
-  /** Industries where this conviction is a categorical bar. */
+  /** @deprecated Broad duty-concern industries; not a legal-bar list. */
   blocksIndustry: ReadonlySet<string>;
   /**
    * Substrings in the job *title* that trip the filter (case-insensitive).
@@ -40,9 +24,8 @@ export interface OffenseHardFilter {
 const NONE = new Set<string>();
 
 /**
- * One entry per conviction type. Empty industry/keyword sets mean "no
- * categorical bar" — the graded engine still applies, but nothing is
- * hard-blocked. `other` is always permissive.
+ * One legacy entry per conviction type. These keywords support compatibility
+ * explanations only and must not be used as categorical legal conclusions.
  */
 export const OFFENSE_HARD_FILTERS: Record<ConvictionType, OffenseHardFilter> = {
   registry_related: {
@@ -53,7 +36,7 @@ export const OFFENSE_HARD_FILTERS: Record<ConvictionType, OffenseHardFilter> = {
       'home health', 'in-home', 'elder',
     ],
     reason:
-      'Registry-related status may legally bar roles involving minors, schools, or vulnerable-population settings. Caseworker review of jurisdictional restrictions recommended.',
+      'Registry status can trigger specific child-care and state restrictions. Confirm the provider, duties, exact state rule, and any review process.',
   },
   violent_offense: {
     blocksIndustry: new Set(['childcare', 'schools']),
@@ -62,7 +45,7 @@ export const OFFENSE_HARD_FILTERS: Record<ConvictionType, OffenseHardFilter> = {
       'caregiver', 'home health', 'patient care', 'security guard', 'armed',
     ],
     reason:
-      'A violence-related conviction can bar roles with unsupervised access to children or vulnerable adults, and most armed-security positions. Individualized assessment recommended.',
+      'Access to children or vulnerable adults requires exact offense and jurisdiction review; armed duties separately require firearm eligibility.',
   },
   drug_distribution: {
     blocksIndustry: NONE,
@@ -71,13 +54,13 @@ export const OFFENSE_HARD_FILTERS: Record<ConvictionType, OffenseHardFilter> = {
       'dispensary', 'cannabis',
     ],
     reason:
-      'A drug-distribution conviction commonly bars roles handling controlled substances or medication (pharmacy, dispensing). Other roles remain open.',
+      'Medication and controlled-substance duties require exact healthcare exclusion, license, and facility-rule verification.',
   },
   drug_possession: {
     blocksIndustry: NONE,
     blocksTitleKeyword: ['pharmacy', 'pharmacist', 'pharmacy tech', 'controlled substance'],
     reason:
-      'A drug-possession conviction may restrict roles directly handling controlled substances. Most other roles are unaffected.',
+      'Controlled-substance duties may require state licensing review; a broad possession category is not a universal occupational ban.',
   },
   financial_fraud: {
     blocksIndustry: new Set(['finance', 'insurance']),
@@ -86,31 +69,31 @@ export const OFFENSE_HARD_FILTERS: Record<ConvictionType, OffenseHardFilter> = {
       'financial', 'controller', 'treasurer', 'auditor',
     ],
     reason:
-      'A financial-fraud conviction typically disqualifies cash-handling, finance, and fiduciary roles. Roles without money-handling duties remain viable.',
+      'Financial duties create direct relevance; banking, securities, insurance, and employer rules each have distinct time limits and approval paths.',
   },
   property_theft: {
     blocksIndustry: NONE,
     blocksTitleKeyword: ['cashier', 'teller', 'cash handling'],
     reason:
-      'A property/theft conviction can restrict cash-handling roles. Many warehouse, trades, and labor roles remain a strong fit.',
+      'Cash and property access create a duty-relevance concern that should be assessed using the exact offense, time elapsed, and safeguards.',
   },
   burglary: {
     blocksIndustry: NONE,
     blocksTitleKeyword: ['in-home', 'in home', 'home services', 'locksmith', 'residential'],
     reason:
-      'A burglary conviction can bar roles with unsupervised access to private residences (in-home services, locksmithing). Most other roles remain open.',
+      'Unsupervised residential access creates a direct duty-relevance concern and calls for individualized review.',
   },
   weapons_related: {
     blocksIndustry: new Set(['security']),
     blocksTitleKeyword: ['armed', 'firearm', 'security guard', 'armed guard'],
     reason:
-      'A weapons-related conviction bars security and other roles requiring firearms eligibility. Unarmed roles remain viable.',
+      'Firearm duties require federal and state possession eligibility; unarmed roles require separate license and employer review.',
   },
   dui_dwi: {
     blocksIndustry: NONE,
     blocksTitleKeyword: ['driver', 'cdl', 'delivery', 'chauffeur', 'trucking', 'truck driver'],
     reason:
-      'A recent DUI/DWI conviction disqualifies most commercial driving roles under DOT regulation. Non-driving roles are unaffected.',
+      'Commercial-driving eligibility depends on the incident count, date, vehicle type, hazmat status, current license, and reinstatement.',
   },
   other: {
     blocksIndustry: NONE,
@@ -145,43 +128,29 @@ export function convictionForOffenseType(t: string | null | undefined): Convicti
   return OFFENSE_TYPE_TO_CONVICTION[t] ?? 'other';
 }
 
-function norm(s: string | null | undefined): string {
-  return (s ?? '').toLowerCase().trim();
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
- * Whole-word title match. Using `includes()` here would mis-fire on
- * substrings — e.g. the keyword "elder" inside "welder", or "minor" inside
- * "minority" — so we anchor on word boundaries instead. Multi-word and
- * hyphenated keywords ("home health", "in-home", "cdl-a") still match.
- */
-function titleMatchesKeyword(title: string, keyword: string): boolean {
-  return new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i').test(title);
-}
-
-/**
- * Is there a categorical legal/licensing bar for this conviction × job?
- * Returns the reason when blocked, or `{ blocked: false, reason: null }`.
+ * Backward-compatible categorical check. It now delegates to the researched
+ * eligibility engine and returns true only for a likely statutory/regulatory
+ * disqualification—not for a background check, broad industry concern,
+ * employer preference, state review, or a waiver/consent process.
  */
 export function isOffenseHardBlocked(
-  conviction: ConvictionType | null | undefined,
-  job: { industry?: string | null; title?: string | null },
+  conviction: ConvictionType | CandidateProfile | null | undefined,
+  job: { industry?: string | null; title?: string | null; company?: string | null; description?: string | null; locationRegion?: string | null },
 ): { blocked: boolean; reason: string | null } {
   if (!conviction) return { blocked: false, reason: null };
-  const rule = OFFENSE_HARD_FILTERS[conviction];
-  if (!rule) return { blocked: false, reason: null };
-
-  const industry = norm(job.industry);
-  const title = norm(job.title);
-
-  const industryHit = industry !== '' && rule.blocksIndustry.has(industry);
-  const titleHit = rule.blocksTitleKeyword.some((k) => titleMatchesKeyword(title, k));
-
-  return industryHit || titleHit
-    ? { blocked: true, reason: rule.reason }
-    : { blocked: false, reason: null };
+  const candidate: CandidateProfile = typeof conviction === 'string'
+    ? { convictionType: conviction }
+    : conviction;
+  const input: JobInput = {
+    id: 'eligibility-check',
+    title: job.title ?? '',
+    company: job.company,
+    description: job.description,
+    industry: job.industry,
+    locationRegion: job.locationRegion,
+  };
+  const assessment = assessRegulatedEligibility(candidate, input);
+  const hit = assessment.findings.find((item) => item.status === 'likely_disqualified');
+  return hit ? { blocked: true, reason: `${hit.title}: ${hit.explanation}` } : { blocked: false, reason: null };
 }

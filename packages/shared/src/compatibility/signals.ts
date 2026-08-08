@@ -31,21 +31,22 @@ interface PatternRule {
 }
 
 /**
- * Critical hard-barrier phrases — these are near-certain disqualifiers
- * regardless of conviction type, so the scorer drops the score sharply.
+ * Critical signals are limited to an employer's explicit exclusionary
+ * language. A background check, fingerprint check, or clearance review is
+ * evidence of screening — not proof that a particular person is barred.
  */
 const HARD_BARRIER_PATTERNS: PatternRule[] = [
   { id: 'clean_background_required', pattern: /\bclean\s+(criminal\s+)?(background|record|history)\b/, severity: 'critical', message: 'Posting requires a clean background.' },
   { id: 'no_felony_convictions',     pattern: /\b(no|cannot have|must not have)\s+felony( convictions?)?\b/, severity: 'critical', message: 'Posting states no felony convictions allowed.' },
   { id: 'no_criminal_record',        pattern: /\bno\s+criminal\s+(record|history)\b/, severity: 'critical', message: 'Posting states no criminal record allowed.' },
-  { id: 'must_pass_federal_bgcheck', pattern: /\bmust pass (a |an )?federal background\b/, severity: 'critical', message: 'Federal background check required.' },
-  { id: 'security_clearance',        pattern: /\b(active )?security clearance\b/, severity: 'critical', message: 'Active security clearance required.' },
-  { id: 'top_secret_clearance',      pattern: /\btop[\s-]secret( clearance| ts\/sci)?\b/, severity: 'critical', message: 'Top Secret clearance required.' },
-  { id: 'public_trust_clearance',    pattern: /\bpublic trust( clearance)?\b/, severity: 'high',     message: 'Public Trust clearance required.' },
-  { id: 'cjis',                      pattern: /\bcjis\b/, severity: 'critical', message: 'CJIS-compliant background required (criminal-justice information systems).' },
-  { id: 'livescan',                  pattern: /\blivescan\b/, severity: 'high',     message: 'LiveScan fingerprinting required.' },
-  { id: 'fingerprinting_required',   pattern: /\bfingerprint(ing|s)?\s+(required|will be|are required)\b/, severity: 'high',     message: 'Fingerprinting required.' },
-  { id: 'background_investigation',  pattern: /\bbackground investigation\b/, severity: 'high',     message: 'Background investigation required.' },
+  { id: 'must_pass_federal_bgcheck', pattern: /\bmust pass (a |an )?federal background\b/, severity: 'medium', message: 'Federal background review required; this is not itself an automatic exclusion.' },
+  { id: 'security_clearance',        pattern: /\b(active )?security clearance\b/, severity: 'high', message: 'Security-clearance eligibility required; adjudication uses whole-person review.' },
+  { id: 'top_secret_clearance',      pattern: /\btop[\s-]secret( clearance| ts\/sci)?\b/, severity: 'high', message: 'Top Secret eligibility required; adjudication uses whole-person review.' },
+  { id: 'public_trust_clearance',    pattern: /\bpublic trust( clearance)?\b/, severity: 'medium', message: 'Public Trust suitability review required.' },
+  { id: 'cjis',                      pattern: /\bcjis\b/, severity: 'high', message: 'CJIS access requirements need jurisdiction-specific review.' },
+  { id: 'livescan',                  pattern: /\blivescan\b/, severity: 'low', message: 'LiveScan fingerprinting required; results require role-specific review.' },
+  { id: 'fingerprinting_required',   pattern: /\bfingerprint(ing|s)?\s+(required|will be|are required)\b/, severity: 'low', message: 'Fingerprinting required; this is a screening step, not an automatic ban.' },
+  { id: 'background_investigation',  pattern: /\bbackground investigation\b/, severity: 'medium', message: 'Background investigation required.' },
   { id: 'must_be_bondable',          pattern: /\bmust be bondable\b|\beligible for bonding\b/, severity: 'high',     message: 'Position requires the candidate to be bondable.' },
   { id: 'twic',                      pattern: /\btwic\b/, severity: 'high',     message: 'TWIC card required (Transportation Worker Identification Credential).' },
   { id: 'finra',                     pattern: /\bfinra\b/, severity: 'high',     message: 'FINRA registration required (financial industry).' },
@@ -72,12 +73,12 @@ const HARD_BARRIER_PATTERNS: PatternRule[] = [
   // education-credential phrase. Vetoes "high school diploma / equivalent /
   // graduate / GED" by requiring an actual workplace word nearby and
   // explicitly excluding diploma-context "high school".
-  { id: 'school_setting',            pattern: /\b(?:elementary|middle)\s+school\b|\bk-12\b|\bkindergarten\b|\bdaycare\b|\bchild(?:\s|-)?care\b|\bschool\s+(district|setting|environment|campus|grounds|facility|building|board)\b|\bpre[\s-]?school\b/, severity: 'critical', message: 'School / childcare setting.' },
+  { id: 'school_setting',            pattern: /\b(?:elementary|middle)\s+school\b|\bk-12\b|\bkindergarten\b|\bdaycare\b|\bchild(?:\s|-)?care\b|\bschool\s+(district|setting|environment|campus|grounds|facility|building|board)\b|\bpre[\s-]?school\b/, severity: 'high', message: 'School / childcare setting requires exact state and role review.' },
   { id: 'elder_or_residential',     pattern: /\belder care\b|\bnursing home\b|\bassisted living\b|\bresidential care\b|\blong[\s-]term care\b/, severity: 'high',     message: 'Elder care / residential care setting.' },
   { id: 'healthcare_facility',       pattern: /\b(hospital|healthcare facility|medical center|patient[\s-]facing|clinical setting)\b/, severity: 'medium',   message: 'Healthcare facility setting.' },
   { id: 'security_role',             pattern: /\b(unarmed )?security (officer|guard)\b|\barmed security\b/, severity: 'high',     message: 'Security role.' },
-  { id: 'corrections_role',          pattern: /\bcorrection(s|al)( officer)?\b|\bdetention\b/, severity: 'critical', message: 'Corrections / detention role.' },
-  { id: 'law_enforcement_role',      pattern: /\b(police officer|sheriff|deputy|federal agent|special agent)\b/, severity: 'critical', message: 'Law enforcement role.' },
+  { id: 'corrections_role',          pattern: /\bcorrection(s|al)( officer)?\b|\bdetention\b/, severity: 'high', message: 'Corrections / detention role requires agency-specific eligibility review.' },
+  { id: 'law_enforcement_role',      pattern: /\b(police officer|sheriff|deputy|federal agent|special agent)\b/, severity: 'high', message: 'Law-enforcement role requires agency-specific eligibility review.' },
   { id: 'defense_contractor',        pattern: /\bdefense contractor\b|\bdod contractor\b|\bcleared (facility|environment)\b/, severity: 'high',     message: 'Defense / DoD contractor environment.' },
   { id: 'vulnerable_populations',    pattern: /\bvulnerable (populations?|adults?)\b|\bat[\s-]risk (youth|adults?)\b/, severity: 'high',     message: 'Vulnerable-population setting.' },
 ];

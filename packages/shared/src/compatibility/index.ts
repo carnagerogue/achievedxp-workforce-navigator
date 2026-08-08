@@ -14,6 +14,7 @@ export * from './signals';
 export * from './risk-matrix';
 export * from './explanations';
 export * from './offense-hard-filters';
+export * from './regulated-eligibility';
 export { scoreJobCompatibility } from './scoring';
 
 // New modules added in the caseworker-grade upgrade.

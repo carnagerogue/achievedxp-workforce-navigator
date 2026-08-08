@@ -5,13 +5,12 @@
  *
  * Blends conviction compatibility (legal/duty barriers) with realistic fit
  * (seniority, domain, skills, location), caps for attainability, and flags
- * categorical barriers: clearance/security roles, clean-record postings,
- * and offense-specific legal bars. Pure + isomorphic (no server-only deps) so
+ * regulated eligibility findings, explicit posting exclusions, and
+ * offense-to-duty relevance. Pure + isomorphic (no server-only deps) so
  * the server mock backend and the client pages share it.
  */
 import {
   scoreJobCompatibility,
-  isOffenseHardBlocked,
   type JobDto,
   type JobInput,
   type CandidateProfile,
@@ -20,15 +19,13 @@ import {
 import { realisticFit, type RealisticFit, type FitBreakdown } from './realistic-fit';
 import type { StoredProfile } from './profile-store';
 
-// Only explicit clearance/suitability language or security-sensitive duties
-// are categorical. Federal employment by itself is not: USAJOBS and OPM say
-// people with records are eligible for the vast majority of federal jobs.
+// Only an employer's explicit blanket exclusion is treated as categorical
+// here. Clearance, Public Trust, CJIS, and federal employment use separate
+// individualized/regulatory checks in @dxp/shared.
 const EXCLUSIONARY_EMPLOYER = new RegExp(
   [
-    '\\bsecurity clearance\\b', '\\btop[\\s-]secret\\b', '\\bsecret clearance\\b', '\\bpolice officer\\b',
-    '\\bpublic trust\\b', '\\bts\\/sci\\b', '\\bcjis\\b', '\\bhspd[\\s-]?12\\b', '\\bpiv credential\\b',
-    '\\bcorrectional? officer\\b', '\\bdeputy (sheriff|marshal)\\b', '\\bspecial agent\\b',
-    '\\barmed (guard|security)\\b', '\\bprison guard\\b',
+    '\\bno felony convictions?\\b', '\\bno criminal (record|history)\\b',
+    '\\bclean (criminal )?(record|background|history) required\\b',
   ].join('|'),
   'i',
 );
@@ -75,11 +72,8 @@ export function jobScoreContext(
   job: JobDto,
 ): JobScoreContext {
   const rating = worstCompatibility(job, inputs.candidates);
-  let hardBlockReason: string | null = null;
-  for (const ct of inputs.convictionTypes) {
-    const hit = isOffenseHardBlocked(ct as CandidateProfile['convictionType'], { industry: job.industry, title: job.title });
-    if (hit.blocked) { hardBlockReason = hit.reason; break; }
-  }
+  const hardBlockReason = rating.eligibility.findings
+    .find((item) => item.status === 'likely_disqualified')?.explanation ?? null;
   return { rating, hardBlockReason, exclusionary: isExclusionaryEmployer(job) };
 }
 
@@ -133,7 +127,7 @@ export function scoreJobUnified(inputs: ScoreInputs, job: JobDto, ctx?: JobScore
   score = Math.min(score, fit.attainabilityCap);
 
   const flags: string[] = [];
-  if (exclusionary) { score = Math.min(score, 30); flags.push('This posting signals a clearance or security-sensitive role that may create a serious barrier.'); }
+  if (exclusionary) { score = Math.min(score, 30); flags.push('This posting states a blanket criminal-record exclusion. Confirm whether that policy is lawful and applicable to this role.'); }
   if (job.excludesFelons) { score = Math.min(score, 25); flags.push('Posting states a clean record is required.'); }
   if (hardBlockReason) { score = Math.min(score, 25); flags.push(hardBlockReason); }
   score = Math.max(0, Math.round(score));

@@ -26,7 +26,7 @@ import type {
   AvoidJobDto,
   RiskTier,
 } from '@dxp/shared';
-import { isOffenseHardBlocked, convictionForOffenseType } from '@dxp/shared';
+import { convictionForOffenseType } from '@dxp/shared';
 import { classifyJob, normalizeLocation, isApprenticeshipType } from '@dxp/shared';
 import zipcodes from 'zipcodes';
 import {
@@ -812,18 +812,10 @@ export function filterJobs(
     pool = pool.filter((j) => j.isApprenticeship);
   }
 
-  // Conviction-aware exclusion. When a conviction type is supplied we drop
-  // only jobs with a CATEGORICAL legal/licensing bar for that conviction
-  // (e.g. registry-related + school custodian). Graded "low chance but
-  // possible" roles are intentionally left in so the Browse page can still
-  // re-rank and rate them — the chance-band control on the client removes
-  // those if the user wants. Previously this param was silently ignored.
-  if (query.offenseType) {
-    const conviction = convictionForOffenseType(query.offenseType);
-    pool = pool.filter(
-      (j) => !isOffenseHardBlocked(conviction, { industry: j.industry, title: j.title }).blocked,
-    );
-  }
+  // Keep regulated and difficult roles visible. The evidence-backed scorer
+  // places them in the challenging band and shows the source, missing facts,
+  // and review/waiver path. Hiding them could erase a lawful opportunity when
+  // an exception, restoration, consent, appeal, or waiver applies.
 
   pool = orderForCandidate(pool, scoreInputs);
   const total = pool.length;

@@ -32,8 +32,13 @@ export type OffenseType =
 export interface ConvictionDto {
   category: ConvictionCategory;
   offenseType: OffenseType;
+  /** Exact offense/statute from court paperwork, when known. */
+  exactOffense?: string;
+  /** Two-letter state/territory code where the conviction occurred. */
+  jurisdictionRegion?: string;
   convictionYear?: number;
   releaseYear?: number;
+  sentenceCompletionYear?: number;
   currentlyIncarcerated?: boolean;
   onParole?: boolean;
   onProbation?: boolean;
@@ -42,6 +47,10 @@ export interface ConvictionDto {
    *  `sexOffenderRegistry` to remove stigmatizing terminology — the old
    *  field is preserved as an alias on the DTO for one release cycle. */
   registryStatus?: boolean;
+  /** Only set when the person knows a legally effective restoration applies. */
+  firearmRightsRestored?: boolean;
+  /** Current HHS-OIG exclusion status, if independently verified. */
+  currentlyExcludedFromFederalHealthcare?: boolean;
   /** @deprecated use registryStatus */
   sexOffenderRegistry?: boolean;
   notes?: string;

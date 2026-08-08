@@ -63,8 +63,8 @@ export interface ConvictionMatrix {
 const drugPossession: ConvictionMatrix = {
   description: 'Higher concern when the role involves controlled substances, vulnerable populations, safety-sensitive duties, or government suitability review.',
   rules: [
-    { level: 'high', ruleId: 'dp_pharmacy_or_meds',  keywords: ['pharmacy', 'pharmacist', 'pharmaceutical', 'controlled substance', 'medication handling', 'dispensary'], reason: 'Role involves pharmacy access or medication handling — drug-related convictions typically disqualify.', surface: 'any' },
-    { level: 'high', ruleId: 'dp_school_or_minors',  keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'daycare', 'youth program'], reason: 'School / childcare environments require fingerprint-based clearance; drug convictions are typically disqualifying.', surface: 'any' },
+    { level: 'high', ruleId: 'dp_pharmacy_or_meds',  keywords: ['pharmacy', 'pharmacist', 'pharmaceutical', 'controlled substance', 'medication handling', 'dispensary'], reason: 'Role involves pharmacy access or medication handling; the exact offense and state license rules require review.', surface: 'any' },
+    { level: 'high', ruleId: 'dp_school_or_minors',  keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'daycare', 'youth program'], reason: 'School and child-care environments require offense-, date-, provider-, and jurisdiction-specific clearance review.', surface: 'any' },
     { level: 'high', ruleId: 'dp_safety_sensitive_cdl', keywords: ['cdl', 'commercial driver', 'commercial vehicle', 'safety[- ]sensitive', 'dot regulated'], reason: 'CDL / safety-sensitive roles enforce DOT drug-and-alcohol rules.', surface: 'any' },
     { level: 'high', ruleId: 'dp_federal_clearance', keywords: ['federal background', 'security clearance', 'public trust', 'cjis', 'tsa', 'fbi', 'dea'], reason: 'Federal suitability / clearance roles weigh recent drug convictions heavily.', surface: 'any' },
     { level: 'medium', ruleId: 'dp_healthcare',     keywords: ['healthcare', 'hospital', 'patient[- ]facing', 'clinical', 'medical assistant'], reason: 'Healthcare settings vary by state; drug convictions can affect licensure.', surface: 'any' },
@@ -77,8 +77,8 @@ const drugPossession: ConvictionMatrix = {
 const drugDistribution: ConvictionMatrix = {
   description: 'High concern in pharmacy, healthcare, schools, corrections, law enforcement, security, government contractors, and medication logistics. Medium concern for general logistics and delivery; low for general labor and construction.',
   rules: [
-    { level: 'high', ruleId: 'dd_pharmacy_or_meds',  keywords: ['pharmacy', 'pharmacist', 'pharmaceutical', 'controlled substance', 'medication handling', 'dispensary'], reason: 'Drug-distribution convictions disqualify pharmacy / medication-handling roles.', surface: 'any' },
-    { level: 'high', ruleId: 'dd_schools_corrections_le', keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'corrections', 'detention', 'police', 'sheriff'], reason: 'Schools, corrections, and law enforcement disqualify drug-distribution convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'dd_pharmacy_or_meds',  keywords: ['pharmacy', 'pharmacist', 'pharmaceutical', 'controlled substance', 'medication handling', 'dispensary'], reason: 'Medication and controlled-substance access creates a strong duty conflict and may trigger license or exclusion review.', surface: 'any' },
+    { level: 'high', ruleId: 'dd_schools_corrections_le', keywords: ['school', 'teacher', 'k-12', 'kindergarten', 'childcare', 'corrections', 'detention', 'police', 'sheriff'], reason: 'This setting uses heightened screening; the exact offense, date, role, and jurisdiction determine eligibility.', surface: 'any' },
     { level: 'high', ruleId: 'dd_government_contractor', keywords: ['security clearance', 'public trust', 'federal background', 'cjis', 'defense contractor'], reason: 'Government / cleared environments treat drug-distribution as serious suitability concern.', surface: 'any' },
     { level: 'medium', ruleId: 'dd_logistics_delivery', keywords: ['delivery', 'logistics', 'inventory', 'courier', 'fulfillment', 'freight'], reason: 'Logistics / delivery roles may flag drug-distribution convictions during background review.', surface: 'any' },
     { level: 'medium', ruleId: 'dd_transportation',   keywords: ['cdl', 'truck driver', 'transportation', 'rideshare'], reason: 'Transportation roles vary by carrier policy; some flag drug convictions.', surface: 'any' },
@@ -105,11 +105,11 @@ const violentOffense: ConvictionMatrix = {
     { level: 'high', ruleId: 'vo_children',
       keywords: ['teacher', 'teacher aide', 'school bus', 'k-12', 'youth program', 'after school', 'after-school',
                  'camp counselor', 'tutor', 'classroom aide', 'preschool', 'daycare'],
-      reason: 'Roles with access to minors require fingerprint-based clearance; violent convictions disqualify.',
+      reason: 'Roles with access to minors require fingerprint-based clearance and exact state/provider eligibility review.',
       surface: 'title' },
     { level: 'high', ruleId: 'vo_vulnerable_adults',
       keywords: ['elder care', 'residential care', 'vulnerable adult', 'in home', 'in-home', 'home visit'],
-      reason: 'Roles serving vulnerable adults / residents typically disqualify violent convictions.',
+      reason: 'Roles serving vulnerable adults or residents require exact offense, facility, and state-rule review.',
       surface: 'any' },
     { level: 'high', ruleId: 'vo_healthcare_direct',
       keywords: ['patient facing', 'patient-facing', 'home health', 'caregiver', 'cna',
@@ -119,7 +119,7 @@ const violentOffense: ConvictionMatrix = {
     { level: 'high', ruleId: 'vo_security_or_le',
       keywords: ['security guard', 'security officer', 'corrections officer', 'detention officer',
                  'police officer', 'sheriff', 'armed security', 'armored car', 'armed transport'],
-      reason: 'Security / law enforcement / corrections roles disqualify violent convictions.',
+      reason: 'Security, law-enforcement, and corrections roles use agency-specific suitability and licensing rules.',
       surface: 'any' },
     { level: 'medium', ruleId: 'vo_customer_facing',   keywords: ['customer service', 'retail', 'cashier', 'host', 'reception', 'front desk', 'concierge'], reason: 'Public-facing roles may consider violent convictions during background review.', surface: 'any' },
     { level: 'medium', ruleId: 'vo_field_service',     keywords: ['field service', 'in[- ]home services', 'door[- ]to[- ]door'], reason: 'Field roles entering customer homes are sensitive to violent convictions.', surface: 'any' },
@@ -143,7 +143,7 @@ const registryRelated: ConvictionMatrix = {
                  'pediatric', 'ymca', 'ywca', 'boys & girls club', 'boys and girls club', 'head start',
                  'foster care', 'department of children', 'department of family', 'group home', 'youth services',
                  'youth correctional', 'juvenile detention', 'juvenile justice', 'parks and recreation department'],
-      reason: 'Workplace is a restricted setting (school, childcare facility, or vulnerable-population provider). Registry-related convictions are typically barred from on-site roles regardless of duties. Caseworker or legal review is required before applying.',
+      reason: 'Workplace is a restricted setting. Registry status, exact duties, provider type, and jurisdiction must be verified before relying on the match.',
       surface: 'company_or_title' },
 
     // Title-level role markers that strongly indicate access to minors
@@ -206,7 +206,7 @@ const registryRelated: ConvictionMatrix = {
 const propertyTheft: ConvictionMatrix = {
   description: 'High concern when the role involves cash handling, inventory custody, package handling, residential access, or fiduciary responsibility.',
   rules: [
-    { level: 'high', ruleId: 'pt_cash_or_finance',     keywords: ['cash[- ]handling', 'bank teller', 'cashier', 'fiduciary', 'banking', 'accounting', 'payroll', 'bookkeeping', 'finance', 'controller'], reason: 'Cash-handling / financial-record roles typically disqualify theft-related convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'pt_cash_or_finance',     keywords: ['cash[- ]handling', 'bank teller', 'cashier', 'fiduciary', 'banking', 'accounting', 'payroll', 'bookkeeping', 'finance', 'controller'], reason: 'Cash-handling or financial-record duties create a direct relevance concern; regulated banking rules depend on the exact offense and dates.', surface: 'any' },
     { level: 'high', ruleId: 'pt_inventory_or_pkg',    keywords: ['inventory', 'package', 'fulfillment', 'warehouse associate', 'stock', 'merchandise'], reason: 'Inventory / package custody roles may flag theft convictions during background review.', surface: 'any' },
     { level: 'high', ruleId: 'pt_residential_access',  keywords: ['in[- ]home services', 'home visit', 'property management', 'residential access', 'high[- ]value equipment', 'jewelry'], reason: 'Roles with residential or high-value property access are sensitive to theft convictions.', surface: 'any' },
     { level: 'medium', ruleId: 'pt_retail_general',    keywords: ['retail', 'logistics', 'fulfillment', 'maintenance'], reason: 'General retail / logistics roles may apply additional background review.', surface: 'any' },
@@ -219,7 +219,7 @@ const propertyTheft: ConvictionMatrix = {
 const burglary: ConvictionMatrix = {
   description: 'High concern when the role provides access to homes, residential property, hotels, or unsupervised facility access.',
   rules: [
-    { level: 'high', ruleId: 'br_residential_access',   keywords: ['in[- ]home services', 'home visit', 'residential access', 'property management', 'apartment maintenance', 'janitorial in private', 'locksmith'], reason: 'Roles with residential access typically disqualify burglary convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'br_residential_access',   keywords: ['in[- ]home services', 'home visit', 'residential access', 'property management', 'apartment maintenance', 'janitorial in private', 'locksmith'], reason: 'Unsupervised residential access creates a direct duty-relevance concern and calls for individualized review.', surface: 'any' },
     { level: 'high', ruleId: 'br_hotel_or_resi_clean',  keywords: ['hotel', 'hospitality', 'housekeeping', 'cleaner in private', 'guest room'], reason: 'Hotel / housekeeping roles entering private spaces are sensitive to burglary convictions.', surface: 'any' },
     { level: 'high', ruleId: 'br_delivery_into_home',   keywords: ['delivery into home', 'in[- ]home delivery', 'installation in home', 'cable installer', 'appliance installer'], reason: 'In-home delivery / installation roles weigh burglary convictions heavily.', surface: 'any' },
     { level: 'medium', ruleId: 'br_inventory_field',    keywords: ['warehouse', 'inventory', 'retail', 'field service'], reason: 'Inventory / field-service roles may apply additional background review.', surface: 'any' },
@@ -232,9 +232,9 @@ const burglary: ConvictionMatrix = {
 const financialFraud: ConvictionMatrix = {
   description: 'High concern in finance, banking, accounting, payroll, government benefits administration, procurement, and any role with access to confidential financial or personal information.',
   rules: [
-    { level: 'high', ruleId: 'ff_finance_core',         keywords: ['banking', 'bank teller', 'accounting', 'bookkeeping', 'payroll', 'finance', 'controller', 'fiduciary', 'cpa', 'auditor', 'tax preparer'], reason: 'Finance / accounting roles disqualify financial-fraud convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'ff_finance_core',         keywords: ['banking', 'bank teller', 'accounting', 'bookkeeping', 'payroll', 'finance', 'controller', 'fiduciary', 'cpa', 'auditor', 'tax preparer'], reason: 'Finance and accounting duties create direct relevance; banking, securities, insurance, and licenses each use different legal rules.', surface: 'any' },
     { level: 'high', ruleId: 'ff_insurance_procurement', keywords: ['insurance', 'claims adjuster', 'underwriter', 'procurement', 'purchasing', 'government benefits'], reason: 'Insurance / procurement / benefits roles weigh fraud convictions heavily.', surface: 'any' },
-    { level: 'high', ruleId: 'ff_confidential_records', keywords: ['fiduciary', 'access to financial records', 'confidential personal information', 'pii', 'access to financial', 'access to confidential'], reason: 'Roles with access to confidential / financial records disqualify fraud convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'ff_confidential_records', keywords: ['fiduciary', 'access to financial records', 'confidential personal information', 'pii', 'access to financial', 'access to confidential'], reason: 'Access to confidential or financial records creates a strong duty-relevance concern requiring targeted review.', surface: 'any' },
     { level: 'medium', ruleId: 'ff_admin_sales',        keywords: ['office administration', 'sales', 'customer support', 'data entry'], reason: 'Office / sales roles may apply additional background review.', surface: 'any' },
     { level: 'low',  ruleId: 'ff_low_risk',             keywords: ['construction', 'manufacturing', 'food service', 'warehouse', 'sanitation', 'cleaning', 'landscaping', 'cook', 'back[- ]of[- ]house', 'remote labor'], reason: 'Manual / labor roles typically present low concern.', surface: 'any' },
   ],
@@ -245,7 +245,7 @@ const financialFraud: ConvictionMatrix = {
 const weaponsRelated: ConvictionMatrix = {
   description: 'High concern in security, law enforcement, corrections, defense contractors, armored transport, and any role requiring weapons or firearms eligibility.',
   rules: [
-    { level: 'high', ruleId: 'wp_security_le_corr',     keywords: ['security guard', 'security officer', 'armed', 'firearm', 'unarmed security', 'police', 'sheriff', 'corrections', 'detention'], reason: 'Security / law enforcement / corrections roles disqualify weapons convictions.', surface: 'any' },
+    { level: 'high', ruleId: 'wp_security_le_corr',     keywords: ['security guard', 'security officer', 'armed', 'firearm', 'unarmed security', 'police', 'sheriff', 'corrections', 'detention'], reason: 'Security, law-enforcement, and corrections duties require firearm, license, and agency-specific eligibility review.', surface: 'any' },
     { level: 'high', ruleId: 'wp_armored_or_defense',   keywords: ['armored transport', 'armored car', 'defense contractor', 'cleared facility', 'military contractor'], reason: 'Armored / defense roles weigh weapons convictions heavily.', surface: 'any' },
     { level: 'medium', ruleId: 'wp_govt_contract',      keywords: ['government contractor', 'safety[- ]sensitive', 'field engineer'], reason: 'Government / safety-sensitive roles may apply weapons-conviction review.', surface: 'any' },
     { level: 'low',  ruleId: 'wp_low_risk',             keywords: ['food service', 'construction', 'manufacturing', 'warehouse', 'sanitation', 'cleaning', 'cook', 'back[- ]of[- ]house', 'remote'], reason: 'Roles without weapons or security duties typically present low concern.', surface: 'any' },

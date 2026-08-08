@@ -70,6 +70,29 @@ export function ConvictionForm({ conviction, index, onChange, onRemove }: Props)
           </select>
         </Field>
 
+        <Field label="Exact offense name or statute (optional)">
+          <input
+            type="text"
+            value={conviction.exactOffense ?? ''}
+            onChange={(e) => update('exactOffense', e.target.value || undefined)}
+            placeholder="As shown on court paperwork"
+            autoComplete="off"
+            className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+          />
+        </Field>
+
+        <Field label="State/territory of conviction (optional)">
+          <input
+            type="text"
+            value={conviction.jurisdictionRegion ?? ''}
+            onChange={(e) => update('jurisdictionRegion', e.target.value.toUpperCase().slice(0, 2) || undefined)}
+            placeholder="e.g. CA"
+            maxLength={2}
+            autoComplete="address-level1"
+            className="block w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm uppercase"
+          />
+        </Field>
+
         <Field label="Year of conviction (optional)">
           <YearInput
             value={conviction.convictionYear}
@@ -84,7 +107,20 @@ export function ConvictionForm({ conviction, index, onChange, onRemove }: Props)
             disabled={conviction.currentlyIncarcerated}
           />
         </Field>
+
+        <Field label="Year sentence ended (optional)">
+          <YearInput
+            value={conviction.sentenceCompletionYear}
+            onChange={(y) => update('sentenceCompletionYear', y)}
+          />
+        </Field>
       </div>
+
+      <p className="mt-3 rounded-md border border-teal-100 bg-white px-3 py-2 text-xs leading-relaxed text-slate-600">
+        Exact details improve regulated-job checks. Broad categories alone cannot determine school, healthcare,
+        banking, transportation, licensing, or waiver eligibility. Only add information you are comfortable using
+        for optional background-aware guidance.
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-4 text-sm">
         <Check label="Currently incarcerated"

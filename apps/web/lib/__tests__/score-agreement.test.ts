@@ -98,12 +98,14 @@ describe('server/client score agreement', () => {
     expect(new Set(seen).size).toBe(POOL.length);
   });
 
-  it('categorical barriers land in avoid with a reason, for a person with a record', async () => {
+  it('explicit employer exclusions land in avoid while clearance uses individualized review', async () => {
     saveProfile(PROFILE);
     const res = await matchesFor(PROFILE.userId, POOL.length, POOL);
     const avoidIds = new Set(res.avoid.map((m) => m.jobId));
     expect(avoidIds.has('clean-record')).toBe(true);
-    expect(avoidIds.has('clearance')).toBe(true);
+    const inputs = inputsFor(PROFILE);
+    const clearance = scoreJobUnified(inputs, POOL.find((j) => j.id === 'clearance')!);
+    expect(clearance.rating.eligibility.highestStatus).toBe('individualized_review');
     for (const m of res.avoid) expect(m.reasons.length).toBeGreaterThan(0);
   });
 
