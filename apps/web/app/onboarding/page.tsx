@@ -21,6 +21,8 @@ import {
 import { useToast } from '../../components/Toast';
 import { AUTH_ENABLED } from '../../lib/auth-config';
 import { useUser } from '@clerk/nextjs';
+import { RemoteJobsToggle } from '../../components/RemoteJobsToggle';
+import { setIncludeRemoteJobs } from '../../lib/job-search-preferences';
 
 // All 50 states + DC + U.S. territories. Sorted by full name (rendered as
 // "AL — Alabama") rather than code so users can scan it. Matches the USPS
@@ -115,6 +117,7 @@ interface WizardState {
   yearsExperience: number;
   hasTransportation: boolean;
   willingToRelocate: boolean;
+  includeRemoteJobs: boolean;
   skills: Set<string>;
   certifications: Set<string>;
   desiredIndustries: Set<string>;
@@ -140,6 +143,7 @@ export default function OnboardingPage() {
     yearsExperience: 0,
     hasTransportation: false,
     willingToRelocate: false,
+    includeRemoteJobs: true,
     skills: new Set<string>(),
     certifications: new Set<string>(),
     desiredIndustries: new Set<string>(),
@@ -163,6 +167,7 @@ export default function OnboardingPage() {
       yearsExperience: p.yearsExperience ?? 0,
       hasTransportation: p.hasTransportation ?? false,
       willingToRelocate: p.willingToRelocate ?? false,
+      includeRemoteJobs: p.includeRemoteJobs !== false,
       skills: new Set(p.skills ?? []),
       certifications: new Set(p.certifications ?? []),
       desiredIndustries: new Set(p.desiredIndustries ?? []),
@@ -248,6 +253,7 @@ export default function OnboardingPage() {
         yearsExperience: state.yearsExperience,
         hasTransportation: state.hasTransportation,
         willingToRelocate: state.willingToRelocate,
+        includeRemoteJobs: state.includeRemoteJobs,
         hasFelonyRecord,
         justiceSupportEnabled: state.hasRecord,
         onParoleOrProbation: state.hasRecord && state.onParoleOrProbation,
@@ -260,6 +266,7 @@ export default function OnboardingPage() {
       // Mirror locally so Browse /jobs + job detail score with the real profile
       // and "Edit profile" can re-hydrate this wizard.
       setLocalProfile({ ...profilePayload, email: state.email, displayName: state.displayName });
+      setIncludeRemoteJobs(state.includeRemoteJobs);
 
       toast.success('Profile saved', 'Loading your matches…');
       router.push('/dashboard');
@@ -386,6 +393,9 @@ export default function OnboardingPage() {
                     <div className="mt-6 grid gap-3 sm:grid-cols-2">
                       <CheckboxField label="I have reliable transportation" checked={state.hasTransportation} onChange={(v) => update('hasTransportation', v)} />
                       <CheckboxField label="I'm open to relocating" checked={state.willingToRelocate} onChange={(v) => update('willingToRelocate', v)} />
+                    </div>
+                    <div className="mt-3">
+                      <RemoteJobsToggle checked={state.includeRemoteJobs} onChange={(v) => update('includeRemoteJobs', v)} />
                     </div>
                   </FieldGroup>
                 )}

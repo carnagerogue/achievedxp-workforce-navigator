@@ -49,6 +49,7 @@ export interface ProfileInput {
   yearsExperience?: number;
   hasTransportation?: boolean;
   willingToRelocate?: boolean;
+  includeRemoteJobs?: boolean;
   hasFelonyRecord?: boolean;
   justiceSupportEnabled?: boolean;
   yearsSinceRelease?: number;
@@ -62,6 +63,9 @@ export interface ProfileInput {
 
 export const upsertProfile = (body: ProfileInput) =>
   request<unknown>('/profile', { method: 'POST', body: JSON.stringify(body) });
+
+export const updateRemoteJobPreference = (body: { userId: string; includeRemoteJobs: boolean }) =>
+  request<unknown>('/profile', { method: 'PATCH', body: JSON.stringify(body) });
 
 // --- Jobs ---
 

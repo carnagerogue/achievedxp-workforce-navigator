@@ -672,6 +672,8 @@ export interface JobsQuery {
   hideFelonExclusions?: boolean;
   minSalary?: number;
   postedWithinDays?: number;
+  /** Include remote roles alongside local roles. Defaults to true. */
+  includeRemote?: boolean;
   remote?: boolean;
   apprenticeshipsOnly?: boolean;
   limit?: number;
@@ -766,15 +768,17 @@ export function filterJobs(
     pool = pool.filter((j) => j.industry === query.industry);
   }
 
-  // Remote makes geography irrelevant — skip all location filters.
+  // Remote-only makes geography irrelevant. In the normal mixed view,
+  // location filters apply to in-person jobs while remote roles remain
+  // available unless the user explicitly turns them off.
   if (!query.remote) {
     if (query.region) {
-      pool = pool.filter((j) => j.locationRegion === query.region);
+      pool = pool.filter((j) => (query.includeRemote !== false && j.remote) || j.locationRegion === query.region);
     }
 
     if (query.city) {
       const needle = query.city.toLowerCase();
-      pool = pool.filter((j) => (j.locationCity ?? '').toLowerCase().includes(needle));
+      pool = pool.filter((j) => (query.includeRemote !== false && j.remote) || (j.locationCity ?? '').toLowerCase().includes(needle));
     }
 
     if (query.postalCode) {
@@ -782,6 +786,7 @@ export function filterJobs(
       const radius = Math.max(1, Math.min(250, query.radiusMiles ?? 25));
       pool = origin && zipcodes.lookup(origin)
         ? pool.filter((job) => {
+            if (query.includeRemote !== false && job.remote) return true;
             const destination = jobZip(job);
             if (!destination) return false;
             const miles = zipcodes.distance(origin, destination);
@@ -806,6 +811,8 @@ export function filterJobs(
 
   if (query.remote) {
     pool = pool.filter((j) => j.remote);
+  } else if (query.includeRemote === false) {
+    pool = pool.filter((j) => !j.remote);
   }
 
   if (query.apprenticeshipsOnly) {
@@ -845,7 +852,10 @@ export async function filterJobsForUser(
       hasConvictions: true,
     };
   }
-  return filterJobs(query, source, inputs);
+  const effectiveQuery = query.includeRemote === undefined && profile?.includeRemoteJobs === false
+    ? { ...query, includeRemote: false }
+    : query;
+  return filterJobs(effectiveQuery, source, inputs);
 }
 
 export function findJob(id: string, source: JobDto[] = JOBS): JobDto | undefined {
@@ -1027,7 +1037,11 @@ export async function matchesFor(
       : await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
   const inputs = scoreInputsFor(profile);
 
-  const scored = source
+  const eligibleSource = profile?.includeRemoteJobs === false
+    ? source.filter((job) => !job.remote)
+    : source;
+
+  const scored = eligibleSource
     .map((job) => ({ u: scoreJobUnified(inputs, job), job }))
     .sort((a, b) => b.u.score - a.u.score);
 
@@ -1097,8 +1111,11 @@ const prettyCode = (code: string) =>
  */
 export async function insightsFor(userId: string, source: JobDto[] = JOBS): Promise<InsightsResponseDto> {
   const profile = await getPersonalDoc<StoredProfile>(PROFILE_COLLECTION, userId);
+  const eligibleSource = profile?.includeRemoteJobs === false
+    ? source.filter((job) => !job.remote)
+    : source;
   const inputs = scoreInputsFor(profile);
-  const baseline = await matchesFor(userId, source.length, source, profile);
+  const baseline = await matchesFor(userId, eligibleSource.length, eligibleSource, profile);
   const tierOf = (score: number): 0 | 1 | 2 => (score >= 70 ? 2 : score >= 40 ? 1 : 0);
 
   // Precompute the conviction context per job ONCE. Adding a credential
@@ -1107,7 +1124,7 @@ export async function insightsFor(userId: string, source: JobDto[] = JOBS): Prom
   // every simulated credential.
   const ctxByJob = new Map<string, JobScoreContext>();
   const baseTier = new Map<string, 0 | 1 | 2>();
-  for (const j of source) {
+  for (const j of eligibleSource) {
     const ctx = jobScoreContext(inputs, j);
     ctxByJob.set(j.id, ctx);
     const u = scoreJobUnified(inputs, j, ctx);
@@ -1122,7 +1139,7 @@ export async function insightsFor(userId: string, source: JobDto[] = JOBS): Prom
   // Candidate credentials: anything a job requires that the user lacks.
   const certDemand = new Map<string, number>();
   const skillDemand = new Map<string, number>();
-  for (const j of source) {
+  for (const j of eligibleSource) {
     for (const c of j.requiredCertifications) if (!have.has(c.toLowerCase())) certDemand.set(c, (certDemand.get(c) ?? 0) + 1);
     for (const s of j.requiredSkills) if (!have.has(s.toLowerCase())) skillDemand.set(s, (skillDemand.get(s) ?? 0) + 1);
   }
@@ -1137,7 +1154,7 @@ export async function insightsFor(userId: string, source: JobDto[] = JOBS): Prom
     const augInputs = { ...inputs, profile: augmented };
     let unlocks = 0;
     let promotesToTop = 0;
-    for (const j of source) {
+    for (const j of eligibleSource) {
       const ctx = ctxByJob.get(j.id)!;
       const before = baseTier.get(j.id) ?? 0;
       const u = scoreJobUnified(augInputs, j, ctx);

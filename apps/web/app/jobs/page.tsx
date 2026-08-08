@@ -25,11 +25,11 @@ import {
   Rocket,
 } from 'lucide-react';
 import { decisionFor, type JobDto, type OffenseType, type PaginatedJobsDto, type CompatibilityRating, type ConvictionType } from '@dxp/shared';
-import { listJobs } from '../../lib/api';
+import { listJobs, updateRemoteJobPreference } from '../../lib/api';
 import { DecisionBadge } from '../../components/decision/DecisionBadge';
 import { scoreJobUnified } from '../../lib/job-scoring';
-import { getLocalProfile } from '../../lib/local-profile';
-import { candidateProfilesFromStored, convictionTypesFor, type StoredProfile } from '../../lib/profile-store';
+import { getLocalProfile, setLocalProfile as saveLocalProfile, type LocalProfile } from '../../lib/local-profile';
+import { candidateProfilesFromStored, convictionTypesFor } from '../../lib/profile-store';
 import { RiskBadge } from '../../components/RiskBadge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { JobRowSkeleton } from '../../components/Skeleton';
@@ -41,6 +41,8 @@ import { parseLocationInput } from '../../lib/location-parse';
 import { useDebounce } from '../../lib/use-debounce';
 import { getUserId } from '../../lib/session';
 import { JourneyRail } from '../../components/JourneyRail';
+import { RemoteJobsToggle } from '../../components/RemoteJobsToggle';
+import { getJobSearchPreferences, setIncludeRemoteJobs as saveIncludeRemoteJobs } from '../../lib/job-search-preferences';
 
 /**
  * Map between the legacy uppercase OffenseType (DB enum) and the lowercase
@@ -128,6 +130,7 @@ function JobsPage() {
   // Deep-link filters (e.g. from the Insights page "doorways").
   const initialFairChance   = sp?.get('hideFelonExclusions') === 'true';
   const initialRemote       = sp?.get('remote') === 'true';
+  const initialIncludeRemote = initialRemote || sp?.get('includeRemote') !== 'false';
   const initialMinSalary    = Number(sp?.get('minSalary') ?? '') || 0;
   const initialPostedDays   = Number(sp?.get('postedWithinDays') ?? '') || 0;
 
@@ -150,11 +153,12 @@ function JobsPage() {
   const [minSalary, setMinSalary] = useState(initialMinSalary);
   const [postedWithinDays, setPostedWithinDays] = useState(initialPostedDays);
   const [remote, setRemote] = useState(initialRemote);
+  const [includeRemoteJobs, setIncludeRemoteJobs] = useState(initialIncludeRemote);
   const [apprenticeshipsOnly, setApprenticeshipsOnly] = useState(initialApprOnly);
   const [chanceFilter, setChanceFilter] = useState<ChanceFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [drawerJob, setDrawerJob] = useState<{ job: JobDto; rating: CompatibilityRating } | null>(null);
-  const [localProfile, setLocalProfile] = useState<StoredProfile | null>(null);
+  const [localProfile, setLocalProfile] = useState<LocalProfile | null>(null);
   const [userId, setCurrentUserId] = useState<string | null>(null);
 
   // Load the saved profile so browse scores with the user's real background
@@ -165,6 +169,9 @@ function JobsPage() {
     const p = getLocalProfile();
     setLocalProfile(p);
     setCurrentUserId(getUserId());
+    if (!sp?.has('includeRemote')) {
+      setIncludeRemoteJobs(p?.includeRemoteJobs ?? getJobSearchPreferences().includeRemoteJobs);
+    }
     const fromProfile = p?.convictions?.[0]?.offenseType;
     if (fromProfile && !sp?.get('offenseType')) setOffenseType(fromProfile as OffenseType);
     if (!sp?.get('region') && !sp?.get('postalCode')) {
@@ -177,6 +184,22 @@ function JobsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const updateIncludeRemoteJobs = (next: boolean) => {
+    setIncludeRemoteJobs(next);
+    saveIncludeRemoteJobs(next);
+    if (!next) setRemote(false);
+
+    if (localProfile) {
+      const updated: LocalProfile = { ...localProfile, includeRemoteJobs: next };
+      setLocalProfile(updated);
+      saveLocalProfile(updated);
+      void updateRemoteJobPreference({ userId: updated.userId, includeRemoteJobs: next }).catch(() => {
+        // The local preference remains effective even if account sync is
+        // temporarily unavailable; the next onboarding save reconciles it.
+      });
+    }
+  };
 
   const scoreInputs = useMemo(() => {
     if (offenseType) {
@@ -209,8 +232,8 @@ function JobsPage() {
   // offset) in a single effect so a filter change can't race a stale `offset`
   // into a wrong-page append + redundant fetch (was two effects sharing deps).
   const queryKey = useMemo(
-    () => JSON.stringify([dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly, userId]),
-    [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, apprenticeshipsOnly, userId],
+    () => JSON.stringify([dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, includeRemoteJobs, apprenticeshipsOnly, userId]),
+    [dq, industry, locationFilter, radiusMiles, offenseType, hideClosedRecord, minSalary, postedWithinDays, remote, includeRemoteJobs, apprenticeshipsOnly, userId],
   );
   const prevQueryKey = useRef(queryKey);
 
@@ -242,6 +265,7 @@ function JobsPage() {
       hideFelonExclusions: hideClosedRecord || undefined,
       minSalary: minSalary || undefined,
       postedWithinDays: postedWithinDays || undefined,
+      includeRemote: remote ? true : includeRemoteJobs,
       remote: remote || undefined,
       apprenticeshipsOnly: apprenticeshipsOnly || undefined,
       userId: userId || undefined,
@@ -317,12 +341,13 @@ function JobsPage() {
   if (minSalary)        activeChips.push({ key: 'salary', label: `Min salary $${(minSalary / 1000)}k`, onClear: () => setMinSalary(0) });
   if (postedWithinDays) activeChips.push({ key: 'posted', label: postedWithinDays === 1 ? 'Posted last 24h' : `Posted last ${postedWithinDays} days`, onClear: () => setPostedWithinDays(0) });
   if (remote)         activeChips.push({ key: 'remote', label: 'Remote only', onClear: () => setRemote(false) });
+  if (!includeRemoteJobs) activeChips.push({ key: 'no-remote', label: 'Remote jobs off', onClear: () => updateIncludeRemoteJobs(true) });
   if (apprenticeshipsOnly) activeChips.push({ key: 'appr', label: 'Apprenticeships only', onClear: () => setApprenticeshipsOnly(false) });
 
   const clearAll = () => {
     setQ(''); setIndustry(''); setLocationInput(''); setOffenseType('');
     setHideClosedRecord(false); setMinSalary(0); setPostedWithinDays(0);
-    setRemote(false); setApprenticeshipsOnly(false);
+    setRemote(false); updateIncludeRemoteJobs(true); setApprenticeshipsOnly(false);
   };
 
   return (
@@ -350,28 +375,39 @@ function JobsPage() {
             <Link href="/onboarding" className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700"><UserCircle2 className="h-3.5 w-3.5" /> Set up my profile</Link>
           )}
           <GuidedChip Icon={MapPin} label="Search near me" active={!remote && !!locationFilter.postalCode} onClick={() => { setRemote(false); setShowFilters(true); }} />
-          <GuidedChip Icon={Radio} label="Work from anywhere" active={remote} onClick={() => setRemote((v) => !v)} />
+          <GuidedChip Icon={Radio} label="Work from anywhere" active={remote} onClick={() => {
+            if (!remote) updateIncludeRemoteJobs(true);
+            setRemote((v) => !v);
+          }} />
           <GuidedChip Icon={HardHat} label="Find apprenticeships" active={apprenticeshipsOnly} onClick={() => setApprenticeshipsOnly((v) => !v)} />
           <Link href="/entrepreneurship" className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700"><Rocket className="h-3.5 w-3.5" /> Be your own boss</Link>
           <GuidedChip Icon={ShieldCheck} label="Lower-barrier roles" active={hideClosedRecord} onClick={() => setHideClosedRecord((v) => !v)} />
           <GuidedChip Icon={Compass} label="Explore all jobs" active={false} onClick={() => {
             setQ(''); setIndustry(''); setLocationInput(''); setOffenseType(''); setHideClosedRecord(false);
-            setMinSalary(0); setPostedWithinDays(0); setRemote(false); setApprenticeshipsOnly(false); setShowFilters(false);
+            setMinSalary(0); setPostedWithinDays(0); setRemote(false); updateIncludeRemoteJobs(true); setApprenticeshipsOnly(false); setShowFilters(false);
           }} />
         </div>
       </div>
 
       {/* ─────────── Filter card ─────────── */}
       <div className="navigator-panel mb-5 rounded-2xl border border-navy-900/20 bg-white/55 p-5 shadow-card">
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 text-left text-sm font-semibold text-navy-900"
-          aria-expanded={showFilters}
-        >
-          <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-teal-600" /> More filters{activeChips.length ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700">{activeChips.length} active</span> : null}</span>
-          <ChevronDown className={`h-4 w-4 text-slate-500 transition ${showFilters ? 'rotate-180' : ''}`} />
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="flex min-h-12 flex-1 items-center justify-between gap-2 text-left text-sm font-semibold text-navy-900"
+            aria-expanded={showFilters}
+          >
+            <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-teal-600" /> More filters{activeChips.length ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-700">{activeChips.length} active</span> : null}</span>
+            <ChevronDown className={`h-4 w-4 text-slate-500 transition sm:mr-3 ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+          <RemoteJobsToggle
+            checked={includeRemoteJobs}
+            onChange={updateIncludeRemoteJobs}
+            compact
+            className="sm:w-[290px]"
+          />
+        </div>
         {showFilters && (
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <FilterField label="Search" Icon={SearchIcon}>
@@ -496,7 +532,10 @@ function JobsPage() {
               <input
                 type="checkbox"
                 checked={remote}
-                onChange={(e) => setRemote(e.target.checked)}
+                onChange={(e) => {
+                  if (e.target.checked) updateIncludeRemoteJobs(true);
+                  setRemote(e.target.checked);
+                }}
                 className="h-4 w-4 rounded border-sky-400 text-sky-600 focus:ring-sky-500"
               />
               <Radio className="h-4 w-4 text-sky-600" />
