@@ -125,7 +125,7 @@ export default function ResourcesPage() {
       <footer className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/60 p-5 text-xs text-slate-600">
         These are public, free resources from federal agencies and trusted national nonprofits. We don&apos;t share your
         information with them — you reach out directly. Looking for a guided plan?{' '}
-        <Link href="/dashboard" className="font-semibold text-teal-700 hover:underline">Start with your reentry compass</Link>.
+        <Link href="/dashboard" className="font-semibold text-teal-700 hover:underline">Start with your Navigator guide</Link>.
       </footer>
     </div>
   );

@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * The Reentry Compass sections, extracted from the old /start page so the
- * single home surface (/dashboard) can compose them. Pure presentational —
+ * The Navigator guide sections, composed on the home surface. The core path
+ * is universal; specialized support appears only when someone requests it.
  * all state lives in reentry-store / support-network.
  */
 import { useState } from 'react';
@@ -40,33 +40,40 @@ export function ContextBar({ inputs, critical, defaultOpen = false }: { inputs: 
     <div className="border-t border-slate-100 px-5 py-3">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
         <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-          <Sparkles className="h-3.5 w-3.5 text-teal-600" /> A few things help us guide you {critical && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">First months — highest priority</span>}
+          <Sparkles className="h-3.5 w-3.5 text-teal-600" /> Personalize the help you see {critical && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">Time-sensitive support</span>}
         </span>
         <ChevronDown className={'h-4 w-4 text-slate-400 transition ' + (open ? 'rotate-180' : '')} />
       </button>
       {open && (
         <div className="mt-3 space-y-3">
           <div>
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">When did you get out?</p>
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">What would make work easier right now?</p>
             <div className="flex flex-wrap gap-1.5">
-              {RELEASE_OPTIONS.map((o) => {
-                const on = (inputs.daysSinceRelease ?? undefined) === (o.value ?? undefined);
-                return (
-                  <button key={o.label} onClick={() => setReentryInputs({ daysSinceRelease: o.value })}
-                    className={'rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition ' + (on ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-600 ring-slate-300 hover:ring-teal-400')}>
-                    {o.label}
-                  </button>
-                );
-              })}
+              <YesChip label="I need ID or document help" on={inputs.needsId} onToggle={(v) => toggle('needsId', v)} />
+              <YesChip label="I need housing support" on={inputs.housingSecure === false} onToggle={(v) => setReentryInputs({ housingSecure: v ? false : undefined })} />
+              <YesChip label="I need medication support" on={inputs.medicationNeeds} onToggle={(v) => toggle('medicationNeeds', v)} />
+              <YesChip label="People depend on me" on={inputs.hasDependents} onToggle={(v) => toggle('hasDependents', v)} />
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <YesChip label="I'm on parole or probation" on={inputs.onSupervision} onToggle={(v) => toggle('onSupervision', v)} />
-            <YesChip label="People depend on me" on={inputs.hasDependents} onToggle={(v) => toggle('hasDependents', v)} />
-            <YesChip label="I have a safe place to stay" on={inputs.housingSecure} onToggle={(v) => toggle('housingSecure', v)} />
-            <YesChip label="I've struggled with opioids" on={inputs.opioidHistory} onToggle={(v) => toggle('opioidHistory', v)} />
-          </div>
-          <p className="text-[11px] text-slate-400">This stays on your device and only shapes which steps we show first.</p>
+          {inputs.justiceSupport === true && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">Optional background-aware support</p>
+              <div className="flex flex-wrap gap-1.5">
+                {RELEASE_OPTIONS.map((o) => {
+                  const on = (inputs.daysSinceRelease ?? undefined) === (o.value ?? undefined);
+                  return (
+                    <button key={o.label} onClick={() => setReentryInputs({ daysSinceRelease: o.value })}
+                      className={'rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset transition ' + (on ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-600 ring-slate-300 hover:ring-teal-400')}>
+                      {o.label}
+                    </button>
+                  );
+                })}
+                <YesChip label="I'm on parole or probation" on={inputs.onSupervision} onToggle={(v) => toggle('onSupervision', v)} />
+                <YesChip label="I want opioid-safety resources" on={inputs.opioidHistory} onToggle={(v) => toggle('opioidHistory', v)} />
+              </div>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-400">These choices stay on your device and only shape which optional steps appear.</p>
         </div>
       )}
     </div>
@@ -178,10 +185,10 @@ export function CompassSection({ inputs, completed, critical, activeKey, progres
           )}
         </div>
         <p className="px-5 pt-1 text-sm text-slate-600">
-          One step at a time, in the order the research says works — safety and stability first, then people, then work that lasts.
+          One clear step at a time — from choosing a direction to preparing, finding work, and growing.
         </p>
         <div className="px-5"><PhaseRail progress={progress} activeKey={activeKey} /></div>
-        <div className="mt-3"><ContextBar inputs={inputs} critical={critical} defaultOpen={overallDone === 0 && inputs.daysSinceRelease == null} /></div>
+        <div className="mt-3"><ContextBar inputs={inputs} critical={critical} defaultOpen={overallDone === 0} /></div>
       </div>
       {activePhase && <PhaseSteps phase={activePhase} inputs={inputs} completed={completed} />}
     </section>
@@ -300,7 +307,7 @@ export function FutureSelfSection({ value }: { value: string }) {
     <section id="future-self" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/50 to-white p-5 shadow-card">
       <h2 className="inline-flex items-center gap-2 text-base font-bold text-navy-900"><Target className="h-4 w-4 text-teal-600" /> Who you&apos;re becoming</h2>
       <p className="mt-1 text-sm leading-relaxed text-slate-600">
-        People who can picture a positive future for themselves are far more likely to reach it. In your own words —
+        A clear picture of the future can make today&apos;s choices feel more connected. In your own words —
         who are you working to become?
       </p>
       <textarea
@@ -311,7 +318,7 @@ export function FutureSelfSection({ value }: { value: string }) {
         placeholder="e.g. A steady provider for my kids. Someone people can count on."
         className="mt-3 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
       />
-      <p className="mt-2 text-[11px] text-slate-400">Based on desistance research (Maruna, &ldquo;Making Good&rdquo;): a forward identity and hope drive lasting change.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Based on goal-setting research: personally meaningful goals can strengthen focus and persistence.</p>
     </section>
   );
 }
@@ -325,7 +332,7 @@ export function EvidencePanel() {
         <span className="inline-flex items-center gap-2 text-base font-bold text-navy-900"><BookOpen className="h-4 w-4 text-teal-600" /> Why this plan, in this order</span>
         <ChevronDown className={'h-4 w-4 text-slate-400 transition ' + (open ? 'rotate-180' : '')} />
       </button>
-      <p className="mt-1 text-sm text-slate-600">This isn&apos;t guesswork. Every step is based on real reentry research.</p>
+      <p className="mt-1 text-sm text-slate-600">This isn&apos;t guesswork. The guidance is grounded in career-development and workforce research.</p>
       {open && (
         <ul className="mt-3 space-y-2.5">
           {EVIDENCE_BASE.map((e) => (

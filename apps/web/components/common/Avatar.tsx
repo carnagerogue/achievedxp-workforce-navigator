@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 /**
- * Initials avatar with a deterministic gradient per name. Reentry work is
- * human — a colored identity makes the caseload scannable and warmer than a
+ * Initials avatar with a deterministic gradient per name. Workforce support is
+ * human — a colored identity makes each workspace warmer and easier to scan than a
  * row of identical icons.
  */
 const GRADIENTS = [
@@ -16,8 +18,9 @@ const GRADIENTS = [
   'from-fuchsia-500 to-purple-600',
 ];
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+export function initialsForName(name: string): string {
+  const normalized = name.trim().replace(/[@._-]+/g, ' ');
+  const parts = normalized.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -29,15 +32,22 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+export function Avatar({ name, imageUrl, size = 44 }: { name: string; imageUrl?: string; size?: number }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [imageUrl]);
   const g = GRADIENTS[hash(name || '?') % GRADIENTS.length];
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${g} font-bold text-white shadow-sm ring-1 ring-black/5`}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${g} font-bold text-white shadow-sm ring-2 ring-white/30`}
       style={{ width: size, height: size, fontSize: size * 0.36 }}
-      aria-hidden="true"
+      aria-label={name || 'Account'}
     >
-      {initials(name)}
+      {imageUrl && !imageFailed ? (
+        // Clerk supplies a short-lived, user-specific CDN URL. A native image
+        // avoids coupling account photos to Next's static remote-host allowlist.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+      ) : initialsForName(name)}
     </span>
   );
 }

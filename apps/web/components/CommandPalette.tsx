@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
-  ClipboardList, UserPlus, User, ListChecks, LifeBuoy, HandCoins, GraduationCap, Rocket, MessageSquareQuote, FileText, Link2,
+  ClipboardList, UserPlus, User, ListChecks, LifeBuoy, HandCoins, GraduationCap, Rocket, FileText, Link2,
 } from 'lucide-react';
 import { listJobs } from '../lib/api';
 import { CONVICTION_LABELS, type JobDto } from '@dxp/shared';
@@ -30,18 +30,17 @@ type CommandItem =
 // keyboard-first, plus caseworker shortcuts and live job search.
 const NAV_ITEMS: CommandItem[] = [
   { kind: 'nav', label: 'Home',              sub: 'Your next step & compass',              href: '/dashboard',       Icon: LayoutDashboard },
-  { kind: 'nav', label: 'My plan',           sub: 'Steps, readiness, supervision',         href: '/plan',            Icon: ListChecks      },
+  { kind: 'nav', label: 'My plan',           sub: 'Goals, readiness, next steps',           href: '/plan',            Icon: ListChecks      },
   { kind: 'nav', label: 'Find a job',        sub: 'Filter by city, ZIP, industry',         href: '/jobs',            Icon: Briefcase       },
   { kind: 'nav', label: 'Apply Kit',         sub: 'Fill it once, reuse everywhere',        href: '/apply-kit',       Icon: FileText        },
   { kind: 'nav', label: 'Connections',       sub: 'Link Indeed, LinkedIn, ZipRecruiter…',  href: '/connections',     Icon: Link2           },
   { kind: 'nav', label: 'Apprenticeships',   sub: 'Earn-while-you-learn pathways',         href: '/apprenticeships', Icon: HardHat         },
   { kind: 'nav', label: 'Career quiz',       sub: 'RIASEC interest profiler (5 min)',      href: '/assessment',      Icon: Brain           },
-  { kind: 'nav', label: 'Tell your story',   sub: 'Disclosure statement help',             href: '/background-statement', Icon: MessageSquareQuote },
   { kind: 'nav', label: 'Learn new skills',  sub: 'Free & low-cost training',              href: '/learn',           Icon: GraduationCap   },
   { kind: 'nav', label: 'Be your own boss',  sub: 'Self-employment path',                  href: '/entrepreneurship', Icon: Rocket         },
   { kind: 'nav', label: 'Free help & hotlines', sub: 'Food, health, housing, crisis',      href: '/resources',       Icon: LifeBuoy        },
   { kind: 'nav', label: 'Benefits checkup',  sub: 'What you qualify for (1 min)',          href: '/benefits',        Icon: HandCoins       },
-  { kind: 'nav', label: 'Local help',        sub: 'Job centers + reentry programs near you', href: '/local-help',    Icon: HeartHandshake  },
+  { kind: 'nav', label: 'Local help',        sub: 'Job centers + support near you',         href: '/local-help',      Icon: HeartHandshake  },
   { kind: 'nav', label: 'Match profile',     sub: 'Improve your job matches',              href: '/onboarding',      Icon: UserCircle2     },
   { kind: 'nav', label: 'Compare jobs',      sub: 'Side-by-side view of your picks',       href: '/jobs/compare',    Icon: GitCompare      },
   { kind: 'nav', label: 'Caseworker',        sub: 'Caseload command center',               href: '/caseworker',      Icon: ClipboardList   },

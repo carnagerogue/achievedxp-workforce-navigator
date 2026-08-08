@@ -50,6 +50,7 @@ export interface ProfileInput {
   hasTransportation?: boolean;
   willingToRelocate?: boolean;
   hasFelonyRecord?: boolean;
+  justiceSupportEnabled?: boolean;
   yearsSinceRelease?: number;
   onParoleOrProbation?: boolean;
   restrictedIndustries?: string[];

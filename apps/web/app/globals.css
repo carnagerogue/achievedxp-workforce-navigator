@@ -95,6 +95,118 @@ body {
   position: relative;
 }
 
+/* ── Product-wide guided motion ───────────────────────────────────────
+   A single route marker and chapter reveal system give product pages the
+   feeling of one continuous journey. Surfaces remain quiet and Tesla-clean;
+   the sequencing carries the theatricality. */
+.app-route-atmosphere {
+  position: fixed;
+  z-index: 18;
+  top: 5.2rem;
+  right: .7rem;
+  bottom: 1.25rem;
+  width: 1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .45s ease;
+}
+body.app-motion-ready .app-route-atmosphere { opacity: .72; }
+.app-route-atmosphere i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  overflow: hidden;
+  background: rgba(121,203,196,.2);
+}
+.app-route-atmosphere i::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#f55b1d, #43ada5 62%, rgba(121,203,196,.2));
+  content: "";
+  transform: scaleY(var(--app-scroll-progress, 0));
+  transform-origin: top;
+  transition: transform .12s linear;
+}
+.app-route-atmosphere span {
+  position: absolute;
+  top: calc(var(--app-scroll-progress, 0) * (100% - 10px));
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #ff7a3d;
+  background: #1d2640;
+  box-shadow: 0 0 0 6px rgba(245,91,29,.08), 0 0 18px rgba(245,91,29,.36);
+  transform: translateX(-50%) rotate(45deg);
+  transition: top .12s linear;
+}
+.app-motion-page > [data-app-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) scale(.995);
+  transform-origin: 50% 0;
+  transition:
+    opacity .58s cubic-bezier(.2,.7,.2,1) var(--app-reveal-delay, 0ms),
+    transform .82s cubic-bezier(.16,1,.3,1) var(--app-reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.app-motion-page > [data-app-reveal]:nth-child(even) { transform: translate3d(14px, 22px, 0) scale(.995); }
+.app-motion-page > [data-app-reveal].is-app-visible { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+
+.journey-rail { position: relative; overflow: hidden; isolation: isolate; }
+.journey-rail::before {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: -20%;
+  width: 15%;
+  background: linear-gradient(90deg, transparent, rgba(121,203,196,.25), transparent);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: skewX(-18deg);
+}
+.journey-rail:hover::before { animation: journeyRailScan 1.25s cubic-bezier(.2,.7,.2,1) both; opacity: 1; }
+.journey-rail > a { overflow: hidden; }
+.journey-rail > a::before {
+  position: absolute;
+  inset: auto 18% 0;
+  height: 1px;
+  background: #43ada5;
+  content: "";
+  opacity: 0;
+  transform: scaleX(.2);
+  transition: opacity .2s ease, transform .45s cubic-bezier(.16,1,.3,1);
+}
+.journey-rail > a:hover::before { opacity: 1; transform: scaleX(1); }
+@keyframes journeyRailScan { from { left: -20%; } to { left: 108%; } }
+
+/* The account image is the person's identity-provider portrait. The orbit is
+   the one expressive chrome detail: quiet at rest, alive on intent. */
+.account-orbit { position: relative; isolation: isolate; }
+.account-orbit::before {
+  position: absolute;
+  z-index: 0;
+  inset: -2px;
+  border-radius: 999px;
+  background: conic-gradient(from 210deg, #0c7069, #79cbc4 46%, #ff7a3d 54%, #0c7069 78%);
+  content: "";
+  opacity: .9;
+  transition: filter .3s ease, transform .65s cubic-bezier(.16,1,.3,1);
+}
+.account-orbit::after {
+  position: absolute;
+  z-index: 1;
+  inset: 1px;
+  border-radius: 999px;
+  background: #fff;
+  content: "";
+}
+.account-orbit:hover::before { filter: drop-shadow(0 0 7px rgba(23,148,138,.35)); transform: rotate(150deg); }
+.account-orbit__portrait { display: grid; place-items: center; transition: transform .45s cubic-bezier(.16,1,.3,1); }
+.account-orbit:hover .account-orbit__portrait { transform: scale(1.04); }
+
 /* ── Precision trajectory onboarding ────────────────────────────────── */
 .workspace-shell:has(.onboarding-experience) {
   min-height: 0;
@@ -683,6 +795,7 @@ body:has(.onboarding-experience) footer { display: none; }
   .phase-grid p { margin-top: 1rem; }
 }
 @media (max-width: 640px) {
+  .app-route-atmosphere { display: none; }
   .preview-notice { min-height: 38px; gap: .45rem; justify-content: flex-start; padding-block: .4rem; font-size: .62rem; }
   .preview-notice__full { display: none; }
   .preview-notice__short { display: inline; }
@@ -759,6 +872,7 @@ body:has(.onboarding-experience) footer { display: none; }
   }
   html { scroll-behavior: auto; }
   .journey-field__scene,
+  .app-motion-page > [data-app-reveal],
   .hero-title__line,
   .route-ticker__track,
   .chapter-number,
@@ -779,6 +893,8 @@ body:has(.onboarding-experience) footer { display: none; }
   .ride-horizon,
   .ride-hero .journey-path,
   .ride-hero .scroll-cue { display: none !important; }
+  .app-route-atmosphere { display: none !important; }
+  .account-orbit::before { transform: none !important; }
 }
 
 /* Custom scrollbar — slim, not invisible, matches palette */

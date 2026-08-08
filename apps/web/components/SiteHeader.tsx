@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Search, UserCircle2, Command, HardHat, HeartHandshake, ClipboardList,
   Compass, Rocket, GraduationCap, LifeBuoy, HandCoins, MapPin, Briefcase, Menu, X, ChevronDown,
-  ListChecks, Brain, MessageSquareQuote, FileText, Link2,
+  ListChecks, Brain, FileText, Link2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { AuthControls } from './auth/AuthControls';
@@ -18,7 +18,7 @@ type Item = { href: string; label: string; sub: string; Icon: typeof Compass };
 const PRIMARY: Item[] = [
   { href: '/dashboard', label: 'Home', sub: 'Your next step', Icon: Compass },
   { href: '/plan', label: 'My plan', sub: 'Steps & check-ins', Icon: ListChecks },
-  { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
+  { href: '/jobs', label: 'Find a job', sub: 'Personalized matches', Icon: Briefcase },
 ];
 
 // The full, categorized menu — the ONE complete inventory of the product
@@ -27,10 +27,9 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: 'Find work',
     items: [
-      { href: '/jobs', label: 'Find a job', sub: 'Fair-chance matches', Icon: Briefcase },
+      { href: '/jobs', label: 'Find a job', sub: 'Personalized matches', Icon: Briefcase },
       { href: '/apprenticeships', label: 'Apprenticeships', sub: 'Earn while you learn', Icon: HardHat },
       { href: '/assessment', label: 'Career quiz', sub: 'What fits you (5 min)', Icon: Brain },
-      { href: '/background-statement', label: 'Tell your story', sub: 'Talking about your record', Icon: MessageSquareQuote },
       { href: '/learn', label: 'Learn new skills', sub: 'Free & low-cost', Icon: GraduationCap },
       { href: '/entrepreneurship', label: 'Be your own boss', sub: 'Start a business', Icon: Rocket },
     ],
@@ -54,7 +53,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: 'Your journey',
     items: [
       { href: '/dashboard', label: 'Home', sub: 'Next step & compass', Icon: LayoutDashboard },
-      { href: '/plan', label: 'My plan', sub: 'Steps, readiness, supervision', Icon: ListChecks },
+      { href: '/plan', label: 'My plan', sub: 'Goals, readiness & next steps', Icon: ListChecks },
       { href: '/onboarding', label: 'Match profile', sub: 'Improve your job matches', Icon: UserCircle2 },
     ],
   },
@@ -165,7 +164,7 @@ export function SiteHeader() {
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-teal-600 bg-teal-600 text-white transition-transform duration-200 group-hover:scale-105"><Compass className="h-5 w-5" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold tracking-tight text-navy-900">Your next step</span>
-                  <span className="block text-xs text-slate-500">The reentry compass — one step at a time, in the order that works.</span>
+                  <span className="block text-xs text-slate-500">A clear, personalized next step for your work journey.</span>
                 </span>
                 <span className="text-xs font-semibold text-teal-700 opacity-0 transition-opacity duration-150 group-hover:opacity-100">Open</span>
               </Link>

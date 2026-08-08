@@ -62,7 +62,7 @@ export interface NavigatorProfile {
   profileHydrated: boolean;
   onboardingComplete: boolean;
 
-  journey: { pct: number; done: number; total: number; phaseKey: string; phaseTitle: string; next: { phase: JourneyPhase; step: JourneyStep } | null };
+  journey: { inputs: ReentryInputs; pct: number; done: number; total: number; phaseKey: string; phaseTitle: string; next: { phase: JourneyPhase; step: JourneyStep } | null };
   readiness: { score: number; band: string; engaged: boolean; gaps: { label: string; url: string }[] };
   plan: { total: number; done: number; pct: number; open: number; nextDueDate?: string };
   compliance: ComplianceRead;
@@ -121,13 +121,6 @@ export function useNavigatorProfile(): NavigatorProfile {
   const readiness = assessReadiness(selfToReadinessInput({ careerGoal, completedCategories }), rdAnswers);
   const readinessEngaged = Object.keys(rdAnswers).length > 0 || completedCategories.length > 0;
 
-  // ── Compass journey ──
-  const completedSet = new Set(completedSteps);
-  const journeyProg = overallProgress(reentryInputs, completedSet);
-  const phaseKey = activePhaseKey(reentryInputs, completedSet);
-  const phaseTitle = PHASES.find((p) => p.key === phaseKey)?.title ?? '';
-  const next = nextStep(reentryInputs, completedSet);
-
   // ── Plan ──
   const planDone = items.filter((i) => i.status === 'completed').length;
   const planTotal = items.length;
@@ -143,6 +136,22 @@ export function useNavigatorProfile(): NavigatorProfile {
     (supervision.supervisionType != null && supervision.supervisionType !== 'none') ||
     conditions.length > 0 || fees.length > 0 || reentryInputs.onSupervision === true ||
     profile?.onParoleOrProbation === true;
+  const justiceSupport = Boolean(
+    profile?.justiceSupportEnabled === true || (profile?.convictions?.length ?? 0) > 0 || onSupervision,
+  );
+  const journeyInputs: ReentryInputs = {
+    ...reentryInputs,
+    justiceSupport,
+    onSupervision: reentryInputs.onSupervision ?? onSupervision,
+  };
+
+  // ── Navigator journey ──
+  const completedSet = new Set(completedSteps);
+  const journeyProg = overallProgress(journeyInputs, completedSet);
+  const phaseKey = activePhaseKey(journeyInputs, completedSet);
+  const phaseTitle = PHASES.find((p) => p.key === phaseKey)?.title ?? '';
+  const next = nextStep(journeyInputs, completedSet);
+
   const compliance = complianceFromConditions(conditions);
   const reportDue = reportDueState(supervision.nextReportDate);
   const ft = feesTotals(fees);
@@ -193,9 +202,9 @@ export function useNavigatorProfile(): NavigatorProfile {
 
   return {
     firstName, displayName, location: profile?.locationCity || profile?.locationPostalCode, careerGoal, futureSelf: (futureSelf || '').trim(),
-    onSupervision, inCriticalWindow: inCriticalWindow(reentryInputs), hasAnyData,
+    onSupervision, inCriticalWindow: inCriticalWindow(journeyInputs), hasAnyData,
     profileHydrated, onboardingComplete: profile !== null,
-    journey: { pct: journeyProg.pct, done: journeyProg.done, total: journeyProg.total, phaseKey, phaseTitle, next },
+    journey: { inputs: journeyInputs, pct: journeyProg.pct, done: journeyProg.done, total: journeyProg.total, phaseKey, phaseTitle, next },
     readiness: {
       score: readiness.score, band: BAND_LABEL[readiness.band], engaged: readinessEngaged,
       gaps: readiness.gaps.slice(0, 3).map((g) => ({ label: g.gap?.label ?? g.label, url: g.gap?.url ?? '/plan' })),

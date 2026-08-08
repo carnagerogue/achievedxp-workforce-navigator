@@ -140,7 +140,7 @@ export default function LandingPage() {
               See why.<br /><span className="display-outline display-outline--small">Choose clearly.</span>
             </h2>
             <ul className="mt-10 space-y-4 text-teal-100" data-reveal="rise" style={{ '--reveal-delay': '140ms' } as React.CSSProperties}>
-              <Promise Icon={ShieldCheck}>Background details stay out of employer applications.</Promise>
+              <Promise Icon={ShieldCheck}>Your personal details stay private until you choose to share.</Promise>
               <Promise Icon={Compass}>Every recommendation includes a practical next action.</Promise>
               <Promise Icon={MapPin}>Local help and distance filters use real locations.</Promise>
             </ul>
