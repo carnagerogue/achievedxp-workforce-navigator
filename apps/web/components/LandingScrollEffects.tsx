@@ -9,6 +9,10 @@ const PHASES = ['Start', 'Plan', 'Prepare', 'Work'] as const;
  * Adds a single, coordinated motion system to the landing page. Elements
  * reveal only after client hydration, while section and hero progress values
  * drive the route-line and constellation parallax effects.
+ *
+ * Under prefers-reduced-motion the same story still plays, but calmly: hero
+ * scenes crossfade in place and reveals fade without travel. The CSS freezes
+ * parallax, zoom, and tickers so nothing moves across the screen.
  */
 export function LandingScrollEffects() {
   useEffect(() => {
@@ -45,16 +49,6 @@ export function LandingScrollEffects() {
       });
       phaseItems.forEach((item, index) => item.classList.toggle('is-current', index === nextStep));
     };
-
-    if (reducedMotion) {
-      revealItems.forEach((item) => item.classList.add('is-visible'));
-      updateRideStep(0);
-      rideScenes.forEach((scene) => scene.setAttribute('aria-hidden', 'false'));
-      root.style.setProperty('--hero-progress', '0');
-      root.style.setProperty('--page-progress', '.35');
-      stages.forEach((stage) => stage.style.setProperty('--section-progress', '1'));
-      return () => root.classList.remove('landing-scroll-ready');
-    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -94,6 +88,10 @@ export function LandingScrollEffects() {
 
         rideScenes.forEach((scene, index) => {
           const delta = index - ridePosition;
+          if (reducedMotion) {
+            scene.style.setProperty('--ride-opacity', clamp(1 - Math.abs(delta) * 1.6).toFixed(4));
+            return;
+          }
           const depth = Math.min(1, Math.abs(delta));
           const isPast = delta < 0;
           scene.style.setProperty('--ride-x', `${(delta * (isPast ? 30 : 38)).toFixed(2)}vw`);
