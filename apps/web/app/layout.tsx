@@ -12,6 +12,8 @@ import { AuthProvider } from '../components/auth/AuthProvider';
 import { AuthScopeSync } from '../components/auth/AuthScopeSync';
 import { AUTH_ENABLED } from '../lib/auth-config';
 import { AppExperience } from '../components/AppExperience';
+import { SectionNav } from '../components/shell/SectionNav';
+import { MobileTabBar } from '../components/shell/MobileTabBar';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -47,10 +49,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="preview-notice__short">Guest data may reset. Avoid sensitive case notes.</span>
               </div>
             )}
-            <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-5 outline-none sm:px-8">
+            <SectionNav />
+            <main id="main-content" tabIndex={-1} className="w-full flex-1 outline-none">
               <div className="workspace-shell"><ErrorBoundary>{children}</ErrorBoundary></div>
             </main>
             <SiteFooter />
+            <MobileTabBar />
             <CompareBar />
             <CommandPalette />
             <KeyboardHelp />

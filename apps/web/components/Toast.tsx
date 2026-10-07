@@ -49,7 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div
         aria-live="polite"
         aria-atomic="true"
-        className="pointer-events-none fixed bottom-6 right-6 z-50 flex w-full max-w-sm flex-col gap-2"
+        className="toast-stack pointer-events-none fixed right-4 z-50 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:right-6"
       >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))} />

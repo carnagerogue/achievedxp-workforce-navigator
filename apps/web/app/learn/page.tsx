@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AddToPlanButton } from '../../components/AddToPlanButton';
+import { InsightsPanel } from '../../components/InsightsPanel';
+import { getUserId } from '../../lib/session';
 import {
   GraduationCap, ExternalLink, Sparkles, BookOpen, Award, Wrench, Lightbulb, ArrowRight,
 } from 'lucide-react';
@@ -9,6 +12,7 @@ import {
   LEARN_COST_META, LEARN_CATEGORY_META, LEARN_TIPS, learnByCategory,
   type LearnCategory, type LearnResource,
 } from '../../lib/learning';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const CATEGORY_ICON: Record<LearnCategory, typeof BookOpen> = {
   free: BookOpen, credit: GraduationCap, certs: Award, programs: Wrench,
@@ -25,17 +29,14 @@ const COST_PILL: Record<string, string> = {
 export default function LearnPage() {
   return (
     <div className="animate-fade-in mx-auto max-w-4xl">
-      {/* Header */}
-      <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-7 shadow-card sm:p-9">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <GraduationCap className="h-3.5 w-3.5" /> Learn new skills
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Up your game — for free or close to it.</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          New skills and credentials open better-paying, more stable work — and people who keep learning are far less
-          likely to go back. Everything below is free or low-cost, works on your phone, and doesn’t care about your record.
-        </p>
-      </header>
+      <PageHeader
+        className="mb-4"
+        eyebrow="Learn"
+        title="Skills that raise your pay — free or close to it"
+        description="New skills and credentials open better-paying, more stable work. Everything here is free or low-cost, works on your phone, and doesn’t care about your record."
+      />
+
+      <SkillsThatUnlockJobs />
 
       {/* Keep-it-cheap tips */}
       <section className="mt-4 rounded-2xl border border-teal-200 bg-teal-50/40 p-4">
@@ -113,5 +114,25 @@ function LearnCard({ r }: { r: LearnResource }) {
         }} />
       </div>
     </li>
+  );
+}
+
+/**
+ * The bridge from learning to earning: the skills and credentials that would
+ * add the most jobs to this person's matches, simulated against live jobs.
+ */
+function SkillsThatUnlockJobs() {
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => { setUserId(getUserId()); }, []);
+  if (!userId) return null;
+  return (
+    <section aria-labelledby="unlock-title" className="mt-4 empty:hidden">
+      <InsightsPanel userId={userId} quiet heading={(
+        <>
+          <h2 id="unlock-title" className="text-base font-bold text-navy-900">Skills that would open more jobs for you</h2>
+          <p className="mb-2.5 text-xs text-slate-500">Based on the real jobs near you and the profile you built.</p>
+        </>
+      )} />
+    </section>
   );
 }

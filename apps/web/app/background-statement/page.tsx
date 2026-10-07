@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { FileText, Copy, Check, ArrowLeft, Info } from 'lucide-react';
+import {
+  Copy, Check, Info,
+} from 'lucide-react';
 import {
   generateAllVersions,
   BACKGROUND_EXPLANATION_DISCLAIMER,
@@ -14,6 +15,7 @@ import {
 } from '@dxp/shared';
 import { getLocalProfile } from '../../lib/local-profile';
 import { AddToPlanButton } from '../../components/AddToPlanButton';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 /**
  * "Prepare Background Explanation" tool — generates four version drafts
@@ -83,25 +85,11 @@ export default function BackgroundStatementPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero */}
-      <section className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <Link href="/jobs" className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-teal-700">
-          <ArrowLeft className="h-3 w-3" /> Back to jobs
-        </Link>
-        <div className="mt-3 flex items-start gap-4">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
-            <FileText className="h-7 w-7" />
-          </span>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">Application support</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Prepare Background Explanation</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-              Generate strengths-based draft statements you can adapt for applications and
-              interviews. Templates are deterministic — no AI is generating text on your behalf.
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageHeader
+        eyebrow="Jobs"
+        title="Prepare your background answer"
+        description="Build a short, strengths-based answer you can adapt for applications and interviews. These are fixed templates you edit yourself — no AI writes anything on your behalf."
+      />
 
       {/* Form + output side-by-side */}
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.4fr]">

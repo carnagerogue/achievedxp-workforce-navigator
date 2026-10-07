@@ -23,6 +23,7 @@ import {
   UserCircle2,
   ShieldCheck,
   Rocket,
+  Bookmark,
 } from 'lucide-react';
 import { decisionFor, type JobDto, type OffenseType, type PaginatedJobsDto, type CompatibilityRating, type ConvictionType } from '@dxp/shared';
 import { listJobs, updateRemoteJobPreference } from '../../lib/api';
@@ -40,7 +41,7 @@ import { prettyDate, prettyIndustry, prettySalary } from '../../lib/format';
 import { parseLocationInput } from '../../lib/location-parse';
 import { useDebounce } from '../../lib/use-debounce';
 import { getUserId } from '../../lib/session';
-import { JourneyRail } from '../../components/JourneyRail';
+import { PageHeader } from '../../components/shell/PageHeader';
 import { RemoteJobsToggle } from '../../components/RemoteJobsToggle';
 import { getJobSearchPreferences, setIncludeRemoteJobs as saveIncludeRemoteJobs } from '../../lib/job-search-preferences';
 import { onStoreChange } from '../../lib/scoped-storage';
@@ -366,14 +367,14 @@ function JobsPage() {
   };
 
   return (
-    <div className="constellation-workspace animate-fade-in">
-      <JourneyRail active="work" />
-      <div className="mb-6">
-        <p className="section-kicker text-sunset-600">Phase 04 · Find work</p>
-        <h1 className="mt-2 font-display text-5xl font-black uppercase leading-[.82] tracking-[-.04em] text-navy-900 sm:text-7xl">Find work that fits.</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          Search active postings across every source. Add a profile or optional background context when you want personalized fit guidance.
-        </p>
+    <div className="animate-fade-in">
+      <div className="mb-7">
+        <PageHeader
+          eyebrow="Jobs"
+          title="Find work that fits"
+          description="Real openings from every source, ranked for you — with the reasons each one fits and anything worth checking first."
+          actions={<Link href="/jobs/saved" className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-navy-900"><Bookmark className="h-4 w-4" aria-hidden="true" /> My jobs</Link>}
+        />
       </div>
 
       {/* ─────────── Guided entry points ─────────── */}

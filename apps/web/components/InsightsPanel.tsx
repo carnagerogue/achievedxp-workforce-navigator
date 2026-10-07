@@ -11,7 +11,13 @@ import { Skeleton } from './Skeleton';
  * N new jobs" backed by a real simulation against the live job pool on
  * the server. Replaces the Phase-3 TrainingPlaceholder with actual data.
  */
-export function InsightsPanel({ userId }: { userId: string }) {
+export function InsightsPanel({ userId, quiet = false, heading }: {
+  userId: string;
+  /** Render nothing while loading, on error, or when there is nothing to suggest. */
+  quiet?: boolean;
+  /** Shown above the panel only when it has suggestions to show. */
+  heading?: React.ReactNode;
+}) {
   const [data, setData] = useState<InsightsResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +31,7 @@ export function InsightsPanel({ userId }: { userId: string }) {
   }, [userId]);
 
   if (loading) {
+    if (quiet) return null;
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
         <div className="space-y-2">
@@ -44,6 +51,7 @@ export function InsightsPanel({ userId }: { userId: string }) {
   }
 
   if (error) {
+    if (quiet) return null;
     return (
       <p className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
         Couldn&apos;t load insights: {error}
@@ -52,6 +60,7 @@ export function InsightsPanel({ userId }: { userId: string }) {
   }
 
   if (!data || data.items.length === 0) {
+    if (quiet) return null;
     return (
       <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
         No suggestions yet — your profile already matches well against the current job pool.
@@ -60,6 +69,8 @@ export function InsightsPanel({ userId }: { userId: string }) {
   }
 
   return (
+    <>
+    {heading}
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
       <div className="border-b border-slate-100 bg-gradient-to-br from-teal-50/70 to-white px-5 py-4">
         <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-teal-700">
@@ -108,5 +119,6 @@ export function InsightsPanel({ userId }: { userId: string }) {
         ))}
       </ul>
     </div>
+    </>
   );
 }

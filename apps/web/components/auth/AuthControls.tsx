@@ -27,7 +27,7 @@ function ClerkAuthControls() {
     return (
       <Link
         href="/sign-in"
-        className="inline-flex items-center rounded-full border border-slate-900/10 bg-white/60 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-900/20 hover:text-slate-900"
+        className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-slate-900/10 bg-white/60 px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-900/20 hover:text-slate-900 sm:px-4"
       >
         Sign in
       </Link>

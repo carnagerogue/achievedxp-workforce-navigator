@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Rocket, Check, X, ChevronDown, ExternalLink, Lightbulb, Users, GraduationCap,
-  Coins, FileText, ArrowRight, ShieldCheck,
+  Check, X, ChevronDown, ExternalLink, Lightbulb, Users, GraduationCap, Coins, FileText, ArrowRight, ShieldCheck,
 } from 'lucide-react';
 import {
   BIZ_STAGES, BIZ_RESOURCES, BIZ_RESOURCE_TAG, BIZ_IDEAS,
   type BizStage, type BizResource,
 } from '../../lib/entrepreneurship';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const TAG_ICON: Record<BizResource['tag'], typeof Users> = {
   mentor: Users, learn: GraduationCap, money: Coins, legal: FileText,
@@ -24,21 +24,12 @@ const TAG_PILL: Record<BizResource['tag'], string> = {
 export default function EntrepreneurshipPage() {
   return (
     <div className="animate-fade-in mx-auto max-w-3xl">
-      {/* Header */}
-      <header className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-card">
-        <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-6 py-7">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_85%_-20%,rgba(45,212,229,0.25),transparent)]" />
-          <div className="relative">
-            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-200">
-              <Rocket className="h-4 w-4" /> Be your own boss
-            </p>
-            <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">Could working for yourself be your path?</h1>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-teal-50/85">
-              Self-employment can reduce employer screening, but licensing, bonding, contracting, insurance, and customer checks vary by trade and state. Here&apos;s an honest look at whether it&apos;s for you — and the free help to start.
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        className="mb-4"
+        eyebrow="Learn"
+        title="Could working for yourself be your path?"
+        description="Self-employment can mean less employer screening, but licensing, bonding, insurance and customer checks vary by trade and state. Here’s an honest look at whether it fits you — and the free help to start."
+      />
 
       {/* Honest pros / cons */}
       <section className="mt-4 grid gap-3 sm:grid-cols-2">

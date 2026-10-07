@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { Link2, ShieldCheck, ArrowRight, Radio, FileText } from 'lucide-react';
+import {
+  ShieldCheck, ArrowRight, Radio, FileText,
+} from 'lucide-react';
 import { PROVIDERS, FEED_SOURCES, useConnections } from '../../lib/connections';
 import { ConnectionTile } from '../../components/connections/ConnectionTile';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 export default function ConnectionsPage() {
   const conns = useConnections();
@@ -14,22 +17,16 @@ export default function ConnectionsPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-3xl">
-      <header className="rounded-3xl border border-slate-900/[0.07] bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <Link2 className="h-3.5 w-3.5" /> Connections
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">One account. All your job hunt.</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 sm:text-base">
-          Your Achieve account is the hub. Connect the places you already job-hunt so everything lives in
-          one spot — the same profile, one tracker, one feed. You sign in on each site yourself; we never
-          hold your passwords and never apply for you.
-        </p>
-        {count > 0 && (
-          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-teal-50 px-3.5 py-1.5 text-sm font-semibold text-teal-800">
-            <ShieldCheck className="h-4 w-4" /> {count} connected
+      <PageHeader
+        eyebrow="Jobs"
+        title="Link the places you already job-hunt"
+        description="Connect your job-board accounts so your profile, tracker and feed stay in one place. You sign in on each site yourself — we never hold your passwords and never apply for you."
+        actions={count > 0 ? (
+          <p className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3.5 py-1.5 text-sm font-semibold text-teal-800">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" /> {count} connected
           </p>
-        )}
-      </header>
+        ) : undefined}
+      />
 
       {/* Identity — the real sign-in providers */}
       <section className="mt-8">

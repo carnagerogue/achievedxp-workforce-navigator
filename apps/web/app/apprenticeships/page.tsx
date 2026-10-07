@@ -11,6 +11,7 @@ import { RiskBadge } from '../../components/RiskBadge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { JobRowSkeleton } from '../../components/Skeleton';
 import { prettyDate, prettyIndustry, prettySalary } from '../../lib/format';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const PAGE_SIZE = 25;
 
@@ -42,28 +43,16 @@ export default function ApprenticeshipsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <div className="flex items-start gap-4">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sunset-50 text-sunset-700">
-            <HardHat className="h-7 w-7" />
-          </span>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sunset-700">Pathway spotlight</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Apprenticeships</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Earn-while-you-learn roles — a clear pathway into the skilled trades, often with
-              lower background-check scrutiny and union-scale wages on completion.
-            </p>
-          </div>
-        </div>
-
-        <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Stat Icon={Wallet}       label="Paid training"     text="A paid starting wage with progressive increases in registered programs." />
-          <Stat Icon={ShieldCheck}  label="Fair-chance leaning" text="Many programs accept applicants with records." />
-          <Stat Icon={GraduationCap} label="Credentialed exit" text="Finish with a portable, industry-recognized cert." />
-        </dl>
-      </section>
+      <PageHeader
+        eyebrow="Learn"
+        title="Apprenticeships: earn while you learn"
+        description="Paid roles with training built in — a clear pathway into the skilled trades, often with less background-check scrutiny and union-scale wages when you finish."
+      />
+      <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat Icon={Wallet}       label="Paid training"     text="A paid starting wage with raises as you progress in registered programs." />
+        <Stat Icon={ShieldCheck}  label="Fair-chance leaning" text="Many programs accept applicants with records." />
+        <Stat Icon={GraduationCap} label="Credential at the end" text="Finish with a portable, industry-recognized certificate." />
+      </dl>
 
       {/* Listings */}
       <div className="mt-8">

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { PageHeader } from '../../components/shell/PageHeader';
 import { useRouter } from 'next/navigation';
 import {
   Building2, MapPin, Phone, Globe, Clock, HeartHandshake, Search as SearchIcon,
   AlertCircle, ExternalLink, Map, LifeBuoy, Home, Utensils, Bus, Scale,
-  HeartPulse, Wallet, Baby, Shirt, GraduationCap, ListChecks, Plus, Check, ArrowRight,
+  HeartPulse, Wallet, Baby, Shirt, GraduationCap, Plus, Check, ArrowRight,
 } from 'lucide-react';
 import {
   getAjcCenters,
@@ -70,20 +71,14 @@ export default function LocalHelpPage() {
 
   return (
     <div className="animate-fade-in">
-      <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <HeartHandshake className="h-3.5 w-3.5" /> Local help
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">
-          In-person resources near you
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          American Job Centers offer free help with job search, training, and benefits.
-          Reentry programs serve justice-impacted candidates with fair-chance jobs,
-          transitional services, and expungement clinics.
-        </p>
+      <PageHeader
+        eyebrow="Help"
+        title="In-person help near you"
+        description="American Job Centers offer free help with job search, training and benefits. Reentry programs offer fair-chance jobs, transitional services and record-clearing clinics."
+      />
 
-        <div className="mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
+      <div className="mt-6 rounded-[20px] border border-slate-900/[0.08] bg-white p-4 sm:p-5">
+        <div className="grid gap-3 sm:grid-cols-3">
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block text-xs font-medium text-slate-700">
               ZIP code or city, state
@@ -126,21 +121,7 @@ export default function LocalHelpPage() {
             <LifeBuoy className="h-4 w-4" /> Community Resources
           </TabButton>
         </div>
-      </header>
-
-      <Link
-        href="/plan"
-        className="group mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-card-hover"
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><ListChecks className="h-5 w-5" /></span>
-          <div>
-            <p className="text-sm font-bold text-navy-900">Looking for your plan? It moved to My plan</p>
-            <p className="text-xs text-slate-600">Your steps, readiness, supervision, and check-ins now live on their own page.</p>
-          </div>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-teal-700 transition group-hover:translate-x-0.5">Open My plan <ArrowRight className="h-4 w-4" /></span>
-      </Link>
+      </div>
 
       <Link
         href="/resources"

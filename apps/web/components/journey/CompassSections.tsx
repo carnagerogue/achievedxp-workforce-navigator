@@ -1,26 +1,27 @@
 'use client';
 
 /**
- * The Navigator guide sections, composed on the home surface. The core path
- * is universal; specialized support appears only when someone requests it.
- * all state lives in reentry-store / support-network.
+ * Roadmap building blocks for My plan: the step row, the optional context
+ * that tailors which steps appear, Your corner, and the evidence behind the
+ * order. The core path is universal; specialized support appears only when
+ * someone requests it. All state lives in reentry-store / support-network.
  */
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Compass, ShieldAlert, Check, ArrowRight, Phone, Users, Plus, Trash2,
-  HeartHandshake, Sparkles, BookOpen, ChevronDown, LifeBuoy, Target,
+  ShieldAlert, Check, ArrowRight, Phone, Users, Plus, Trash2,
+  HeartHandshake, Sparkles, BookOpen, ChevronDown, LifeBuoy,
 } from 'lucide-react';
 import {
-  phaseProgress, EVIDENCE_BASE,
-  type JourneyPhase, type JourneyStep, type ReentryInputs,
+  EVIDENCE_BASE,
+  type JourneyStep, type ReentryInputs,
 } from '../../lib/reentry-journey';
-import { setReentryInputs, setStepDone, setFutureSelf } from '../../lib/reentry-store';
+import { setReentryInputs, setStepDone } from '../../lib/reentry-store';
 import {
   addContact, removeContact, markReachedOut, supportCount, staleSupportContacts,
   CONTACT_TAG_LABEL, type Contact, type ContactTag,
 } from '../../lib/support-network';
-import { PHASE_ACCENT, ActionButton } from './NextStepHero';
+import { ActionButton } from './NextStepHero';
 
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
@@ -40,7 +41,7 @@ export function ContextBar({ inputs, critical, defaultOpen = false }: { inputs: 
     <div className="border-t border-slate-100 px-5 py-3">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
         <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-          <Sparkles className="h-3.5 w-3.5 text-teal-600" /> Personalize the help you see {critical && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">Time-sensitive support</span>}
+          <Sparkles className="h-3.5 w-3.5 text-teal-600" /> Tailor your roadmap to your situation {critical && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-inset ring-rose-200">Time-sensitive support</span>}
         </span>
         <ChevronDown className={'h-4 w-4 text-slate-400 transition ' + (open ? 'rotate-180' : '')} />
       </button>
@@ -89,109 +90,37 @@ function YesChip({ label, on, onToggle }: { label: string; on?: boolean; onToggl
   );
 }
 
-// ───────────────────────── Phase rail ─────────────────────────
-export function PhaseRail({ progress, activeKey }: { progress: ReturnType<typeof phaseProgress>; activeKey: string }) {
-  return (
-    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {progress.map(({ phase, done, total, complete }) => {
-        const active = phase.key === activeKey;
-        return (
-          <div key={phase.key} className={'rounded-xl border p-3 ' + (active ? 'border-teal-400 bg-teal-50/50 shadow-sm' : complete ? 'border-teal-200 bg-white' : 'border-slate-200 bg-white')}>
-            <div className="flex items-center justify-between">
-              <span className={'text-xs font-bold ' + (active ? 'text-teal-800' : 'text-navy-900')}>{phase.title}</span>
-              {complete && <Check className="h-3.5 w-3.5 text-teal-600" />}
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-              <div className={'h-full rounded-full bg-gradient-to-r ' + PHASE_ACCENT[phase.key]} style={{ width: `${total ? Math.round((done / total) * 100) : 0}%` }} />
-            </div>
-            <p className="mt-1 text-[10px] text-slate-400">{done}/{total} done</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ───────────────────────── Active phase steps ─────────────────────────
-export function PhaseSteps({ phase, inputs, completed }: { phase: JourneyPhase; inputs: ReentryInputs; completed: Set<string> }) {
-  const steps = phase.steps.filter((s) => (s.appliesIf ? s.appliesIf(inputs) : true));
-  return (
-    <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-base font-bold text-navy-900">{phase.title}</h2>
-        <span className="text-xs text-slate-400">{phase.tagline}</span>
-      </div>
-      <p className="mt-1 text-sm leading-relaxed text-slate-600">{phase.why}</p>
-      <ul className="mt-3 space-y-2">
-        {steps.map((s) => <StepRow key={s.id} step={s} done={completed.has(s.id)} />)}
-      </ul>
-    </section>
-  );
-}
-
-function StepRow({ step, done }: { step: JourneyStep; done: boolean }) {
+// ───────────────────────── One roadmap step ─────────────────────────
+export function StepRow({ step, done, isNext = false }: { step: JourneyStep; done: boolean; isNext?: boolean }) {
   const [showWhy, setShowWhy] = useState(false);
   return (
-    <li className={'rounded-xl border p-3 ' + (done ? 'border-slate-200 bg-slate-50/60' : step.urgent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200')}>
-      <div className="flex items-start gap-2.5">
-        <button onClick={() => setStepDone(step.id, !done)} aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${step.title}`}
-          className={'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ' + (done ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-300 bg-white text-transparent hover:border-teal-400')}>
-          <Check className="h-3 w-3" />
+    <li className={'rounded-2xl border p-3.5 sm:p-4 ' + (done ? 'border-slate-200 bg-slate-50/60'
+      : isNext ? 'border-teal-300 bg-teal-50/50 ring-1 ring-inset ring-teal-200'
+      : step.urgent ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200 bg-white')}>
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => setStepDone(step.id, !done)} aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${step.title}`} aria-pressed={done}
+          className={'mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition ' + (done ? 'border-teal-600 bg-teal-600 text-white' : 'border-slate-300 bg-white text-transparent hover:border-teal-500 hover:text-teal-300')}>
+          <Check className="h-3.5 w-3.5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className={'text-sm font-semibold text-navy-900 ' + (done ? 'line-through opacity-60' : '')}>
+          <p className={'text-[15px] font-semibold text-navy-900 ' + (done ? 'line-through decoration-slate-400 opacity-60' : '')}>
             {step.title}
-            {step.urgent && !done && <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700"><ShieldAlert className="h-2.5 w-2.5" /> Important</span>}
+            {isNext && !done && <span className="ml-2 inline-flex items-center rounded-full bg-navy-900 px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wider text-white">Next</span>}
+            {step.urgent && !done && <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 align-middle text-[10px] font-bold text-rose-700"><ShieldAlert className="h-2.5 w-2.5" /> Important</span>}
           </p>
-          {!done && <p className="mt-0.5 text-xs leading-relaxed text-slate-600">{step.why}</p>}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {!done && step.action && <ActionButton action={step.action} />}
-            <button onClick={() => setShowWhy((v) => !v)} aria-expanded={showWhy}
+          {!done && <p className="mt-1 text-sm leading-relaxed text-slate-600">{step.why}</p>}
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {!done && step.action && <ActionButton action={step.action} primary={isNext} />}
+            <button type="button" onClick={() => setShowWhy((v) => !v)} aria-expanded={showWhy}
               aria-label={`${showWhy ? 'Hide why this matters for' : 'Why this matters for'}: ${step.title}`}
-              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600">
+              className="text-xs font-semibold text-slate-400 hover:text-slate-600">
               {showWhy ? 'Hide' : 'Why this matters'}
             </button>
           </div>
-          {showWhy && <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug text-slate-500">{step.evidence}</p>}
+          {showWhy && <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-500">{step.evidence}</p>}
         </div>
       </div>
     </li>
-  );
-}
-
-// ───────────────────────── Composed compass block for the home page ─────────────────────────
-export function CompassSection({ inputs, completed, critical, activeKey, progress, overallDone, overallTotal, overallPct }: {
-  inputs: ReentryInputs;
-  completed: Set<string>;
-  critical: boolean;
-  activeKey: string;
-  progress: ReturnType<typeof phaseProgress>;
-  overallDone: number;
-  overallTotal: number;
-  overallPct: number;
-}) {
-  const activePhase = progress.find((p) => p.phase.key === activeKey)?.phase;
-  return (
-    <section id="compass" className="scroll-mt-20">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
-          <h2 className="inline-flex items-center gap-2 text-base font-bold text-navy-900">
-            <Compass className="h-4 w-4 text-teal-600" /> Your compass
-          </h2>
-          {overallTotal > 0 && (
-            <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-200">
-              {overallDone} of {overallTotal} steps · {overallPct}%
-            </span>
-          )}
-        </div>
-        <p className="px-5 pt-1 text-sm text-slate-600">
-          One clear step at a time — from choosing a direction to preparing, finding work, and growing.
-        </p>
-        <div className="px-5"><PhaseRail progress={progress} activeKey={activeKey} /></div>
-        <div className="mt-3"><ContextBar inputs={inputs} critical={critical} defaultOpen={overallDone === 0} /></div>
-      </div>
-      {activePhase && <PhaseSteps phase={activePhase} inputs={inputs} completed={completed} />}
-    </section>
   );
 }
 
@@ -297,29 +226,6 @@ export function HelpLink({ Icon, label, sub, href }: { Icon: typeof Phone; label
         <span className="block text-[11px] text-slate-500">{sub}</span>
       </span>
     </a>
-  );
-}
-
-// ───────────────────────── Future self ─────────────────────────
-export function FutureSelfSection({ value }: { value: string }) {
-  const [draft, setDraft] = useState(value);
-  return (
-    <section id="future-self" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50/50 to-white p-5 shadow-card">
-      <h2 className="inline-flex items-center gap-2 text-base font-bold text-navy-900"><Target className="h-4 w-4 text-teal-600" /> Who you&apos;re becoming</h2>
-      <p className="mt-1 text-sm leading-relaxed text-slate-600">
-        A clear picture of the future can make today&apos;s choices feel more connected. In your own words —
-        who are you working to become?
-      </p>
-      <textarea
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => setFutureSelf(draft)}
-        rows={2}
-        placeholder="e.g. A steady provider for my kids. Someone people can count on."
-        className="mt-3 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-      />
-      <p className="mt-2 text-[11px] text-slate-400">Based on goal-setting research: personally meaningful goals can strengthen focus and persistence.</p>
-    </section>
   );
 }
 

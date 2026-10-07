@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  HandCoins, ArrowRight, ArrowLeft, Check, ExternalLink, RotateCcw, ShieldCheck, Info,
+  ArrowRight, ArrowLeft, Check, ExternalLink, RotateCcw, ShieldCheck, Info,
 } from 'lucide-react';
 import {
   screenBenefits, pctOfFpl, FPL_YEAR, LIKELIHOOD_META,
   type BenefitInput, type BenefitResult,
 } from '../../lib/benefits';
 import { AddToPlanButton } from '../../components/AddToPlanButton';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const TONE_CARD: Record<string, string> = {
   good: 'border-teal-200 bg-teal-50/50',
@@ -40,16 +41,12 @@ export default function BenefitsPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl">
-      <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-7 shadow-card sm:p-9">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <HandCoins className="h-3.5 w-3.5" /> Benefits checkup
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">What help can you get?</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          Answer three quick questions and we’ll estimate which free programs you likely qualify for — food, health
-          coverage, help with bills, and more. Takes about a minute.
-        </p>
-      </header>
+      <PageHeader
+        className="mb-4"
+        eyebrow="Help"
+        title="What help can you get?"
+        description="Answer three quick questions and we’ll estimate which free programs you likely qualify for — food, health coverage, help with bills and more. About a minute."
+      />
 
       {step < 3 && (
         <div className="mt-4 flex items-center gap-2">

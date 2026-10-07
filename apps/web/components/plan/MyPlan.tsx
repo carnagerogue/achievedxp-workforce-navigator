@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { FileDown, LockKeyhole, Printer, Share2 } from 'lucide-react';
 import { accountDisplayName, accountImageUrl } from '../../lib/account-identity';
-import { Check, Gauge, Globe, HeartPulse, Phone, Trash2 } from 'lucide-react';
 import {
   useChecklist, useOwnerName, usePlanGoals, toggleChecklist, removeFromChecklist,
   setChecklistStatus, setChecklistNotes, setChecklistTargetDate, setOwnerName, setPlanGoals,
@@ -23,21 +23,28 @@ import {
 import { buildSupervisionSummary, printSupervisionSummary, advanceCondition, defaultConditionDue } from '../../lib/supervision';
 import {
   assessReadiness, selfToReadinessInput, BAND_LABEL,
-  type ReadinessDomainKey, type DomainStatus, type DomainResult,
+  type ReadinessDomainKey, type DomainStatus,
 } from '../../lib/readiness';
-import { ReadinessPanel } from '../readiness/ReadinessPanel';
 import { PlanWorkspace } from './PlanWorkspace';
+import { Roadmap } from './Roadmap';
 import { deriveStepDomain, type PlanModel, type PlanActions, type PlanStep } from '../../lib/plan-model';
 import { AUTH_ENABLED } from '../../lib/auth-config';
+import { useLocalProfile } from '../../lib/local-profile';
+import { useFutureSelf, setFutureSelf, useReentryInputs } from '../../lib/reentry-store';
+import { useContacts } from '../../lib/support-network';
+import { CornerSection, EvidencePanel } from '../journey/CompassSections';
+import { CalendarExportButton } from '../CalendarExportButton';
+import { PageHeader } from '../shell/PageHeader';
 
 /**
- * "My Plan" — the person's full plan workspace: steps, readiness, supervision
- * (conditions & fees), weekly check-ins, and the share / import / print flows
- * for handing progress to a caseworker or officer.
+ * "My plan" — everything about getting from here to steady, better-paying
+ * work, in one place and in priority order: what you're working toward, the
+ * roadmap, your own steps and dates, supervision requirements when they
+ * apply, your weekly check-in, and the people in your corner. Share / import
+ * / print hand progress to a caseworker or officer.
  *
- * Moved verbatim from the old `checklist` tab of app/local-help/page.tsx;
- * rendered at /plan. Everything lives in the on-device checklist store —
- * nothing leaves the browser unless the person shares it.
+ * Everything lives in the on-device stores — nothing leaves the browser
+ * unless the person shares it.
  */
 
 const STATUS_META: Record<ChecklistStatus, { label: string; cls: string; mark: string }> = {
@@ -46,7 +53,6 @@ const STATUS_META: Record<ChecklistStatus, { label: string; cls: string; mark: s
   scheduled: { label: 'Scheduled', cls: 'bg-sky-100 text-sky-800',     mark: '◑' },
   completed: { label: 'Completed', cls: 'bg-teal-100 text-teal-800',   mark: '☑' },
 };
-const STATUS_ORDER: ChecklistStatus[] = ['planned', 'contacted', 'scheduled', 'completed'];
 
 function fmtPlanDate(iso?: string): string {
   if (!iso) return '';
@@ -136,47 +142,6 @@ function readinessCatFromChecklist(c?: string): string | undefined {
   return undefined;
 }
 
-function ReadinessView() {
-  const items = useChecklist();
-  const goals = usePlanGoals();
-  const answers = useReadiness();
-
-  const completedCategories = items
-    .filter((i) => i.status === 'completed')
-    .map((i) => readinessCatFromChecklist(i.category))
-    .filter((c): c is string => Boolean(c));
-
-  const result = assessReadiness(selfToReadinessInput({ careerGoal: goals, completedCategories }), answers);
-  const addedGapKeys = new Set(items.map((i) => i.id));
-
-  const onAddGap = (g: DomainResult) => {
-    if (!g.gap) return;
-    if (items.some((i) => i.id === `readiness:${g.key}`)) return;
-    toggleChecklist({ id: `readiness:${g.key}`, name: g.gap.taskTitle, type: 'Readiness step', category: g.label, url: g.gap.url });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-2 rounded-xl border border-teal-200 bg-teal-50/60 px-3 py-2 text-xs text-teal-900">
-        <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
-        <span>See where you stand across what employers and programs look for. Mark each area, and add what&rsquo;s missing to your plan — then share your progress with a caseworker.</span>
-      </div>
-      <ReadinessPanel
-        result={result}
-        onSetStatus={(d: ReadinessDomainKey, s: DomainStatus) => setReadinessAnswer(d, s)}
-        onAddGap={onAddGap}
-        addedGapKeys={addedGapKeys}
-      />
-    </div>
-  );
-}
-
-const MOMENTUM_META = {
-  rising: { label: 'Rising', cls: 'bg-teal-50 text-teal-700 ring-teal-200' },
-  steady: { label: 'Steady', cls: 'bg-slate-50 text-slate-600 ring-slate-200' },
-  stalled: { label: 'Let’s get moving', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-} as const;
-
 type AccountIdentity = { displayName: string; imageUrl?: string };
 
 export function MyPlan() {
@@ -193,13 +158,22 @@ function PlanContent({ identity }: { identity?: AccountIdentity }) {
   const items = useChecklist();
   const owner = useOwnerName();
   const goals = usePlanGoals();
+  const futureSelf = useFutureSelf();
   const checkins = useCheckins();
   const rdAnswers = useReadiness();
   const supervision = useSupervisionInfo();
   const conditionList = useConditions();
   const feeList = useFees();
+  const contacts = useContacts();
+  const reentryInputs = useReentryInputs();
+  const profile = useLocalProfile();
   const [showShare, setShowShare] = useState(false);
   const [showImport, setShowImport] = useState(false);
+
+  // Without accounts, the name from setup is the identity on shared reports.
+  const ownerIdentity: AccountIdentity | undefined = identity
+    ?? (profile?.displayName?.trim() ? { displayName: profile.displayName.trim() } : undefined);
+  const onSupervision = profile?.onParoleOrProbation === true || reentryInputs.onSupervision === true;
 
   const rdCompleted = items.filter((i) => i.status === 'completed')
     .map((i) => readinessCatFromChecklist(i.category)).filter((c): c is string => Boolean(c));
@@ -221,9 +195,10 @@ function PlanContent({ identity }: { identity?: AccountIdentity }) {
 
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-  const reportName = owner.trim() || identity?.displayName || '';
+  const reportName = owner.trim() || ownerIdentity?.displayName || '';
+  const firstName = reportName.split(/\s+/)[0] || '';
   const model: PlanModel = {
-    ownerName: owner, ownerIdentity: identity, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList, fees: feeList,
+    ownerName: owner, ownerIdentity, goals, readiness, isCaseworker: false, checkins, supervision, conditions: conditionList, fees: feeList,
     steps: items.map((i): PlanStep => ({
       id: i.id, title: i.name, status: i.status,
       domain: i.domain ?? deriveStepDomain({ id: i.id, category: i.category, type: i.type, notes: i.notes }),
@@ -261,162 +236,95 @@ function PlanContent({ identity }: { identity?: AccountIdentity }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 sm:space-y-8">
       {showShare && (
         <PlanShareDialog plan={checklistToPortable(items, reportName, goals, rdAnswers, supervision, conditionList, feeList)} audience="caseworker" onClose={() => setShowShare(false)} />
       )}
       {showImport && (
         <PlanImportDialog title="Import a plan" hint="Paste a code or upload a file your caseworker shared with you." allowMerge onImport={handleImport} onClose={() => setShowImport(false)} />
       )}
-      <PlanWorkspace model={model} actions={actions} />
+
+      <PageHeader
+        eyebrow="My plan"
+        title={firstName ? `${firstName}’s plan` : 'Your plan'}
+        description="Everything between where you are now and steady, better-paying work — in a sensible order. Check things off as you go."
+        actions={(
+          <>
+            <ToolbarButton onClick={() => setShowShare(true)} Icon={Share2} label="Share" />
+            <ToolbarButton onClick={() => printPlan(reportName, goals, items, checkins, rdSummary)} Icon={Printer} label="Print" />
+            <ToolbarButton onClick={() => setShowImport(true)} Icon={FileDown} label="Import" />
+          </>
+        )}
+      />
+
+      <GoalCard
+        goal={goals || futureSelf}
+        onGoal={(v) => { setPlanGoals(v); setFutureSelf(v); }}
+        owner={owner}
+        onOwner={setOwnerName}
+        identityName={ownerIdentity?.displayName}
+      />
+
+      <Roadmap />
+
+      <PlanWorkspace
+        model={model}
+        actions={actions}
+        hideHeader
+        hideGoal
+        supervisionDefaultOpen={onSupervision}
+        stepsHeading={{
+          title: 'Your steps',
+          description: 'Things you’re doing outside the roadmap — appointments, classes, applications. Add a date and we’ll remind you on Home.',
+        }}
+      />
+
+      <CornerSection contacts={contacts} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-1.5 text-xs text-slate-500"><LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" /> Private on this device. Share or print a copy when you choose.</p>
+        <CalendarExportButton />
+      </div>
+
+      <EvidencePanel />
     </div>
   );
 }
 
-function StatusChip({ label, n, cls }: { label: string; n: number; cls: string }) {
-  return <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ring-inset ${cls}`}>{n} {label}</span>;
-}
-
-function CheckinCard({ checkins }: { checkins: CheckIn[] }) {
-  const [rating, setRating] = useState(0);
-  const [note, setNote] = useState('');
-  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const log = () => {
-    if (!rating && !note.trim()) return;
-    addCheckin({ date: todayIso(), rating: rating || 3, note: note.trim() });
-    setRating(0); setNote('');
-  };
+function ToolbarButton({ onClick, Icon, label }: { onClick: () => void; Icon: typeof Share2; label: string }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900"><HeartPulse className="h-4 w-4 text-teal-600" /> Weekly check-in</h3>
-      <p className="mt-0.5 text-xs text-slate-500">How did this week go? A quick note keeps you honest and shows effort over time.</p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map((r) => (
-            <button key={r} type="button" onClick={() => setRating(r)} aria-label={`${r} out of 5`}
-              className={'h-7 w-7 rounded-full text-xs font-bold transition ' + (rating >= r ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')}>
-              {r}
-            </button>
-          ))}
-        </div>
-        <input type="text" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') log(); }}
-          placeholder="What went well? What was hard?"
-          className="min-w-[180px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
-        <button type="button" onClick={log} className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700">Log check-in</button>
-      </div>
-      {checkins.length > 0 && (
-        <ul className="mt-3 space-y-1.5 border-t border-slate-100 pt-3">
-          {checkins.slice(0, 4).map((c) => (
-            <li key={c.id} className="flex items-start gap-2 text-xs">
-              <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-50 font-bold text-teal-700">{c.rating}</span>
-              <span className="flex-1 text-slate-600">{c.note || <span className="text-slate-400">No note</span>}</span>
-              <span className="shrink-0 text-slate-400">{fmtPlanDate(c.date)}</span>
-              <button onClick={() => removeCheckin(c.id)} className="shrink-0 text-slate-300 hover:text-rose-500" aria-label="Remove check-in"><Trash2 className="h-3 w-3" /></button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <button type="button" onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-navy-900">
+      <Icon className="h-4 w-4" aria-hidden="true" /> {label}
+    </button>
   );
 }
 
-function ChecklistRow({ item, overdue = false }: { item: ChecklistItem; overdue?: boolean }) {
-  const cleanPhone = (item.phone ?? '').replace(/[^\d]/g, '');
-  const done = item.status === 'completed';
+/** One sentence about where this is all heading — shown on Home as "Working toward". */
+function GoalCard({ goal, onGoal, owner, onOwner, identityName }: {
+  goal: string;
+  onGoal: (v: string) => void;
+  owner: string;
+  onOwner: (v: string) => void;
+  identityName?: string;
+}) {
   return (
-    <li className={'rounded-2xl border bg-white p-4 shadow-card sm:p-5 ' + (overdue ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200')}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5">
-          <button
-            type="button"
-            onClick={() => setChecklistStatus(item.id, done ? 'planned' : 'completed')}
-            aria-label={done ? 'Mark not done' : 'Mark done'}
-            className={
-              'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ' +
-              (done ? 'border-teal-500 bg-teal-500 text-white' : 'border-slate-300 bg-white text-transparent hover:border-teal-400 hover:text-teal-300')
-            }
-          >
-            <Check className="h-3 w-3" />
-          </button>
-          <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className={'text-base font-semibold text-navy-900 ' + (done ? 'line-through opacity-60' : '')}>{item.name}</h3>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-              {item.type}{item.category ? ` · ${item.category}` : ''}
-            </span>
-            {overdue && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">Overdue</span>}
-          </div>
-          {(item.address || item.cityState) && (
-            <p className="mt-1 text-sm text-slate-600">
-              {[item.address, item.cityState].filter(Boolean).join(', ')}{item.distance ? ` · ${item.distance} mi` : ''}
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {cleanPhone && (
-              <a href={`tel:${cleanPhone}`} className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
-                <Phone className="h-3 w-3" /> {item.phone}
-              </a>
-            )}
-            {item.url && (
-              <a href={item.url.startsWith('http') ? item.url : `https://${item.url}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:underline">
-                <Globe className="h-3 w-3" /> Website
-              </a>
-            )}
-          </div>
-        </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => removeFromChecklist(item.id)}
-          aria-label="Remove from plan"
-          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Where are you in the process? */}
-      <div className="mt-3">
-        <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-500">Where are you with this?</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {STATUS_ORDER.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setChecklistStatus(item.id, s)}
-              className={
-                'rounded-full px-2.5 py-1 text-xs font-semibold transition ' +
-                (item.status === s ? STATUS_META[s].cls : 'bg-white text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-50')
-              }
-            >
-              {STATUS_META[s].label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Plan details an officer would want */}
-      <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr]">
-        <label className="text-sm">
-          <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Target / appointment date</span>
-          <input
-            type="date"
-            value={item.targetDate ?? ''}
-            onChange={(e) => setChecklistTargetDate(item.id, e.target.value)}
-            className="block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-          />
+    <section id="goal" aria-labelledby="goal-heading" className="scroll-mt-32 rounded-[20px] border border-slate-900/[0.08] bg-white p-5 sm:p-6">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <label className="block">
+          <span id="goal-heading" className="block text-lg font-semibold text-navy-900">What are you working toward?</span>
+          <span className="mt-0.5 block text-sm text-slate-500">One sentence is enough. You can change it any time.</span>
+          <input value={goal} onChange={(e) => onGoal(e.target.value)}
+            placeholder="e.g. A steady job with benefits so I can support my family"
+            className="mt-3 block h-12 w-full rounded-xl border border-slate-300 px-4 text-[15px] text-navy-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
         </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-slate-500">Plan / next step / outcome</span>
-          <input
-            type="text"
-            value={item.notes ?? ''}
-            onChange={(e) => setChecklistNotes(item.id, e.target.value)}
-            placeholder="e.g. Called 3/10, intake booked 3/14 2pm — bring ID & résumé"
-            className="block w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-          />
+        <label className="block lg:pt-[3.25rem]">
+          <span className="block text-sm font-medium text-slate-700">Name on plans you share</span>
+          <input value={owner} onChange={(e) => onOwner(e.target.value)} placeholder={identityName || 'Your name'}
+            className="mt-1.5 block h-12 w-full rounded-xl border border-slate-300 px-4 text-[15px] text-navy-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
+          {!owner && identityName && <span className="mt-1 block text-xs text-slate-400">Using “{identityName}” from your profile</span>}
         </label>
       </div>
-    </li>
+    </section>
   );
 }

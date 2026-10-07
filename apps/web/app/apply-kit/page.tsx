@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileText, Plus, Trash2, Check, ArrowRight } from 'lucide-react';
+import {
+  Plus, Trash2, Check, ArrowRight,
+} from 'lucide-react';
 import {
   useApplyKit, patchApplyKit, addReference, removeReference,
   addAnswer, updateAnswer, removeAnswer, kitCompleteness,
@@ -10,6 +12,7 @@ import {
 } from '../../lib/apply-kit';
 import { getLocalProfile } from '../../lib/local-profile';
 import { Skeleton } from '../../components/Skeleton';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const SHIFTS: { value: ShiftPref; label: string }[] = [
   { value: 'days', label: 'Days' },
@@ -51,23 +54,18 @@ export default function ApplyKitPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-2xl">
-      <header className="rounded-3xl border border-slate-900/[0.07] bg-white bg-hero-radial p-8 shadow-card sm:p-10">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <FileText className="h-3.5 w-3.5" /> Apply Kit
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Fill it once. Use it everywhere.</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 sm:text-base">
-          The same questions come up on every application. Answer them once here, and every job you
-          apply to gets your answers ready to paste — in seconds. Private to you; never sent to
-          employers automatically.
-        </p>
-        <div className="mt-4 flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <span className="text-sm font-semibold text-slate-600 tabular-nums">{pct}% ready</span>
+      <PageHeader
+        eyebrow="Jobs"
+        title="Fill it once. Use it everywhere."
+        description="The same questions come up on every application. Answer them once here and every job you apply to gets your answers ready to paste. Private to you — never sent to employers automatically."
+      />
+      <div className="mt-5 flex items-center gap-3 rounded-[20px] border border-slate-900/[0.08] bg-white px-4 py-3.5">
+        <span className="text-sm font-semibold text-navy-900">Your kit</span>
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Apply Kit completeness">
+          <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
-      </header>
+        <span className="text-sm font-semibold tabular-nums text-slate-600">{pct}% ready</span>
+      </div>
 
       <div className="mt-6 space-y-5">
         <Card title="The basics">

@@ -325,7 +325,7 @@ export default function OnboardingPage() {
                 <p className="text-[10px] text-slate-400">About {Math.max(1, 4 - stepIdx)} min left</p>
               </div>
             </div>
-            <Link href="/" className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-navy-900">Exit setup</Link>
+            <Link href="/dashboard" className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-navy-900">Exit setup</Link>
           </header>
 
           <div className="px-5 pb-10 pt-6 sm:px-8 lg:px-10 lg:pb-12">

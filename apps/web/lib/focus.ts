@@ -66,11 +66,11 @@ export function buildFocusQueue(input: FocusInput): FocusEntry[] {
   // ── Supervision report deadline ──
   const rds = reportDueState(supervision.nextReportDate);
   if (rds === 'overdue') {
-    queue.push({ id: 'report', kind: 'report', tone: 'overdue', href: '/plan',
+    queue.push({ id: 'report', kind: 'report', tone: 'overdue', href: '/plan#supervision',
       title: 'Report to your officer is overdue',
       sub: `Was due ${fmtDate(supervision.nextReportDate)} — contact them today. A missed report is a violation.` });
   } else if (rds === 'due_soon') {
-    queue.push({ id: 'report', kind: 'report', tone: 'soon', href: '/plan',
+    queue.push({ id: 'report', kind: 'report', tone: 'soon', href: '/plan#supervision',
       title: `Report to your officer by ${fmtDate(supervision.nextReportDate)}`,
       sub: 'Don’t miss it — a missed report is a violation.' });
   }
@@ -90,7 +90,7 @@ export function buildFocusQueue(input: FocusInput): FocusEntry[] {
   // ── Fees behind ──
   for (const o of fees) {
     if (feeIsBehind(o)) {
-      queue.push({ id: `fee-${o.id}`, kind: 'fee', tone: 'overdue', href: '/plan',
+      queue.push({ id: `fee-${o.id}`, kind: 'fee', tone: 'overdue', href: '/plan#supervision',
         title: `Payment behind: ${o.label}`,
         sub: `${fmtMoney(feeBalance(o))} owed${o.dueDate ? ` · was due ${fmtDate(o.dueDate)}` : ''}` });
     }
@@ -102,10 +102,10 @@ export function buildFocusQueue(input: FocusInput): FocusEntry[] {
     const d = daysAway(it.targetDate);
     if (Number.isNaN(d)) continue;
     if (d < 0) {
-      queue.push({ id: `step-${it.id}`, kind: 'plan', tone: 'overdue', href: '/plan',
+      queue.push({ id: `step-${it.id}`, kind: 'plan', tone: 'overdue', href: '/plan#your-steps',
         title: `Overdue step: ${it.name}`, sub: `Was set for ${fmtDate(it.targetDate)}` });
     } else if (d <= 7) {
-      queue.push({ id: `step-${it.id}`, kind: 'plan', tone: 'soon', href: '/plan',
+      queue.push({ id: `step-${it.id}`, kind: 'plan', tone: 'soon', href: '/plan#your-steps',
         title: `This week: ${it.name}`, sub: `By ${fmtDate(it.targetDate)}` });
     }
   }
@@ -125,10 +125,10 @@ export function buildFocusQueue(input: FocusInput): FocusEntry[] {
   const contacted = items.find((i) => i.status === 'contacted');
   const scheduled = items.find((i) => i.status === 'scheduled' && !i.targetDate);
   if (contacted) {
-    queue.push({ id: `nudge-${contacted.id}`, kind: 'nudge', tone: 'go', href: '/plan',
+    queue.push({ id: `nudge-${contacted.id}`, kind: 'nudge', tone: 'go', href: '/plan#your-steps',
       title: `Schedule it: ${contacted.name}`, sub: 'You made contact — lock in a date so it happens.' });
   } else if (scheduled) {
-    queue.push({ id: `nudge-${scheduled.id}`, kind: 'nudge', tone: 'go', href: '/plan',
+    queue.push({ id: `nudge-${scheduled.id}`, kind: 'nudge', tone: 'go', href: '/plan#your-steps',
       title: `Put a date on: ${scheduled.name}`, sub: 'Scheduled things get done — add the date to your plan.' });
   }
 
@@ -136,7 +136,7 @@ export function buildFocusQueue(input: FocusInput): FocusEntry[] {
   const lastCheckin = checkins[0]?.date;
   const checkinStale = !lastCheckin || daysAway(lastCheckin) <= -7;
   if (checkinStale && queue.every((f) => f.tone !== 'overdue')) {
-    queue.push({ id: 'checkin', kind: 'checkin', tone: 'go', href: '/plan',
+    queue.push({ id: 'checkin', kind: 'checkin', tone: 'go', href: '/plan#checkin',
       title: 'Log this week’s check-in', sub: 'A quick note keeps your momentum — and shows effort over time.' });
   }
 

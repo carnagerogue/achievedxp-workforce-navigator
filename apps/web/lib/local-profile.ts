@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import type { StoredProfile } from './profile-store';
-import { lsGet, lsSet, lsRemove } from './scoped-storage';
+import { lsGet, lsSet, lsRemove, onStoreChange } from './scoped-storage';
 
 /**
  * Client-side copy of the user's profile (localStorage), written at onboarding.
@@ -31,4 +33,19 @@ export function setLocalProfile(p: LocalProfile) {
 
 export function clearLocalProfile() {
   lsRemove(KEY);
+}
+
+/**
+ * Reactive read of the saved profile for chrome that outlives a page (the
+ * header and section tabs). Re-reads on navigation — onboarding saves and then
+ * routes away — and whenever the active account scope changes.
+ */
+export function useLocalProfile(): LocalProfile | null {
+  const pathname = usePathname();
+  const [profile, setProfile] = useState<LocalProfile | null>(null);
+  useEffect(() => {
+    setProfile(getLocalProfile());
+    return onStoreChange(() => setProfile(getLocalProfile()));
+  }, [pathname]);
+  return profile;
 }

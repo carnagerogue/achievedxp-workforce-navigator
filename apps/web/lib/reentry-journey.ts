@@ -105,7 +105,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Put every required check-in on your plan',
         why: 'Dates and reminders make required appointments easier to manage alongside work and family.',
         evidence: 'Behavioral reminder research shows that timely prompts reduce missed appointments.',
-        action: route('Set up reminders', '/plan'),
+        action: section('Set up reminders', '/plan#supervision'),
         appliesIf: (inputs) => requestedJusticeSupport(inputs) && inputs.onSupervision === true,
         urgent: true,
       },
@@ -123,14 +123,14 @@ export const PHASES: JourneyPhase[] = [
         title: 'Build a plan you can follow',
         why: 'Choose one goal, add the next few actions, and give each action a realistic date.',
         evidence: 'Specific goals paired with implementation intentions are more likely to be completed.',
-        action: route('Build my plan', '/plan'),
+        action: section('Start my plan', '/plan#goal'),
       },
       {
         id: 'corner',
         title: 'Name who is in your corner',
         why: 'A mentor, friend, coach, or family member can help with feedback, encouragement, and introductions.',
         evidence: 'Social-support research consistently connects stronger networks with better employment outcomes.',
-        action: section('Add someone to my corner', '#corner'),
+        action: section('Add someone to my corner', '/plan#corner'),
       },
       {
         id: 'child-support',
@@ -200,7 +200,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Plan for your first 90 days',
         why: 'Think ahead about transportation, schedules, support, and the people to call when something changes.',
         evidence: 'Early job-retention support helps workers navigate predictable first-month challenges.',
-        action: route('Track my plan', '/plan'),
+        action: section('Add it to my plan', '/plan#your-steps'),
       },
       {
         id: 'learn',
@@ -214,7 +214,7 @@ export const PHASES: JourneyPhase[] = [
         title: 'Name what you are working toward',
         why: 'A meaningful goal helps smaller actions feel connected and worth finishing.',
         evidence: 'Goal-setting research connects specific, personally meaningful goals with persistence.',
-        action: section('Set my goal', '#future-self'),
+        action: section('Set my goal', '/plan#goal'),
       },
       {
         id: 'upgrade',

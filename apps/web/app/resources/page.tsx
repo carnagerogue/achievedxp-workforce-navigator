@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { getLocalProfile } from '../../lib/local-profile';
 import Link from 'next/link';
 import {
-  LifeBuoy, Phone, MessageSquare, MapPin, FileText, Mail, ExternalLink, HeartHandshake,
-  Utensils, Home, Wallet, Scale, Briefcase, Baby, Wifi, Shield, HeartPulse, Search, Loader2, Globe, HandCoins, ArrowRight,
+  Phone, MessageSquare, MapPin, FileText, Mail, ExternalLink, HeartHandshake, Utensils, Home, Wallet, Scale, Briefcase, Baby, Wifi, Shield, HeartPulse, Search, Loader2, Globe, HandCoins, ArrowRight,
 } from 'lucide-react';
 import {
   NEED_META, CRISIS_LINES, RESOURCE_KIND_LABEL, resourcesFor,
@@ -13,6 +12,7 @@ import {
 } from '../../lib/free-resources';
 import { getTreatmentCenters, getLocator, type CommunityLiveResource, type TreatmentResponse } from '../../lib/api';
 import { AddToPlanButton } from '../../components/AddToPlanButton';
+import { PageHeader } from '../../components/shell/PageHeader';
 
 const NEED_ICON: Record<ResourceNeed, typeof Phone> = {
   crisis: HeartHandshake, health: HeartPulse, food: Utensils, housing: Home, money: Wallet,
@@ -36,18 +36,12 @@ export default function ResourcesPage() {
 
   return (
     <div className="animate-fade-in mx-auto max-w-4xl">
-      {/* Header */}
-      <header className="rounded-3xl border border-slate-200 bg-white bg-hero-radial p-7 shadow-card sm:p-9">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-teal-700">
-          <LifeBuoy className="h-3.5 w-3.5" /> Free help &amp; hotlines
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Help is here — all of it free.</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-          Every line and program below is free to you and needs no account. Tap to call, text, or find help near you.
-          When you&apos;re not sure where to start, <span className="font-semibold text-navy-900">dial 211</span> — one call connects
-          you to almost anything local.
-        </p>
-      </header>
+      <PageHeader
+        className="mb-4"
+        eyebrow="Help"
+        title="Help is here — all of it free"
+        description={<>Every line and program below is free and needs no account. Tap to call, text, or find help near you. Not sure where to start? <span className="font-semibold text-navy-900">Dial 211</span> — one call connects you to almost anything local.</>}
+      />
 
       {/* Always-visible crisis strip */}
       <section className="mt-4 rounded-2xl border border-rose-200 bg-rose-50/60 p-4">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FileText, Home, Bus, HeartPulse, Scale, GraduationCap, Award, Briefcase, Laptop, Wallet,
   Users, ListChecks, Check, Trash2, Plus, ExternalLink, Sparkles, AlertTriangle, ChevronDown,
@@ -51,7 +51,18 @@ const S_STATUS_CLS: Record<PlanStepStatus, string> = {
   completed: 'border-teal-400 bg-teal-50 text-teal-700',
 };
 
-export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: PlanActions }) {
+export interface PlanWorkspaceOptions {
+  /** Leave out the dark plan header (the page supplies its own). */
+  hideHeader?: boolean;
+  /** Leave out the goal/name card (the page supplies its own). */
+  hideGoal?: boolean;
+  /** A heading over the person's own steps, anchored at #your-steps. */
+  stepsHeading?: { title: string; description: string };
+  /** Open the supervision tracker even before anything is filled in. */
+  supervisionDefaultOpen?: boolean;
+}
+
+export function PlanWorkspace({ model, actions, hideHeader, hideGoal, stepsHeading, supervisionDefaultOpen }: { model: PlanModel; actions: PlanActions } & PlanWorkspaceOptions) {
   const { readiness, steps } = model;
   const domainResultByKey = new Map(readiness.domains.map((d) => [d.key, d]));
   const stepsByDomain = (d: PlanDomain) => steps.filter((s) => s.domain === d);
@@ -67,18 +78,23 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
     model.conditions?.length || model.fees?.length
   );
   const hasPlanActivity = steps.length > 0 || applicable > 0 || Boolean(model.goals.trim()) || Boolean(model.checkins?.length);
-  const [supervisionOpen, setSupervisionOpen] = useState(hasSupervision);
+  const [supervisionOpen, setSupervisionOpen] = useState(hasSupervision || Boolean(supervisionDefaultOpen));
+  // The profile that says "I'm on supervision" can load after first render.
+  useEffect(() => { if (supervisionDefaultOpen) setSupervisionOpen(true); }, [supervisionDefaultOpen]);
 
-  // Domains sorted by attention; N/A with no steps hidden.
-  const domains = [...READINESS_DOMAINS]
+  // Domains sorted by attention; N/A with no steps folded into "other areas".
+  const allDomains = [...READINESS_DOMAINS]
     .map((d) => ({ def: d, res: domainResultByKey.get(d.key)!, steps: stepsByDomain(d.key) }))
-    .filter((d) => d.res && !(d.res.status === 'na' && d.steps.length === 0))
+    .filter((d) => d.res);
+  const domains = allDomains
+    .filter((d) => !(d.res.status === 'na' && d.steps.length === 0))
     .sort((a, b) => STATUS_RANK[a.res.status] - STATUS_RANK[b.res.status]);
+  const otherAreas = allDomains.filter((d) => d.res.status === 'na' && d.steps.length === 0);
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <section className="overflow-hidden rounded-[24px] border border-navy-900/10 bg-white shadow-card">
+      {!hideHeader && <section className="overflow-hidden rounded-[24px] border border-navy-900/10 bg-white shadow-card">
         <div className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-teal-800 px-5 py-5 sm:px-6">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(600px_300px_at_90%_-20%,rgba(45,212,229,0.25),transparent)]" />
           <div className="relative flex flex-wrap items-center gap-4">
@@ -115,10 +131,10 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       {/* Plan identity + goal */}
-      {(actions.setOwnerName || actions.setGoals) && (
+      {!hideGoal && (actions.setOwnerName || actions.setGoals) && (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div><h3 className="text-sm font-bold text-navy-900">What are you working toward?</h3><p className="mt-0.5 text-xs text-slate-500">Keep it simple. You can change this at any time.</p></div>
@@ -141,7 +157,7 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
       )}
 
       {/* Supervision */}
-      {model.supervision && actions.setSupervision && (
+      {model.supervision && actions.setSupervision && (<div id="supervision" className="scroll-mt-32">{
         supervisionOpen ? (
           <SupervisionCard model={model} actions={actions} onCollapse={!hasSupervision ? () => setSupervisionOpen(false) : undefined} />
         ) : (
@@ -151,6 +167,13 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
             <ChevronRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-teal-600" />
           </button>
         )
+      }</div>)}
+
+      {stepsHeading && (
+        <div id="your-steps" className="scroll-mt-32 pt-3">
+          <h2 className="text-lg font-semibold text-navy-900">{stepsHeading.title}</h2>
+          <p className="mt-0.5 text-sm text-slate-500">{stepsHeading.description}</p>
+        </div>
       )}
 
       {/* Domain sections */}
@@ -159,6 +182,8 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
           res={res} steps={dSteps} actions={actions} />
       ))}
 
+      {otherAreas.length > 0 && <OtherAreas areas={otherAreas} actions={actions} />}
+
       {/* Buckets: jobs & general */}
       {PLAN_BUCKETS.map((b) => {
         const bSteps = stepsByDomain(b.key);
@@ -166,14 +191,16 @@ export function PlanWorkspace({ model, actions }: { model: PlanModel; actions: P
         return <BucketCard key={b.key} domain={b.key} label={b.label} whatReady={b.whatReady} steps={bSteps} actions={actions} />;
       })}
 
-      {/* Weekly check-in (individual) */}
-      {model.checkins && actions.addCheckin && (hasPlanActivity || model.checkins.length > 0) && (
-        <CheckinCard checkins={model.checkins} onAdd={actions.addCheckin} onRemove={actions.removeCheckin} />
+      {/* Weekly check-in — always available to the person; on a caseload only once there is activity. */}
+      {model.checkins && actions.addCheckin && (!model.isCaseworker || hasPlanActivity || model.checkins.length > 0) && (
+        <div id="checkin" className="scroll-mt-32"><CheckinCard checkins={model.checkins} onAdd={actions.addCheckin} onRemove={actions.removeCheckin} /></div>
       )}
 
-      <p className="text-center text-[11px] text-slate-400">
-        {model.isCaseworker ? 'Saved only in this browser.' : 'Saved only in this browser — export or share a copy when you choose.'}
-      </p>
+      {!hideHeader && (
+        <p className="text-center text-[11px] text-slate-400">
+          {model.isCaseworker ? 'Saved only in this browser.' : 'Saved only in this browser — export or share a copy when you choose.'}
+        </p>
+      )}
     </div>
   );
 }
@@ -459,6 +486,46 @@ function FeeRow({ o, actions }: { o: FeeObligation; actions: PlanActions }) {
   );
 }
 
+/**
+ * Areas nobody has assessed yet stay out of the way, but one tap opens a quick
+ * self-check; rating an area moves it up into the plan with its own steps.
+ */
+function OtherAreas({ areas, actions }: {
+  areas: { def: { key: ReadinessDomainKey; label: string; whatReady: string }; res: DomainResult }[];
+  actions: PlanActions;
+}) {
+  return (
+    <details className="group rounded-2xl border border-slate-200 bg-white">
+      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100"><Sparkles className="h-4 w-4" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-navy-900">Check where you stand</span>
+          <span className="block text-xs text-slate-500">{areas.length} areas employers and programs look at — ID, housing, transportation and more. Rate any of them to get recommended steps.</span>
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" />
+      </summary>
+      <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        {areas.map(({ def, res }) => {
+          const Icon = DOMAIN_ICON[def.key] ?? ListChecks;
+          return (
+            <li key={def.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-navy-900">{def.label}</span>
+                <span className="block text-xs text-slate-500">{def.whatReady}</span>
+              </span>
+              <select value={res.status} onChange={(e) => actions.setDomainStatus(def.key, e.target.value as DomainStatus)} aria-label={`${def.label} readiness status`}
+                className={'shrink-0 cursor-pointer rounded-full border px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 ' + D_STATUS_CLS[res.status]}>
+                {D_STATUS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 function DomainCard({
   domainKey, label, whatReady, res, steps, actions,
 }: {
@@ -585,8 +652,9 @@ function CheckinCard({ checkins, onAdd, onRemove }: { checkins: { id: string; da
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-navy-900"><HeartHandshake className="h-4 w-4 text-teal-600" /> Weekly check-in</h3>
+      <p className="mt-0.5 text-xs text-slate-500">How did this week go? 1 is rough, 5 is great. A few words help you see how far you&apos;ve come.</p>
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">{[1, 2, 3, 4, 5].map((r) => <button key={r} onClick={() => setRating(r)} className={'h-7 w-7 rounded-full text-xs font-bold ' + (rating >= r ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')}>{r}</button>)}</div>
+        <div className="flex items-center gap-1" role="group" aria-label="How did this week go?">{[1, 2, 3, 4, 5].map((r) => <button key={r} type="button" onClick={() => setRating(r)} aria-label={`${r} out of 5`} aria-pressed={rating === r} className={'h-8 w-8 rounded-full text-xs font-bold ' + (rating >= r ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200')}>{r}</button>)}</div>
         <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') log(); }} placeholder="What went well? What was hard?"
           className="min-w-[180px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500" />
         <button onClick={log} className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-700">Log</button>

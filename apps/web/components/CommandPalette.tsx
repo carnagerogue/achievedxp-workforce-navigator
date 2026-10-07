@@ -3,14 +3,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search, LayoutDashboard, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, HardHat, Brain, HeartHandshake,
-  ClipboardList, UserPlus, User, ListChecks, LifeBuoy, HandCoins, GraduationCap, Rocket, FileText, Link2,
+  Search, UserCircle2, Briefcase, ArrowRight, Command, GitCompare, ClipboardList, UserPlus, User,
 } from 'lucide-react';
 import { listJobs } from '../lib/api';
 import { CONVICTION_LABELS, type JobDto } from '@dxp/shared';
 import { useDebounce } from '../lib/use-debounce';
 import { prettyIndustry } from '../lib/format';
 import { getCaseload, type Participant } from '../lib/caseworker-store';
+import { ALL_PAGES, PROFILE_HREF } from '../lib/navigation';
+import { getLocalProfile } from '../lib/local-profile';
 
 /**
  * Global ⌘K / Ctrl+K palette.
@@ -26,25 +27,18 @@ type CommandItem =
   | { kind: 'participant'; label: string; sub: string; pid: string; Icon: typeof Command }
   | { kind: 'job';  label: string; sub: string;  job: JobDto;   Icon: typeof Command };
 
-// Mirrors the header's Explore menu — the palette is the same inventory,
-// keyboard-first, plus caseworker shortcuts and live job search.
-const NAV_ITEMS: CommandItem[] = [
-  { kind: 'nav', label: 'Home',              sub: 'Your next step & compass',              href: '/dashboard',       Icon: LayoutDashboard },
-  { kind: 'nav', label: 'My plan',           sub: 'Goals, readiness, next steps',           href: '/plan',            Icon: ListChecks      },
-  { kind: 'nav', label: 'Find a job',        sub: 'Filter by city, ZIP, industry',         href: '/jobs',            Icon: Briefcase       },
-  { kind: 'nav', label: 'Apply Kit',         sub: 'Fill it once, reuse everywhere',        href: '/apply-kit',       Icon: FileText        },
-  { kind: 'nav', label: 'Connections',       sub: 'Link Indeed, LinkedIn, ZipRecruiter…',  href: '/connections',     Icon: Link2           },
-  { kind: 'nav', label: 'Apprenticeships',   sub: 'Earn-while-you-learn pathways',         href: '/apprenticeships', Icon: HardHat         },
-  { kind: 'nav', label: 'Career quiz',       sub: 'RIASEC interest profiler (5 min)',      href: '/assessment',      Icon: Brain           },
-  { kind: 'nav', label: 'Learn new skills',  sub: 'Free & low-cost training',              href: '/learn',           Icon: GraduationCap   },
-  { kind: 'nav', label: 'Be your own boss',  sub: 'Self-employment path',                  href: '/entrepreneurship', Icon: Rocket         },
-  { kind: 'nav', label: 'Free help & hotlines', sub: 'Food, health, housing, crisis',      href: '/resources',       Icon: LifeBuoy        },
-  { kind: 'nav', label: 'Benefits checkup',  sub: 'What you qualify for (1 min)',          href: '/benefits',        Icon: HandCoins       },
-  { kind: 'nav', label: 'Local help',        sub: 'Job centers + support near you',         href: '/local-help',      Icon: HeartHandshake  },
-  { kind: 'nav', label: 'Match profile',     sub: 'Improve your job matches',              href: '/onboarding',      Icon: UserCircle2     },
-  { kind: 'nav', label: 'Compare jobs',      sub: 'Side-by-side view of your picks',       href: '/jobs/compare',    Icon: GitCompare      },
-  { kind: 'nav', label: 'Caseworker',        sub: 'Caseload command center',               href: '/caseworker',      Icon: ClipboardList   },
-  { kind: 'nav', label: 'New participant',   sub: 'Start a fresh caseworker workspace',    href: '/caseworker/new',  Icon: UserPlus        },
+// Every page comes from the one navigation map (lib/navigation.ts), so the
+// palette can never drift from the header. Profile and compare are reachable
+// from inside pages; caseworker shortcuts appear only for someone running a
+// caseload on this device.
+const PAGE_ITEMS: (CommandItem & { kind: 'nav'; justice?: boolean })[] = [
+  ...ALL_PAGES.map((page) => ({ kind: 'nav' as const, label: page.label, sub: page.sub, href: page.href, Icon: page.Icon, justice: page.requiresJusticeSupport })),
+  { kind: 'nav', label: 'Edit your profile', sub: 'Location, skills and the work you want', href: PROFILE_HREF, Icon: UserCircle2 },
+  { kind: 'nav', label: 'Compare jobs', sub: 'Side-by-side view of your picks', href: '/jobs/compare', Icon: GitCompare },
+];
+const CASEWORKER_ITEMS: CommandItem[] = [
+  { kind: 'nav', label: 'Caseworker', sub: 'Caseload command center', href: '/caseworker', Icon: ClipboardList },
+  { kind: 'nav', label: 'New participant', sub: 'Start a fresh caseworker workspace', href: '/caseworker/new', Icon: UserPlus },
 ];
 
 export function CommandPalette() {
@@ -55,6 +49,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
   const [caseload, setCaseload] = useState<Participant[]>([]);
+  const [justiceSupport, setJusticeSupport] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef  = useRef<HTMLUListElement>(null);
   const dq = useDebounce(q, 250);
@@ -82,7 +77,11 @@ export function CommandPalette() {
 
   // Reset state when the modal closes; focus the input when it opens.
   useEffect(() => {
-    if (open) { setTimeout(() => inputRef.current?.focus(), 10); setCaseload(getCaseload()); }
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 10);
+      setCaseload(getCaseload());
+      setJusticeSupport(getLocalProfile()?.justiceSupportEnabled === true);
+    }
     else { setQ(''); setJobs([]); setActive(0); }
   }, [open]);
 
@@ -103,7 +102,11 @@ export function CommandPalette() {
 
   const items: CommandItem[] = useMemo(() => {
     const ql = q.trim().toLowerCase();
-    const nav = ql ? NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(ql)) : NAV_ITEMS;
+    const allNav: CommandItem[] = [
+      ...PAGE_ITEMS.filter((page) => !page.justice || justiceSupport),
+      ...(caseload.length > 0 ? CASEWORKER_ITEMS : []),
+    ];
+    const nav = ql ? allNav.filter((n) => `${n.label} ${n.sub ?? ''}`.toLowerCase().includes(ql)) : allNav;
     const participantItems: CommandItem[] = caseload
       .filter((p) => !ql || `${p.name} ${p.careerGoal} ${CONVICTION_LABELS[p.conviction]}`.toLowerCase().includes(ql))
       .slice(0, ql ? 8 : 5)
@@ -123,7 +126,7 @@ export function CommandPalette() {
       Icon: Briefcase,
     }));
     return [...nav, ...participantItems, ...jobItems];
-  }, [q, jobs, caseload]);
+  }, [q, jobs, caseload, justiceSupport]);
 
   // Keep `active` inside bounds as the list shrinks/grows.
   useEffect(() => { setActive((a) => Math.min(a, Math.max(0, items.length - 1))); }, [items.length]);
