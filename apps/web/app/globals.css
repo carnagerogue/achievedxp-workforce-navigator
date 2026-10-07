@@ -863,7 +863,9 @@ body:has(.onboarding-experience) footer { display: none; }
   }
 }
 
-/* Respect people who've asked for less motion — everywhere, always. */
+/* Respect people who've asked for less motion — everywhere, always.
+   The landing keeps its look and story: scenes and reveals crossfade in
+   place, while parallax, zoom, 3D travel, and tickers are frozen. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -880,19 +882,26 @@ body:has(.onboarding-experience) footer { display: none; }
   .scroll-stage .product-preview,
   .hero-title,
   .journey-path,
-  .landing-scroll-ready [data-reveal] { opacity: 1 !important; transform: none !important; clip-path: none !important; }
+  .journey-node,
+  .journey-field__phase span { transform: none !important; clip-path: none !important; }
+  .journey-field__scene,
+  .app-motion-page > [data-app-reveal],
+  .hero-title__line,
+  .route-ticker__track,
+  .chapter-number,
+  .closing-title,
+  .scroll-stage .product-preview,
+  .hero-title,
+  .journey-path { opacity: 1 !important; }
   .journey-field__traveler-halo { animation: none !important; }
-  .scroll-stage::before,
-  .journey-path::after { transform: none !important; }
-  .ride-hero { height: auto !important; }
-  .ride-hero__sticky { position: relative; top: auto; height: auto; overflow: visible; }
-  .ride-stage { height: auto; }
-  .ride-scene { position: relative; top: auto; width: 100%; padding-block: 5rem; border-top: 1px solid rgba(255,255,255,.15); opacity: 1 !important; filter: none !important; transform: none !important; }
-  .ride-scene:first-child { border-top: 0; }
-  .ride-tunnel,
-  .ride-horizon,
-  .ride-hero .journey-path,
-  .ride-hero .scroll-cue { display: none !important; }
+  .landing-scroll-ready [data-reveal] { transform: none !important; clip-path: none !important; transition: opacity .6s ease !important; transition-delay: var(--reveal-delay, 0ms) !important; }
+  .journey-field__phase span { opacity: 0; transition: opacity .6s ease !important; }
+  .ride-scene { filter: none !important; transform: translate3d(0, -50%, 0) !important; }
+  .ride-tunnel::before { transform: none !important; opacity: .28 !important; }
+  .ride-tunnel i { opacity: .5 !important; transform: translate(-50%,-50%) rotate(45deg) scale(.16) !important; }
+  .ride-tunnel i:nth-child(2) { transform: translate(-50%,-50%) rotate(45deg) scale(.28) !important; }
+  .ride-tunnel i:nth-child(3) { transform: translate(-50%,-50%) rotate(45deg) scale(.42) !important; }
+  .ride-tunnel i:nth-child(4) { transform: translate(-50%,-50%) rotate(45deg) scale(.58) !important; }
   .app-route-atmosphere { display: none !important; }
   .account-orbit::before { transform: none !important; }
 }
